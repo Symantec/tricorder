@@ -61,35 +61,71 @@ type bucketPiece struct {
 	Last bool
 }
 
-func newBucketerWithEndpoints(endpoints []float64) *Bucketer {
-	endpointLen := len(endpoints)
-	if endpointLen == 0 {
-		panic("endpoints must have at least one element.")
-	}
-	pieces := make([]*bucketPiece, endpointLen+1)
-	pieces[0] = &bucketPiece{First: true, End: endpoints[0]}
-	for i := 1; i < endpointLen; i++ {
-		pieces[i] = &bucketPiece{
-			Start: endpoints[i-1], End: endpoints[i]}
-	}
-	pieces[endpointLen] = &bucketPiece{
-		Last: true, Start: endpoints[endpointLen-1]}
-	return &Bucketer{pieces: pieces}
-}
-
-func newBucketerWithScale(count int, start, scale float64) *Bucketer {
+func newExponentialBucketerStream(
+	count int, start, scale float64) (int, <-chan float64) {
 	if count < 2 || start <= 0.0 || scale <= 1.0 {
 		panic("count >= 2 && start > 0.0 && scale > 1")
 	}
-	pieces := make([]*bucketPiece, count)
-	current := start
-	pieces[0] = &bucketPiece{First: true, End: current}
-	for i := 1; i < count-1; i++ {
-		next := current * scale
-		pieces[i] = &bucketPiece{Start: current, End: next}
-		current = next
+	stream := make(chan float64)
+	go func() {
+		current := start
+		for i := 0; i < count-1; i++ {
+			stream <- current
+			current *= scale
+		}
+		close(stream)
+	}()
+	return count - 1, stream
+}
+
+func newLinearBucketerStream(
+	count int, start, increment float64) (int, <-chan float64) {
+	if count < 2 || increment <= 0.0 {
+		panic("count >= 2 && increment > 0")
 	}
-	pieces[count-1] = &bucketPiece{Last: true, Start: current}
+	stream := make(chan float64)
+	go func() {
+		current := start
+		for i := 0; i < count-1; i++ {
+			stream <- current
+			current += increment
+		}
+		close(stream)
+	}()
+	return count - 1, stream
+}
+
+func newArbitraryBucketerStream(endpoints []float64) (int, <-chan float64) {
+	if len(endpoints) == 0 {
+		panic("endpoints must have at least one element.")
+	}
+	stream := make(chan float64)
+	go func() {
+		for _, endpoint := range endpoints {
+			stream <- endpoint
+		}
+		close(stream)
+	}()
+	return len(endpoints), stream
+}
+
+func newBucketerFromStream(
+	streamSize int, stream <-chan float64) *Bucketer {
+	if streamSize < 1 {
+		panic("streamSize must be at least 1")
+	}
+	pieces := make([]*bucketPiece, streamSize+1)
+	lower := <-stream
+	pieces[0] = &bucketPiece{First: true, End: lower}
+	idx := 1
+	for upper := range stream {
+		pieces[idx] = &bucketPiece{
+			Start: lower, End: upper}
+		lower = upper
+		idx++
+	}
+	pieces[idx] = &bucketPiece{
+		Last: true, Start: lower}
 	return &Bucketer{pieces: pieces}
 }
 

@@ -19,7 +19,7 @@ func registerMetrics() {
 	var startTime int64
 	var temperature float64
 
-	rpcBucketer := tricorder.NewBucketerWithScale(6, 10, 2.5)
+	rpcBucketer := tricorder.NewExponentialBucketer(6, 10, 2.5)
 	rpcDistribution := tricorder.NewDistribution(rpcBucketer)
 
 	if err := tricorder.RegisterMetric("/proc/rpc-latency", rpcDistribution, tricorder.Millisecond, "RPC latency"); err != nil {

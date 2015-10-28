@@ -64,22 +64,33 @@ type Bucketer struct {
 	pieces []*bucketPiece
 }
 
-// NewBucketerWithScale returns a Bucketer representing buckets on
-// a geometric scale. NewBucketerWithScale(25, 3.0, 1.7) means 25 buckets
+// NewExponentialBucketer returns a Bucketer representing buckets on
+// a geometric scale. NewExponentialBucketer(25, 3.0, 1.7) means 25 buckets
 // starting with <3.0; 3.0 - 5.1; 5.1 - 8.67; 8.67 - 14.739 etc.
-// NewBucketerWithScale panics if count < 2 or if start <= 0 or if scale <= 1.
-func NewBucketerWithScale(count int, start, scale float64) *Bucketer {
-	return newBucketerWithScale(count, start, scale)
+// NewExponentialBucketer panics if count < 2 or if start <= 0 or if scale <= 1.
+func NewExponentialBucketer(count int, start, scale float64) *Bucketer {
+	return newBucketerFromStream(
+		newExponentialBucketerStream(count, start, scale))
 }
 
-// NewBucketerWithEndpoints returns a Bucketer representing specific endpoints
-// NewBucketerWithEndpoints([]float64{10.0, 20.0, 30.0}) means 4 buckets:
+// NewLinearBucketer returns a Bucketer representing bucktes on
+// a linear scale. NewLinearBucketer(5, 0, 10) means 5 buckets
+// starting with <0; 0-10; 10-20; 20-30; >=30.
+// NewLinearBucketer panics if count < 2 or if increment <= 0.
+func NewLinearBucketer(count int, start, increment float64) *Bucketer {
+	return newBucketerFromStream(
+		newLinearBucketerStream(count, start, increment))
+}
+
+// NewArbitraryBucketer returns a Bucketer representing specific endpoints
+// NewArbitraryBucketer([]float64{10.0, 20.0, 30.0}) means 4 buckets:
 // <10.0; 10.0 - 20.0; 20.0 - 30.0; >= 30.0.
-// NewBucketerWithEndpoints panics if len(endpoints) == 0.
+// NewArbitraryBucketer panics if len(endpoints) == 0.
 // It is the caller's responsibility to ensure that the values in the
 // endpoints slice are in ascending order.
-func NewBucketerWithEndpoints(endpoints []float64) *Bucketer {
-	return newBucketerWithEndpoints(endpoints)
+func NewArbitraryBucketer(endpoints []float64) *Bucketer {
+	return newBucketerFromStream(
+		newArbitraryBucketerStream(endpoints))
 }
 
 // Distribution represents a metric that is a distribution of value.

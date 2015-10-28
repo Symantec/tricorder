@@ -39,7 +39,7 @@ func TestAPI(t *testing.T) {
 	var unused int64
 	var name, args string
 
-	rpcBucketer := NewBucketerWithScale(6, 10, 2.5)
+	rpcBucketer := NewExponentialBucketer(6, 10, 2.5)
 	rpcDistribution := NewDistribution(rpcBucketer)
 
 	if err := RegisterMetric("/proc/rpc-latency", rpcDistribution, Millisecond, "RPC latency"); err != nil {
@@ -265,8 +265,43 @@ func TestAPI(t *testing.T) {
 	}
 }
 
-func TestDistribution(t *testing.T) {
-	bucketer := NewBucketerWithEndpoints([]float64{10, 22, 50})
+func TestLinearDistribution(t *testing.T) {
+	bucketer := NewLinearBucketer(3, 12, 5)
+	dist := newDistribution(bucketer)
+	actualEmpty := dist.Snapshot()
+	expectedEmpty := &snapshot{
+		Count: 0,
+		Breakdown: breakdown{
+			{
+				bucketPiece: &bucketPiece{
+					End:   12.0,
+					First: true,
+				},
+				Count: 0,
+			},
+			{
+				bucketPiece: &bucketPiece{
+					Start: 12.0,
+					End:   17.0,
+				},
+				Count: 0,
+			},
+			{
+				bucketPiece: &bucketPiece{
+					Start: 17.0,
+					Last:  true,
+				},
+				Count: 0,
+			},
+		},
+	}
+	if !reflect.DeepEqual(expectedEmpty, actualEmpty) {
+		t.Errorf("Expected %v, got %v", expectedEmpty, actualEmpty)
+	}
+}
+
+func TestArbitraryDistribution(t *testing.T) {
+	bucketer := NewArbitraryBucketer([]float64{10, 22, 50})
 	dist := newDistribution(bucketer)
 	actualEmpty := dist.Snapshot()
 	expectedEmpty := &snapshot{
