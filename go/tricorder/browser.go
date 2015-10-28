@@ -1,15 +1,14 @@
 package tricorder
 
 import (
+	"bytes"
 	"fmt"
-	// TODO: Find out if this code can depend on this library.
-	// If not, copy and paste code for http_util.AddStatic
-	"github.com/keep94/appcommon/http_util"
 	"html/template"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
 const (
@@ -63,6 +62,7 @@ const (
 var (
 	htmlTemplate = template.Must(template.New("browser").Parse(htmlTemplateStr))
 	errLog       *log.Logger
+	appStartTime time.Time
 )
 
 type view struct {
@@ -108,11 +108,29 @@ func browseFunc(w http.ResponseWriter, r *http.Request) {
 
 func newStatic() http.Handler {
 	result := http.NewServeMux()
-	http_util.AddStatic(result, "/theme.css", themeCss)
+	addStatic(result, "/theme.css", themeCss)
 	return result
 }
 
+func addStatic(mux *http.ServeMux, path, content string) {
+	addStaticBinary(mux, path, []byte(content))
+}
+
+func addStaticBinary(mux *http.ServeMux, path string, content []byte) {
+	mux.Handle(
+		path,
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.ServeContent(
+				w,
+				r,
+				path,
+				appStartTime,
+				bytes.NewReader(content))
+		}))
+}
+
 func init() {
+	appStartTime = time.Now()
 	http.Handle(browseMetricsUrl+"/", http.StripPrefix(browseMetricsUrl, http.HandlerFunc(browseFunc)))
 	http.Handle("/tricorderstatic/", http.StripPrefix("/tricorderstatic", newStatic()))
 	errLog = log.New(os.Stderr, "", log.LstdFlags|log.Lmicroseconds)
