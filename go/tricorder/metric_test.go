@@ -31,13 +31,13 @@ func TestAPI(t *testing.T) {
 	// /proc/start-time: An int64 showing start time as seconds since epoch
 	// /proc/temperature: A float64 showing tempurature in celsius
 	// /proc/foo/bar/baz: Callback to get a float64 that returns an error
-	// /name - name of app
-	// /args - A string arguments to app
+	// /testname - name of app
+	// /testargs - A string arguments to app
 
-	var name, args string
 	var startTime int64
 	var temperature float64
 	var unused int64
+	var name, args string
 
 	rpcBucketer := NewBucketerWithScale(6, 10, 2.5)
 	rpcDistribution := NewDistribution(rpcBucketer)
@@ -54,11 +54,11 @@ func TestAPI(t *testing.T) {
 	if err := RegisterMetric("/proc/temperature", &temperature, Celsius, "Temperature"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
-	if err := RegisterMetric("/name", &name, None, "Name of app"); err != nil {
+	if err := RegisterMetric("/testname", &name, None, "Name of app"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
 
-	if err := RegisterMetric("/args", &args, None, "Args passed to app"); err != nil {
+	if err := RegisterMetric("/testargs", &args, None, "Args passed to app"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
 	fooDir, err := RegisterDirectory("proc/foo")
@@ -121,7 +121,7 @@ func TestAPI(t *testing.T) {
 		rpcDistribution.Add(float64(i))
 	}
 
-	verifyChildren(t, root.List(), "args", "name", "proc")
+	verifyChildren(t, root.List(), "args", "name", "proc", "testargs", "testname")
 	verifyChildren(
 		t,
 		root.GetDirectory("proc").List(),
@@ -130,11 +130,11 @@ func TestAPI(t *testing.T) {
 		t, root.GetDirectory("proc/foo/bar").List(), "baz")
 
 	// try path's that don't exist
-	if root.GetDirectory("/args/foo") != nil {
-		t.Error("/args/foo shouldn't exist")
+	if root.GetDirectory("/testargs/foo") != nil {
+		t.Error("/testargs/foo shouldn't exist")
 	}
-	if root.GetMetric("/args/foo") != nil {
-		t.Error("/args/foo shouldn't exist")
+	if root.GetMetric("/testargs/foo") != nil {
+		t.Error("/testargs/foo shouldn't exist")
 	}
 	if root.GetDirectory("/big/small/little") != nil {
 		t.Error("/big/small/little shouldn't exist")
@@ -152,15 +152,15 @@ func TestAPI(t *testing.T) {
 		t.Error("/ metric shouldn't exist")
 	}
 
-	// Check /args
-	argsMetric := root.GetMetric("/args")
+	// Check /testargs
+	argsMetric := root.GetMetric("/testargs")
 	verifyMetric(t, "Args passed to app", None, argsMetric)
 	assertValueEquals(t, String, argsMetric.Value.Type())
 	assertValueEquals(t, "--help", argsMetric.Value.AsString())
 	assertValueEquals(t, "\"--help\"", argsMetric.Value.AsHtmlString())
 
-	// Check /name
-	nameMetric := root.GetMetric("/name")
+	// Check /testname
+	nameMetric := root.GetMetric("/testname")
 	verifyMetric(t, "Name of app", None, nameMetric)
 	assertValueEquals(t, String, nameMetric.Value.Type())
 	assertValueEquals(t, "My application", nameMetric.Value.AsString())

@@ -15,10 +15,7 @@ func registerMetrics() {
 	// /proc/start-time: An int64 showing start time as seconds since epoch
 	// /proc/temperature: A float64 showing tempurature in celsius
 	// /proc/foo/bar/baz: Callback to get a float64 that returns an error
-	// /name - name of app
-	// /args - A string arguments to app
 
-	var name, args string
 	var startTime int64
 	var temperature float64
 
@@ -37,13 +34,6 @@ func registerMetrics() {
 	if err := tricorder.RegisterMetric("/proc/temperature", &temperature, tricorder.Celsius, "Temperature"); err != nil {
 		log.Fatalf("Got error %v registering metric", err)
 	}
-	if err := tricorder.RegisterMetric("/name", &name, tricorder.None, "Name of app"); err != nil {
-		log.Fatalf("Got error %v registering metric", err)
-	}
-
-	if err := tricorder.RegisterMetric("/args", &args, tricorder.None, "Args passed to app"); err != nil {
-		log.Fatalf("Got error %v registering metric", err)
-	}
 	fooDir, err := tricorder.RegisterDirectory("proc/foo")
 	if err != nil {
 		log.Fatalf("Got error %v registering directory", err)
@@ -57,10 +47,6 @@ func registerMetrics() {
 		log.Fatalf("Got error %v registering metric", err)
 	}
 
-	// Now set the variables to actual values.
-	// No calls needed to update tricorder
-	name = "My application"
-	args = "--help"
 	startTime = -1234567
 	temperature = 22.5
 

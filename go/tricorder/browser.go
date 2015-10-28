@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -121,9 +122,28 @@ func addStaticBinary(mux *http.ServeMux, path string, content []byte) {
 		}))
 }
 
-func init() {
+func getProgramArgs() string {
+	return strings.Join(os.Args[1:], " ")
+}
+
+func registerDefaultMetrics() {
+	RegisterMetric("/name", &os.Args[0], None, "Program name")
+	RegisterMetric("/args", getProgramArgs, None, "Program args")
+}
+
+func initHttpFramework() {
 	appStartTime = time.Now()
+	errLog = log.New(os.Stderr, "", log.LstdFlags|log.Lmicroseconds)
+}
+
+func registerBrowserHandlers() {
 	http.Handle(browseMetricsUrl+"/", http.StripPrefix(browseMetricsUrl, http.HandlerFunc(browseFunc)))
 	http.Handle("/tricorderstatic/", http.StripPrefix("/tricorderstatic", newStatic()))
-	errLog = log.New(os.Stderr, "", log.LstdFlags|log.Lmicroseconds)
+}
+
+func init() {
+	registerDefaultMetrics()
+	initHttpFramework()
+	registerBrowserHandlers()
+
 }
