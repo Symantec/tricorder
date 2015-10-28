@@ -45,7 +45,7 @@ const (
 	          {{end}}
 		{{end}}
 	      {{else}}
-	        {{.Metric.AbsPath}} {{$top.AsHtmlString .Metric.Value}} ({{.Metric.Value.Type}}: {{.Metric.Description}})<br>
+	        {{.Metric.AbsPath}} {{.Metric.Value.AsHtmlString}} ({{.Metric.Value.Type}}: {{.Metric.Description}})<br>
 	      {{end}}
 	    {{end}}
 	  {{end}}
@@ -75,14 +75,6 @@ func (v *view) Link(d *directory) string {
 
 func (v *view) IsDistribution(t valueType) bool {
 	return t == Dist
-}
-
-func (v *view) AsHtmlString(val value) string {
-	str, err := val.AsHtmlString()
-	if err != nil {
-		return err.Error()
-	}
-	return str
 }
 
 func emitDirectoryAsHtml(d *directory, w io.Writer) error {

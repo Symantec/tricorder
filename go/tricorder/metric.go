@@ -215,10 +215,10 @@ func (t valueType) String() string {
 
 // value represents the value of a metric.
 type value struct {
-	val          reflect.Value
-	dist         *distribution
-	valType      valueType
-	funcArgCount int
+	val     reflect.Value
+	dist    *distribution
+	valType valueType
+	isfunc  bool
 }
 
 func getPrimitiveType(t reflect.Type) valueType {
@@ -250,19 +250,13 @@ func newValue(spec interface{}) *value {
 	if t.Kind() == reflect.Func {
 		funcArgCount := t.NumOut()
 
-		// Our functions have to return one or two things
-		if funcArgCount < 1 || funcArgCount > 2 {
+		// Our functions have to return exactly one thing
+		if funcArgCount != 1 {
 			panic(panicBadFunctionReturnTypes)
-		}
-		if t.NumOut() == 2 {
-			errorType := reflect.TypeOf((*error)(nil)).Elem()
-			if !t.Out(1).Implements(errorType) {
-				panic(panicBadFunctionReturnTypes)
-			}
 		}
 		valType := getPrimitiveType(t.Out(0))
 		return &value{
-			val: v, valType: valType, funcArgCount: funcArgCount}
+			val: v, valType: valType, isfunc: true}
 	}
 	v = v.Elem()
 	valType := getPrimitiveType(v.Type())
@@ -274,95 +268,57 @@ func (v *value) Type() valueType {
 	return v.valType
 }
 
-func (v *value) evaluate() (reflect.Value, error) {
-	if v.funcArgCount == 0 {
-		return v.val, nil
+func (v *value) evaluate() reflect.Value {
+	if !v.isfunc {
+		return v.val
 	}
 	result := v.val.Call(nil)
-	if v.funcArgCount == 2 {
-		return result[0], result[1].Interface().(error)
-	}
-	return result[0], nil
+	return result[0]
 }
 
 // AsXXX methods return this value as a type XX.
 // AsXXX methods panic if this value is not of type XX.
-// If this value represents a callback that can return an error,
-// AsXXX methods  propagates the error from the callback.
-func (v *value) AsInt() (result int64, err error) {
+func (v *value) AsInt() int64 {
 	if v.valType != Int {
 		panic(panicIncompatibleTypes)
 	}
-	val, err := v.evaluate()
-	if err != nil {
-		return
-	}
-	result = val.Int()
-	return
+	return v.evaluate().Int()
 }
 
-func (v *value) AsUint() (result uint64, err error) {
+func (v *value) AsUint() uint64 {
 	if v.valType != Uint {
 		panic(panicIncompatibleTypes)
 	}
-	val, err := v.evaluate()
-	if err != nil {
-		return
-	}
-	result = val.Uint()
-	return
+	return v.evaluate().Uint()
 }
 
-func (v *value) AsFloat() (result float64, err error) {
+func (v *value) AsFloat() float64 {
 	if v.valType != Float {
 		panic(panicIncompatibleTypes)
 	}
-	val, err := v.evaluate()
-	if err != nil {
-		return
-	}
-	result = val.Float()
-	return
+	return v.evaluate().Float()
 }
 
-func (v *value) AsString() (result string, err error) {
+func (v *value) AsString() string {
 	if v.valType != String {
 		panic(panicIncompatibleTypes)
 	}
-	val, err := v.evaluate()
-	if err != nil {
-		return
-	}
-	result = val.String()
-	return
+	return v.evaluate().String()
 }
 
 // AsHtmlString returns this value as an html friendly string.
-// AsHtmlString panics if this value does not represent a single value
-// e.g a distribution.
-// If this value represents a callback that can return an error,
-// AsHtmlString propagates the error from the callback.
-func (v *value) AsHtmlString() (result string, err error) {
-	var val reflect.Value
+// AsHtmlString panics if this value does not represent a single value.
+// For example, AsHtmlString panics if this value represents a distribution.
+func (v *value) AsHtmlString() string {
 	switch v.Type() {
-	case Int, Uint, Float, String:
-		val, err = v.evaluate()
-		if err != nil {
-			return
-		}
-		switch v.Type() {
-		case Int:
-			result = strconv.FormatInt(val.Int(), 10)
-		case Uint:
-			result = strconv.FormatUint(val.Uint(), 10)
-		case Float:
-			result = strconv.FormatFloat(val.Float(), 'f', -1, 64)
-		case String:
-			result = "\"" + val.String() + "\""
-		default:
-			panic("We should never get here!")
-		}
-		return
+	case Int:
+		return strconv.FormatInt(v.evaluate().Int(), 10)
+	case Uint:
+		return strconv.FormatUint(v.evaluate().Uint(), 10)
+	case Float:
+		return strconv.FormatFloat(v.evaluate().Float(), 'f', -1, 64)
+	case String:
+		return "\"" + v.evaluate().String() + "\""
 	default:
 		panic(panicIncompatibleTypes)
 	}
@@ -390,7 +346,7 @@ type metric struct {
 
 // AbsPath returns the absolute path of this metric
 func (m *metric) AbsPath() string {
-	return "/" + m.enclosingListEntry.pathFrom(root).String()
+	return m.enclosingListEntry.absPath()
 }
 
 // listEntry represents a single entry in a directory listing.
@@ -421,6 +377,10 @@ func (n *listEntry) pathFrom(fromDir *directory) pathSpec {
 	return names
 }
 
+func (n *listEntry) absPath() string {
+	return "/" + n.pathFrom(root).String()
+}
+
 // directory represents a directory same as DirectorySpec
 type directory struct {
 	contents           map[string]*listEntry
@@ -444,7 +404,7 @@ func (d *directory) List() []*listEntry {
 
 // AbsPath returns the absolute path of this directory
 func (d *directory) AbsPath() string {
-	return "/" + d.enclosingListEntry.pathFrom(root).String()
+	return d.enclosingListEntry.absPath()
 }
 
 // GetDirectory returns the directory with the given relative

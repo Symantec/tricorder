@@ -41,9 +41,9 @@ func (u Unit) String() string {
 // RegisterMetric registers a single metric with the health system.
 // path is the absolute path of the metric e.g "/proc/rpc"
 // metric is the metric to register.
-// metric can be a pointer to a primitive numeric type,
-// a function of the form func() (value NT, err error) or func() NT
-// where NT is a primitive numeric type, or a *Distribution.
+// metric can be a pointer to a primitive numeric type or string,
+// a function of the form func() NT where NT is a primitive numeric type
+// or string, or finally metric can be a *Distribution.
 // RegisterMetric panics if metric is not of a valid type.
 // unit is the unit of measurement for the metric.
 // description is the description of the metric.

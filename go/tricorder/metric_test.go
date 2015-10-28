@@ -69,7 +69,7 @@ func TestAPI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Got error %v registering directory", err)
 	}
-	err = barDir.RegisterMetric("baz", errorCallback, None, "An error")
+	err = barDir.RegisterMetric("baz", bazCallback, None, "An error")
 	if err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
@@ -155,57 +155,56 @@ func TestAPI(t *testing.T) {
 	// Check /args
 	argsMetric := root.GetMetric("/args")
 	verifyMetric(t, "Args passed to app", None, argsMetric)
-	verifyType(t, String, argsMetric.Value.Type())
-	verifyStringValue(t, "--help", argsMetric.Value.AsString)
-	verifyStringValue(t, "\"--help\"", argsMetric.Value.AsHtmlString)
+	assertValueEquals(t, String, argsMetric.Value.Type())
+	assertValueEquals(t, "--help", argsMetric.Value.AsString())
+	assertValueEquals(t, "\"--help\"", argsMetric.Value.AsHtmlString())
 
 	// Check /name
 	nameMetric := root.GetMetric("/name")
 	verifyMetric(t, "Name of app", None, nameMetric)
-	verifyType(t, String, nameMetric.Value.Type())
-	verifyStringValue(t, "My application", nameMetric.Value.AsString)
-	verifyStringValue(t, "\"My application\"", nameMetric.Value.AsHtmlString)
+	assertValueEquals(t, String, nameMetric.Value.Type())
+	assertValueEquals(t, "My application", nameMetric.Value.AsString())
+	assertValueEquals(t, "\"My application\"", nameMetric.Value.AsHtmlString())
 
 	// Check /proc/temperature
 	temperatureMetric := root.GetMetric("/proc/temperature")
 	verifyMetric(t, "Temperature", Celsius, temperatureMetric)
-	verifyType(t, Float, temperatureMetric.Value.Type())
-	verifyFloatValue(t, 22.5, temperatureMetric.Value.AsFloat)
-	verifyStringValue(t, "22.5", temperatureMetric.Value.AsHtmlString)
+	assertValueEquals(t, Float, temperatureMetric.Value.Type())
+	assertValueEquals(t, 22.5, temperatureMetric.Value.AsFloat())
+	assertValueEquals(t, "22.5", temperatureMetric.Value.AsHtmlString())
 
 	// Check /proc/start-time
 	startTimeMetric := root.GetMetric("/proc/start-time")
 	verifyMetric(t, "Start Time", Second, startTimeMetric)
-	verifyType(t, Int, startTimeMetric.Value.Type())
-	verifyIntValue(t, -1234567, startTimeMetric.Value.AsInt)
-	verifyStringValue(t, "-1234567", startTimeMetric.Value.AsHtmlString)
+	assertValueEquals(t, Int, startTimeMetric.Value.Type())
+	assertValueEquals(t, int64(-1234567), startTimeMetric.Value.AsInt())
+	assertValueEquals(t, "-1234567", startTimeMetric.Value.AsHtmlString())
 
 	// Check /proc/rpc-count
 	rpcCountMetric := root.GetMetric("/proc/rpc-count")
 	verifyMetric(t, "RPC count", None, rpcCountMetric)
-	verifyType(t, Uint, rpcCountMetric.Value.Type())
-	verifyUintValue(t, 500, rpcCountMetric.Value.AsUint)
-	verifyStringValue(t, "500", rpcCountMetric.Value.AsHtmlString)
+	assertValueEquals(t, Uint, rpcCountMetric.Value.Type())
+	assertValueEquals(t, uint64(500), rpcCountMetric.Value.AsUint())
+	assertValueEquals(t, "500", rpcCountMetric.Value.AsHtmlString())
 
 	// check /proc/foo/bar/baz
 	bazMetric := root.GetMetric("proc/foo/bar/baz")
 	verifyMetric(t, "An error", None, bazMetric)
-	verifyType(t, Float, bazMetric.Value.Type())
-	if _, out := bazMetric.Value.AsFloat(); out != kCallbackError {
-		t.Error("Expected callback error")
-	}
+	assertValueEquals(t, Float, bazMetric.Value.Type())
+	assertValueEquals(t, 12.375, bazMetric.Value.AsFloat())
+	assertValueEquals(t, "12.375", bazMetric.Value.AsHtmlString())
 
 	// test PathFrom
-	assertStrEquals(
+	assertValueEquals(
 		t, "/proc/foo/bar/baz", bazMetric.AbsPath())
-	assertStrEquals(
+	assertValueEquals(
 		t, "/proc/rpc-count", rpcCountMetric.AbsPath())
-	assertStrEquals(t, "/proc/foo", fooDir.AbsPath())
+	assertValueEquals(t, "/proc/foo", fooDir.AbsPath())
 
 	// Check /proc/rpc-latency
 	rpcLatency := root.GetMetric("/proc/rpc-latency")
 	verifyMetric(t, "RPC latency", Millisecond, rpcLatency)
-	verifyType(t, Dist, rpcLatency.Value.Type())
+	assertValueEquals(t, Dist, rpcLatency.Value.Type())
 
 	actual := rpcLatency.Value.AsDistribution().Snapshot()
 
@@ -354,47 +353,12 @@ func TestDistribution(t *testing.T) {
 	}
 }
 
-func TestCallbackError(t *testing.T) {
-	intValue := newValue(errorInt)
-	uintValue := newValue(errorUint)
-	stringValue := newValue(errorString)
-	floatValue := newValue(errorFloat)
-	if _, out := intValue.AsInt(); out != kCallbackError {
-		t.Error("Expected callback error for int")
-	}
-	if _, out := uintValue.AsUint(); out != kCallbackError {
-		t.Error("Expected callback error for uint")
-	}
-	if _, out := stringValue.AsString(); out != kCallbackError {
-		t.Error("Expected callback error for string")
-	}
-	if _, out := floatValue.AsFloat(); out != kCallbackError {
-		t.Error("Expected callback error for float")
-	}
-}
-
-func errorCallback() (float64, error) {
-	return 0.0, kCallbackError
-}
-
-func errorInt() (int, error) {
-	return 0, kCallbackError
-}
-
-func errorUint() (uint, error) {
-	return 0, kCallbackError
-}
-
-func errorString() (string, error) {
-	return "", kCallbackError
-}
-
-func errorFloat() (float32, error) {
-	return 0.0, kCallbackError
-}
-
-func rpcCountCallback() uint64 {
+func rpcCountCallback() uint {
 	return 500
+}
+
+func bazCallback() float32 {
+	return 12.375
 }
 
 func verifyMetric(
@@ -407,58 +371,10 @@ func verifyMetric(
 	}
 }
 
-func verifyType(
-	t *testing.T, expected, actual valueType) {
+func assertValueEquals(
+	t *testing.T, expected, actual interface{}) {
 	if expected != actual {
 		t.Errorf("Expected %v, got %v", expected, actual)
-	}
-}
-
-func verifyStringValue(
-	t *testing.T, expected string, actual func() (string, error)) {
-	actualValue, err := actual()
-	if err != nil {
-		t.Errorf("Expected a value, got %v", err)
-		return
-	}
-	if expected != actualValue {
-		t.Errorf("Expected %s, got %s", expected, actualValue)
-	}
-}
-
-func verifyFloatValue(
-	t *testing.T, expected float64, actual func() (float64, error)) {
-	actualValue, err := actual()
-	if err != nil {
-		t.Errorf("Expected a value, got %v", err)
-		return
-	}
-	if expected != actualValue {
-		t.Errorf("Expected %f, got %f", expected, actualValue)
-	}
-}
-
-func verifyIntValue(
-	t *testing.T, expected int64, actual func() (int64, error)) {
-	actualValue, err := actual()
-	if err != nil {
-		t.Errorf("Expected a value, got %v", err)
-		return
-	}
-	if expected != actualValue {
-		t.Errorf("Expected %d, got %d", expected, actualValue)
-	}
-}
-
-func verifyUintValue(
-	t *testing.T, expected uint64, actual func() (uint64, error)) {
-	actualValue, err := actual()
-	if err != nil {
-		t.Errorf("Expected a value, got %v", err)
-		return
-	}
-	if expected != actualValue {
-		t.Errorf("Expected %d, got %d", expected, actualValue)
 	}
 }
 
@@ -472,12 +388,6 @@ func verifyChildren(
 		if expected[i] != listEntries[i].Name {
 			t.Errorf("Expected %s, but got %s, at index %d", expected[i], listEntries[i].Name, i)
 		}
-	}
-}
-
-func assertStrEquals(t *testing.T, expected, actual string) {
-	if expected != actual {
-		t.Errorf("Expected %s, got %s", expected, actual)
 	}
 }
 

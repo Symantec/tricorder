@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"github.com/gorilla/context"
 	"github.com/keep94/tricorder/go/tricorder"
@@ -53,7 +52,7 @@ func registerMetrics() {
 	if err != nil {
 		log.Fatalf("Got error %v registering directory", err)
 	}
-	err = barDir.RegisterMetric("baz", errorCallback, tricorder.None, "An error")
+	err = barDir.RegisterMetric("baz", bazCallback, tricorder.None, "Another float value")
 	if err != nil {
 		log.Fatalf("Got error %v registering metric", err)
 	}
@@ -76,8 +75,8 @@ func registerMetrics() {
 	}
 }
 
-func errorCallback() (float64, error) {
-	return 0.0, errors.New("Some error happened")
+func bazCallback() float64 {
+	return 12.375
 }
 
 func rpcCountCallback() uint64 {
