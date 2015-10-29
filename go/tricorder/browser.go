@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -36,7 +37,7 @@ const (
 		{{end}}
 		</table>
 	        {{if .Count}}
-		  <span class="summary"> min: {{.Min}} max: {{.Max}} avg: {{.Average}} &#126;median: {{$top.ToFloat32 .Median}} count: {{.Count}}</span><br><br>
+		  <span class="summary"> min: {{.Min}} max: {{.Max}} avg: {{$top.ToFloat32 .Average}} &#126;median: {{$top.ToFloat32 .Median}} count: {{.Count}}</span><br><br>
 	        {{end}}
 	      {{end}}
 	    {{else}}
@@ -118,27 +119,126 @@ func emitDirectoryAsHtml(d *directory, w io.Writer) error {
 	return nil
 }
 
+func emitDirectoryAsText(d *directory, w io.Writer) error {
+	for _, entry := range d.List() {
+		if entry.Directory != nil {
+			err := emitDirectoryAsText(entry.Directory, w)
+			if err != nil {
+				return err
+			}
+		} else {
+			_, err := fmt.Fprintf(w, "%s ", entry.Metric.AbsPath())
+			if err != nil {
+				return err
+			}
+			err = emitMetricAsText(entry.Metric, w)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func emitDistributionAsText(s *snapshot, w io.Writer) error {
+	_, err := fmt.Fprintf(
+		w,
+		"{min:%s;max:%s;avg:%s;median:%s;count:%d",
+		strconv.FormatFloat(s.Min, 'f', -1, 32),
+		strconv.FormatFloat(s.Max, 'f', -1, 32),
+		strconv.FormatFloat(s.Average, 'f', -1, 32),
+		strconv.FormatFloat(s.Median, 'f', -1, 32),
+		s.Count)
+	if err != nil {
+		return err
+	}
+	for _, piece := range s.Breakdown {
+		if piece.Count == 0 {
+			continue
+		}
+		if piece.First {
+			_, err := fmt.Fprintf(
+				w,
+				"; to %s:%d",
+				strconv.FormatFloat(piece.End, 'f', -1, 32),
+				piece.Count)
+			if err != nil {
+				return err
+			}
+		} else if piece.Last {
+			_, err := fmt.Fprintf(
+				w,
+				";%s to :%d",
+				strconv.FormatFloat(piece.Start, 'f', -1, 32),
+				piece.Count)
+			if err != nil {
+				return err
+			}
+		} else {
+			_, err := fmt.Fprintf(
+				w,
+				";%s to %s:%d",
+				strconv.FormatFloat(piece.Start, 'f', -1, 32),
+				strconv.FormatFloat(piece.End, 'f', -1, 32),
+				piece.Count)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	_, err = fmt.Fprintf(w, "}\n")
+	return err
+}
+
+func emitMetricAsText(m *metric, w io.Writer) error {
+	if m.Value.Type() == Dist {
+		return emitDistributionAsText(m.Value.AsDistribution().Snapshot(), w)
+	}
+	_, err := fmt.Fprintf(w, "%s\n", m.Value.AsHtmlString())
+	return err
+}
+
+func doTextFormatting(
+	d *directory, m *metric, w http.ResponseWriter) error {
+	if d == nil && m == nil {
+		fmt.Fprintf(w, "*Path does not exist.*")
+		return nil
+	}
+	if m == nil {
+		return emitDirectoryAsText(d, w)
+	}
+	return emitMetricAsText(m, w)
+}
+
+func doHtmlFormatting(
+	d *directory, m *metric, w http.ResponseWriter) error {
+	if d == nil && m == nil {
+		fmt.Fprintf(w, "Path does not exist.")
+		return nil
+	}
+	if m == nil {
+		return emitDirectoryAsHtml(d, w)
+	}
+	return emitMetricAsHtml(m, w)
+}
+
 func handleError(w http.ResponseWriter, err error) {
 	fmt.Fprintln(w, "Error in template.")
 	errLog.Printf("Error in template: %v\n", err)
 }
 
 func browseFunc(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 	path := r.URL.Path
 	d, m := root.GetDirectoryOrMetric(path)
-	if d == nil && m == nil {
-		fmt.Fprintf(w, "Path does not exist.")
-		return
-	} else if m == nil {
-		if err := emitDirectoryAsHtml(d, w); err != nil {
-			handleError(w, err)
-			return
-		}
+	var err error
+	if r.Form.Get("format") == "text" {
+		err = doTextFormatting(d, m, w)
 	} else {
-		if err := emitMetricAsHtml(m, w); err != nil {
-			handleError(w, err)
-			return
-		}
+		err = doHtmlFormatting(d, m, w)
+	}
+	if err != nil {
+		handleError(w, err)
 	}
 }
 
