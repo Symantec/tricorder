@@ -42,7 +42,7 @@ const (
 		  {{end}}
 		  </table>
 	          {{if .Count}}
-	            <span class="summary"> min: {{.Min}} max: {{.Max}} avg: {{.Average}} count: {{.Count}}</span><br><br>
+		  <span class="summary"> min: {{.Min}} max: {{.Max}} avg: {{.Average}} &#126;median: {{$top.ToFloat32 .Median}} count: {{.Count}}</span><br><br>
 	          {{end}}
 		{{end}}
 	      {{else}}
@@ -76,6 +76,10 @@ func (v *view) Link(d *directory) string {
 
 func (v *view) IsDistribution(t valueType) bool {
 	return t == Dist
+}
+
+func (v *view) ToFloat32(f float64) float32 {
+	return float32(f)
 }
 
 func emitDirectoryAsHtml(d *directory, w io.Writer) error {

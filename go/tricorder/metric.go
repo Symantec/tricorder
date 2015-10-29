@@ -194,6 +194,38 @@ func findDistributionIndex(pieces []*bucketPiece, value float64) int {
 	})
 }
 
+func valueIndexToPiece(counts []uint64, valueIdx float64) (
+	pieceIdx int, frac float64) {
+	pieceIdx = 0
+	startValueIdxInPiece := -0.5
+	for valueIdx-startValueIdxInPiece > float64(counts[pieceIdx]) {
+		startValueIdxInPiece += float64(counts[pieceIdx])
+		pieceIdx++
+	}
+	return pieceIdx, (valueIdx - startValueIdxInPiece) / float64(counts[pieceIdx])
+
+}
+
+func interpolate(min float64, max float64, frac float64) float64 {
+	return (1.0-frac)*min + frac*max
+}
+
+func (d *distribution) calculateMedian() float64 {
+	if d.count == 1 {
+		return d.min
+	}
+	medianIndex := float64(d.count-1) / 2.0
+	pieceIdx, frac := valueIndexToPiece(d.counts, medianIndex)
+	pieceLen := len(d.pieces)
+	if pieceIdx == 0 {
+		return interpolate(d.min, d.pieces[0].End, frac)
+	}
+	if pieceIdx == pieceLen-1 {
+		return interpolate(d.pieces[pieceLen-1].Start, d.max, frac)
+	}
+	return interpolate(d.pieces[pieceIdx].Start, d.pieces[pieceIdx].End, frac)
+}
+
 // Snapshot fetches the snapshot of this distribution atomically
 func (d *distribution) Snapshot() *snapshot {
 	bdn := make(breakdown, len(d.pieces))
@@ -215,6 +247,7 @@ func (d *distribution) Snapshot() *snapshot {
 		Min:       d.min,
 		Max:       d.max,
 		Average:   d.total / float64(d.count),
+		Median:    d.calculateMedian(),
 		Count:     d.count,
 		Breakdown: bdn,
 	}

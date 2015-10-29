@@ -208,13 +208,16 @@ func TestAPI(t *testing.T) {
 
 	actual := rpcLatency.Value.AsDistribution().Snapshot()
 
+	if actual.Median < 249 || actual.Median >= 250 {
+		t.Errorf("Median out of range: %f", actual.Median)
+	}
+
 	expected := &snapshot{
 		Min:     0.0,
 		Max:     499.0,
 		Average: 249.5,
-		// TODO: Have to figure out how to compute this.
-		Median: 0.0,
-		Count:  500,
+		Median:  actual.Median,
+		Count:   500,
 		Breakdown: breakdown{
 			{
 				bucketPiece: &bucketPiece{
@@ -345,12 +348,15 @@ func TestArbitraryDistribution(t *testing.T) {
 		dist.Add(float64(i))
 	}
 	actual := dist.Snapshot()
+	if actual.Median < 50.0 || actual.Median >= 51 {
+		t.Errorf("Median out of range: %f", actual.Median)
+	}
 	expected := &snapshot{
 		Min:     1.0,
 		Max:     100.0,
 		Average: 50.5,
-		// TODO: Have to figure out how to compute this.
-		Median: 0.0,
+		// Let exact matching pass
+		Median: actual.Median,
 		Count:  100,
 		Breakdown: breakdown{
 			{
@@ -386,6 +392,53 @@ func TestArbitraryDistribution(t *testing.T) {
 	if !reflect.DeepEqual(expected, actual) {
 		t.Errorf("Expected %v, got %v", expected, actual)
 	}
+}
+
+func TestMedianDataAllLow(t *testing.T) {
+	bucketer := NewArbitraryBucketer([]float64{1000.0})
+	dist := newDistribution(bucketer)
+	for i := 0; i < 2; i++ {
+		dist.Add(200.0)
+	}
+	// two points between 200 and 1000
+	snapshot := dist.Snapshot()
+	assertValueEquals(t, 600.0, snapshot.Median)
+}
+
+func TestMedianDataAllHigh(t *testing.T) {
+	bucketer := NewArbitraryBucketer([]float64{1000.0})
+	dist := newDistribution(bucketer)
+	for i := 0; i < 3; i++ {
+		dist.Add(7000.0)
+	}
+	// Three points between 1000 and 7000
+	snapshot := dist.Snapshot()
+	assertValueEquals(t, 4000.0, snapshot.Median)
+}
+
+func TestMedianSingleData(t *testing.T) {
+	bucketer := NewArbitraryBucketer([]float64{1000.0, 3000.0})
+	dist := newDistribution(bucketer)
+	dist.Add(7000.0)
+	assertValueEquals(t, 7000.0, dist.Snapshot().Median)
+
+	dist1 := newDistribution(bucketer)
+	dist1.Add(1700.0)
+	assertValueEquals(t, 1700.0, dist1.Snapshot().Median)
+
+	dist2 := newDistribution(bucketer)
+	dist2.Add(350.0)
+	assertValueEquals(t, 350.0, dist2.Snapshot().Median)
+}
+
+func TestMedianAllDataInBetween(t *testing.T) {
+	bucketer := NewArbitraryBucketer([]float64{500.0, 700.0, 1000.0, 3000.0})
+	dist := newDistribution(bucketer)
+	for i := 0; i < 5; i++ {
+		dist.Add(1300.0)
+	}
+	// All ponits between 1000 and 3000
+	assertValueEquals(t, 2000.0, dist.Snapshot().Median)
 }
 
 func rpcCountCallback() uint {
