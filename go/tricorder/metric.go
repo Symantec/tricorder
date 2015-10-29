@@ -2,6 +2,7 @@ package tricorder
 
 import (
 	"errors"
+	"math"
 	"reflect"
 	"sort"
 	"strconv"
@@ -198,7 +199,7 @@ func valueIndexToPiece(counts []uint64, valueIdx float64) (
 	pieceIdx int, frac float64) {
 	pieceIdx = 0
 	startValueIdxInPiece := -0.5
-	for valueIdx-startValueIdxInPiece > float64(counts[pieceIdx]) {
+	for valueIdx-startValueIdxInPiece >= float64(counts[pieceIdx]) {
 		startValueIdxInPiece += float64(counts[pieceIdx])
 		pieceIdx++
 	}
@@ -218,12 +219,16 @@ func (d *distribution) calculateMedian() float64 {
 	pieceIdx, frac := valueIndexToPiece(d.counts, medianIndex)
 	pieceLen := len(d.pieces)
 	if pieceIdx == 0 {
-		return interpolate(d.min, d.pieces[0].End, frac)
+		return interpolate(
+			d.min, math.Min(d.pieces[0].End, d.max), frac)
 	}
 	if pieceIdx == pieceLen-1 {
-		return interpolate(d.pieces[pieceLen-1].Start, d.max, frac)
+		return interpolate(math.Max(d.pieces[pieceLen-1].Start, d.min), d.max, frac)
 	}
-	return interpolate(d.pieces[pieceIdx].Start, d.pieces[pieceIdx].End, frac)
+	return interpolate(
+		math.Max(d.pieces[pieceIdx].Start, d.min),
+		math.Min(d.pieces[pieceIdx].End, d.max),
+		frac)
 }
 
 // Snapshot fetches the snapshot of this distribution atomically

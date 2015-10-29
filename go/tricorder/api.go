@@ -27,13 +27,6 @@ var (
 	ErrPathInUse = errors.New("tricorder: Path in use")
 )
 
-// NewUnit returns a Unit from its string representation. It is the inverse
-// of String(). If str is not the string representation of a valid Unit,
-// returns None and a non-nil error.
-func NewUnit(str string) (Unit, error) {
-	return newUnit(str)
-}
-
 func (u Unit) String() string {
 	return u._string()
 }
@@ -63,6 +56,15 @@ func RegisterMetric(
 type Bucketer struct {
 	pieces []*bucketPiece
 }
+
+var (
+	// Ranges in powers of two
+	PowersOfTwo = NewExponentialBucketer(20, 1.0, 2.0)
+	// Ranges in powers of four
+	PowersOfFour = NewExponentialBucketer(11, 1.0, 4.0)
+	// Ranges in powers of 10
+	PowersOfTen = NewExponentialBucketer(7, 1.0, 10.0)
+)
 
 // NewExponentialBucketer returns a Bucketer representing buckets on
 // a geometric scale. NewExponentialBucketer(25, 3.0, 1.7) means 25 buckets

@@ -30,6 +30,7 @@ const (
 	        {{with .Metric.Value.AsDistribution.Snapshot}}
 		  <table>
 	          {{range .Breakdown}}
+		  {{if .Count}}
 		    <tr>
   	            {{if .First}}
 	              <td align="right">&lt;{{.End}}:</td><td align="right">{{.Count}}</td>
@@ -39,6 +40,7 @@ const (
 		    <td align="right">{{.Start}}-{{.End}}:</td> <td align="right">{{.Count}}</td>
 	            {{end}}
 		    </tr>
+		  {{end}}
 		  {{end}}
 		  </table>
 	          {{if .Count}}

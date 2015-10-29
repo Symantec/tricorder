@@ -15,7 +15,7 @@ func TestUnit(t *testing.T) {
 	verifyUnit(t, Millisecond)
 	verifyUnit(t, Second)
 	verifyUnit(t, Celsius)
-	unit, err := NewUnit("bad unit name")
+	unit, err := newUnit("bad unit name")
 	if unit != None || err == nil {
 		t.Error("Expected to get error from bad unit name")
 	}
@@ -397,23 +397,23 @@ func TestArbitraryDistribution(t *testing.T) {
 func TestMedianDataAllLow(t *testing.T) {
 	bucketer := NewArbitraryBucketer([]float64{1000.0})
 	dist := newDistribution(bucketer)
-	for i := 0; i < 2; i++ {
-		dist.Add(200.0)
-	}
-	// two points between 200 and 1000
+	dist.Add(200.0)
+	dist.Add(300.0)
 	snapshot := dist.Snapshot()
-	assertValueEquals(t, 600.0, snapshot.Median)
+	// 2 points between 200 and 300
+	assertValueEquals(t, 250.0, snapshot.Median)
 }
 
 func TestMedianDataAllHigh(t *testing.T) {
 	bucketer := NewArbitraryBucketer([]float64{1000.0})
 	dist := newDistribution(bucketer)
-	for i := 0; i < 3; i++ {
-		dist.Add(7000.0)
-	}
-	// Three points between 1000 and 7000
+	dist.Add(3000.0)
+	dist.Add(3000.0)
+	dist.Add(7000.0)
+
+	// Three points between 3000 and 7000
 	snapshot := dist.Snapshot()
-	assertValueEquals(t, 4000.0, snapshot.Median)
+	assertValueEquals(t, 5000.0, snapshot.Median)
 }
 
 func TestMedianSingleData(t *testing.T) {
@@ -434,11 +434,35 @@ func TestMedianSingleData(t *testing.T) {
 func TestMedianAllDataInBetween(t *testing.T) {
 	bucketer := NewArbitraryBucketer([]float64{500.0, 700.0, 1000.0, 3000.0})
 	dist := newDistribution(bucketer)
-	for i := 0; i < 5; i++ {
-		dist.Add(1300.0)
+	dist.Add(1000.0)
+	dist.Add(1000.0)
+	dist.Add(1000.0)
+	dist.Add(1000.0)
+	dist.Add(2900.0)
+	// All ponits between 1000 and 2900
+	assertValueEquals(t, 1950.0, dist.Snapshot().Median)
+}
+
+func TestMedianDataSkewedLow(t *testing.T) {
+	dist := newDistribution(PowersOfTen)
+	for i := 0; i < 500; i++ {
+		dist.Add(float64(i))
 	}
-	// All ponits between 1000 and 3000
-	assertValueEquals(t, 2000.0, dist.Snapshot().Median)
+	median := dist.Snapshot().Median
+	if median-250.0 > 1.0 || median-250.0 < -1.0 {
+		t.Errorf("Median out of range: %f", median)
+	}
+}
+
+func TestMedianDataSkewedHigh(t *testing.T) {
+	dist := newDistribution(PowersOfTen)
+	for i := 0; i < 500; i++ {
+		dist.Add(float64(i + 500))
+	}
+	median := dist.Snapshot().Median
+	if median-750.0 > 1.0 || median-750.0 < -1.0 {
+		t.Errorf("Median out of range: %f", median)
+	}
 }
 
 func rpcCountCallback() uint {
@@ -480,7 +504,7 @@ func verifyChildren(
 }
 
 func verifyUnit(t *testing.T, u Unit) {
-	result, err := NewUnit(u.String())
+	result, err := newUnit(u.String())
 	if result != u || err != nil {
 		t.Error("Round trip for unit %d failed", u)
 	}
