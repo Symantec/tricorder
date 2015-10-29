@@ -26,7 +26,7 @@ const (
 	      <a href="{{$top.Link .Directory}}">{{.Directory.AbsPath}}</a><br>
             {{else}}
 	      {{if $top.IsDistribution .Metric.Value.Type}}
-	        {{.Metric.AbsPath}} (distribution: {{.Metric.Description}})<br>
+	      {{.Metric.AbsPath}} (distribution: {{.Metric.Description}}{{if $top.HasUnit .Metric.Unit}}; unit: {{.Metric.Unit}}{{end}})<br>
 	        {{with .Metric.Value.AsDistribution.Snapshot}}
 		  <table>
 	          {{range .Breakdown}}
@@ -48,7 +48,7 @@ const (
 	          {{end}}
 		{{end}}
 	      {{else}}
-	        {{.Metric.AbsPath}} {{.Metric.Value.AsHtmlString}} ({{.Metric.Value.Type}}: {{.Metric.Description}})<br>
+	      {{.Metric.AbsPath}} {{.Metric.Value.AsHtmlString}} ({{.Metric.Value.Type}}: {{.Metric.Description}}{{if $top.HasUnit .Metric.Unit}}; unit: {{.Metric.Unit}}{{end}})<br>
 	      {{end}}
 	    {{end}}
 	  {{end}}
@@ -78,6 +78,10 @@ func (v *view) Link(d *directory) string {
 
 func (v *view) IsDistribution(t valueType) bool {
 	return t == Dist
+}
+
+func (v *view) HasUnit(u Unit) bool {
+	return u != None
 }
 
 func (v *view) ToFloat32(f float64) float32 {
