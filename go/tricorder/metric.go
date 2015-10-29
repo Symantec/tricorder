@@ -487,10 +487,20 @@ func (d *directory) GetDirectory(relativePath string) *directory {
 	return d.getDirectory(newPathSpec(relativePath))
 }
 
-// getMetric returns the metric with the given relative
+// GetMetric returns the metric with the given relative
 // path or nil if no such metric exists.
 func (d *directory) GetMetric(relativePath string) *metric {
-	return d.getMetric(newPathSpec(relativePath))
+	_, m := d.getDirectoryOrMetric(newPathSpec(relativePath))
+	return m
+}
+
+// GetDirectoryOrMetric returns either the directory or metric
+// at the given path while traversing the directory tree just one time.
+// If path not found: returns nil, nil; if path is a directory:
+// returns d, nil; if path is a metric: returns nil, m.
+func (d *directory) GetDirectoryOrMetric(relativePath string) (
+	*directory, *metric) {
+	return d.getDirectoryOrMetric(newPathSpec(relativePath))
 }
 
 func (d *directory) getDirectory(path pathSpec) (result *directory) {
@@ -505,19 +515,20 @@ func (d *directory) getDirectory(path pathSpec) (result *directory) {
 	return
 }
 
-func (d *directory) getMetric(path pathSpec) *metric {
+func (d *directory) getDirectoryOrMetric(path pathSpec) (
+	*directory, *metric) {
 	if path.Empty() {
-		return nil
+		return d, nil
 	}
 	dir := d.getDirectory(path.Dir())
 	if dir == nil {
-		return nil
+		return nil, nil
 	}
 	n := dir.contents[path.Base()]
 	if n == nil {
-		return nil
+		return nil, nil
 	}
-	return n.Metric
+	return n.Directory, n.Metric
 }
 
 func (d *directory) createDirIfNeeded(name string) (*directory, error) {

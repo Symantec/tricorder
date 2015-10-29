@@ -15,42 +15,51 @@ import (
 const (
 	browseMetricsUrl = "/tricorder"
 	htmlTemplateStr  = `
+	{{define "METRIC"}}
+	  {{with $top := .}}
+            {{if $top.IsDistribution .Metric.Value.Type}}
+	      {{.Metric.AbsPath}} (distribution: {{.Metric.Description}}{{if $top.HasUnit .Metric.Unit}}; unit: {{.Metric.Unit}}{{end}})<br>
+	      {{with .Metric.Value.AsDistribution.Snapshot}}
+	        <table>
+	        {{range .Breakdown}}
+	          {{if .Count}}
+	            <tr>
+  	            {{if .First}}
+	              <td align="right">&lt;{{.End}}:</td><td align="right">{{.Count}}</td>
+	            {{else if .Last}}
+	              <td align="right">&gt;={{.Start}}:</td><td align="right"> {{.Count}}</td>
+	            {{else}}
+	              <td align="right">{{.Start}}-{{.End}}:</td> <td align="right">{{.Count}}</td>
+	            {{end}}
+		    </tr>
+		  {{end}}
+		{{end}}
+		</table>
+	        {{if .Count}}
+		  <span class="summary"> min: {{.Min}} max: {{.Max}} avg: {{.Average}} &#126;median: {{$top.ToFloat32 .Median}} count: {{.Count}}</span><br><br>
+	        {{end}}
+	      {{end}}
+	    {{else}}
+	      {{.Metric.AbsPath}} {{.Metric.Value.AsHtmlString}} ({{.Metric.Value.Type}}: {{.Metric.Description}}{{if $top.HasUnit .Metric.Unit}}; unit: {{.Metric.Unit}}{{end}})<br>
+	    {{end}}
+	  {{end}}
+	{{end}}
 	<html>
 	<head>
 	  <link rel="stylesheet" type="text/css" href="/tricorderstatic/theme.css">
 	</head>
 	<body>
 	{{with $top := .}}
-	  {{range .List}}
-	    {{if .Directory}}
-	      <a href="{{$top.Link .Directory}}">{{.Directory.AbsPath}}</a><br>
-            {{else}}
-	      {{if $top.IsDistribution .Metric.Value.Type}}
-	      {{.Metric.AbsPath}} (distribution: {{.Metric.Description}}{{if $top.HasUnit .Metric.Unit}}; unit: {{.Metric.Unit}}{{end}})<br>
-	        {{with .Metric.Value.AsDistribution.Snapshot}}
-		  <table>
-	          {{range .Breakdown}}
-		  {{if .Count}}
-		    <tr>
-  	            {{if .First}}
-	              <td align="right">&lt;{{.End}}:</td><td align="right">{{.Count}}</td>
-	            {{else if .Last}}
-	              <td align="right">&gt;={{.Start}}:</td><td align="right"> {{.Count}}</td>
-	            {{else}}
-		    <td align="right">{{.Start}}-{{.End}}:</td> <td align="right">{{.Count}}</td>
-	            {{end}}
-		    </tr>
-		  {{end}}
-		  {{end}}
-		  </table>
-	          {{if .Count}}
-		  <span class="summary"> min: {{.Min}} max: {{.Max}} avg: {{.Average}} &#126;median: {{$top.ToFloat32 .Median}} count: {{.Count}}</span><br><br>
-	          {{end}}
-		{{end}}
-	      {{else}}
-	      {{.Metric.AbsPath}} {{.Metric.Value.AsHtmlString}} ({{.Metric.Value.Type}}: {{.Metric.Description}}{{if $top.HasUnit .Metric.Unit}}; unit: {{.Metric.Unit}}{{end}})<br>
+	  {{if .Directory}}
+	    {{range .Directory.List}}
+	      {{if .Directory}}
+	        <a href="{{$top.Link .Directory}}">{{.Directory.AbsPath}}</a><br>
+              {{else}}
+	        {{template "METRIC" $top.AsMetricView .Metric}}
 	      {{end}}
 	    {{end}}
+	  {{else}}
+	    {{template "METRIC" .}}
 	  {{end}}
 	{{end}}
 	</body>
@@ -69,7 +78,12 @@ var (
 )
 
 type view struct {
-	*directory
+	Directory *directory
+	Metric    *metric
+}
+
+func (v *view) AsMetricView(m *metric) *view {
+	return &view{Metric: m}
 }
 
 func (v *view) Link(d *directory) string {
@@ -88,24 +102,43 @@ func (v *view) ToFloat32(f float64) float32 {
 	return float32(f)
 }
 
-func emitDirectoryAsHtml(d *directory, w io.Writer) error {
-	v := &view{d}
+func emitMetricAsHtml(m *metric, w io.Writer) error {
+	v := &view{Metric: m}
 	if err := htmlTemplate.Execute(w, v); err != nil {
 		return err
 	}
 	return nil
 }
 
+func emitDirectoryAsHtml(d *directory, w io.Writer) error {
+	v := &view{Directory: d}
+	if err := htmlTemplate.Execute(w, v); err != nil {
+		return err
+	}
+	return nil
+}
+
+func handleError(w http.ResponseWriter, err error) {
+	fmt.Fprintln(w, "Error in template.")
+	errLog.Printf("Error in template: %v\n", err)
+}
+
 func browseFunc(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
-	d := root.GetDirectory(path)
-	if d == nil {
+	d, m := root.GetDirectoryOrMetric(path)
+	if d == nil && m == nil {
 		fmt.Fprintf(w, "Path does not exist.")
 		return
-	}
-	if err := emitDirectoryAsHtml(d, w); err != nil {
-		fmt.Fprintln(w, "Error in template.")
-		errLog.Printf("Error in template: %v\n", err)
+	} else if m == nil {
+		if err := emitDirectoryAsHtml(d, w); err != nil {
+			handleError(w, err)
+			return
+		}
+	} else {
+		if err := emitMetricAsHtml(m, w); err != nil {
+			handleError(w, err)
+			return
+		}
 	}
 }
 
