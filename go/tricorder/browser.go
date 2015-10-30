@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	browseMetricsUrl = "/tricorder"
+	browseMetricsUrl = "/metrics"
 	htmlTemplateStr  = `
 	{{define "METRIC"}}
 	  {{with $top := .}}
@@ -47,7 +47,7 @@ const (
 	{{end}}
 	<html>
 	<head>
-	  <link rel="stylesheet" type="text/css" href="/tricorderstatic/theme.css">
+	  <link rel="stylesheet" type="text/css" href="/metricsstatic/theme.css">
 	</head>
 	<body>
 	{{with $top := .}}
@@ -281,7 +281,7 @@ func initHttpFramework() {
 
 func registerBrowserHandlers() {
 	http.Handle(browseMetricsUrl+"/", http.StripPrefix(browseMetricsUrl, http.HandlerFunc(browseFunc)))
-	http.Handle("/tricorderstatic/", http.StripPrefix("/tricorderstatic", newStatic()))
+	http.Handle("/metricsstatic/", http.StripPrefix("/metricsstatic", newStatic()))
 }
 
 func init() {

@@ -1,11 +1,3 @@
-// Package tricorder provides routines for clients to register metrics
-// with the health system.
-// This package also uses the go net/http package to register the web
-// UI of the health system at path "/tricorder"
-// This package also registers static content such as css pages at
-// "/tricorderstatic/".
-// For now, clients of this package must start an http server within their
-// application using the net/http package to make this web UI accessible.
 package tricorder
 
 import (
@@ -34,9 +26,6 @@ func (u Unit) String() string {
 // RegisterMetric registers a single metric with the health system.
 // path is the absolute path of the metric e.g "/proc/rpc"
 // metric is the metric to register.
-// metric can be a pointer to a primitive numeric type or string,
-// a function of the form func() NT where NT is a primitive numeric type
-// or string, or finally metric can be a *Distribution.
 // RegisterMetric panics if metric is not of a valid type.
 // unit is the unit of measurement for the metric.
 // description is the description of the metric.
