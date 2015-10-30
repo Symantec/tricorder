@@ -2,12 +2,14 @@ package tricorder
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 const (
@@ -268,6 +270,7 @@ const (
 	Float
 	String
 	Dist
+	Time
 )
 
 func (t valueType) String() string {
@@ -282,6 +285,8 @@ func (t valueType) String() string {
 		return "string"
 	case Dist:
 		return "distribution"
+	case Time:
+		return "time"
 	default:
 		return "none"
 	}
@@ -289,24 +294,37 @@ func (t valueType) String() string {
 
 // value represents the value of a metric.
 type value struct {
-	val     reflect.Value
-	dist    *distribution
-	valType valueType
-	isfunc  bool
+	val           reflect.Value
+	dist          *distribution
+	valType       valueType
+	isValAPointer bool
+	isfunc        bool
 }
 
-func getPrimitiveType(t reflect.Type) valueType {
-	switch t.Kind() {
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return Int
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return Uint
-	case reflect.Float32, reflect.Float64:
-		return Float
-	case reflect.String:
-		return String
+var (
+	timePtrType = reflect.TypeOf((*time.Time)(nil))
+	timeType    = timePtrType.Elem()
+)
+
+func getPrimitiveType(t reflect.Type) (valueType, bool) {
+	switch t {
+	case timePtrType:
+		return Time, true
+	case timeType:
+		return Time, false
 	default:
-		panic(panicInvalidMetric)
+		switch t.Kind() {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			return Int, false
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			return Uint, false
+		case reflect.Float32, reflect.Float64:
+			return Float, false
+		case reflect.String:
+			return String, false
+		default:
+			panic(panicInvalidMetric)
+		}
 	}
 }
 
@@ -328,13 +346,16 @@ func newValue(spec interface{}) *value {
 		if funcArgCount != 1 {
 			panic(panicBadFunctionReturnTypes)
 		}
-		valType := getPrimitiveType(t.Out(0))
+		valType, isValAPointer := getPrimitiveType(t.Out(0))
 		return &value{
-			val: v, valType: valType, isfunc: true}
+			val:           v,
+			valType:       valType,
+			isfunc:        true,
+			isValAPointer: isValAPointer}
 	}
 	v = v.Elem()
-	valType := getPrimitiveType(v.Type())
-	return &value{val: v, valType: valType}
+	valType, isValAPointer := getPrimitiveType(v.Type())
+	return &value{val: v, valType: valType, isValAPointer: isValAPointer}
 }
 
 // Type returns the type of this value: Int, Float, Uint, String, or Dist
@@ -380,19 +401,37 @@ func (v *value) AsString() string {
 	return v.evaluate().String()
 }
 
+func (v *value) AsTime() (result time.Time) {
+	if v.valType != Time {
+		panic(panicIncompatibleTypes)
+	}
+	val := v.evaluate()
+	if v.isValAPointer {
+		p := val.Interface().(*time.Time)
+		if p == nil {
+			return
+		}
+		return *p
+	}
+	return val.Interface().(time.Time)
+}
+
 // AsHtmlString returns this value as an html friendly string.
 // AsHtmlString panics if this value does not represent a single value.
 // For example, AsHtmlString panics if this value represents a distribution.
 func (v *value) AsHtmlString() string {
 	switch v.Type() {
 	case Int:
-		return strconv.FormatInt(v.evaluate().Int(), 10)
+		return strconv.FormatInt(v.AsInt(), 10)
 	case Uint:
-		return strconv.FormatUint(v.evaluate().Uint(), 10)
+		return strconv.FormatUint(v.AsUint(), 10)
 	case Float:
-		return strconv.FormatFloat(v.evaluate().Float(), 'f', -1, 64)
+		return strconv.FormatFloat(v.AsFloat(), 'f', -1, 64)
 	case String:
-		return "\"" + v.evaluate().String() + "\""
+		return "\"" + v.AsString() + "\""
+	case Time:
+		t := v.AsTime()
+		return fmt.Sprintf("%d.%09d", t.Unix(), t.Nanosecond())
 	default:
 		panic(panicIncompatibleTypes)
 	}

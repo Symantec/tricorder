@@ -57,6 +57,11 @@ or calling http.ListenAndServe. Always pass the address of a variable
 to RegisterMetric() so that tricorder can see changes in the variable's
 value.
 
+To register a time.Time, you can pass a **time.Time to RegisterMetric().
+To update the time value, change the pointer to point to a different time
+value rather than changing the existing time in place. This makes the
+update atomic.
+
 Metric types:
 
 	int, int8, int16, int32, int64
@@ -86,6 +91,18 @@ Metric types:
 			&stringValue,
 			tricorder.None,
 			"string value description")
+
+	time.Time
+		tricorder.RegisterMetric(
+			"a/path/to/time",
+			&timeValue,
+			tricorder.None,
+			"time value description")
+		tricorder.RegisterMetric(
+			"another/path/to/time",
+			&pointerToAnotherTimeValue,
+			tricorder.None,
+			"another time description")
 
 If code generates a metric's value, register the callback function like so
 

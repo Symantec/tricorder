@@ -4,6 +4,7 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 )
 
 var (
@@ -38,6 +39,8 @@ func TestAPI(t *testing.T) {
 	var temperature float64
 	var unused int64
 	var name, args string
+	var someTime time.Time
+	var someTimePtr *time.Time
 
 	rpcBucketer := NewExponentialBucketer(6, 10, 2.5)
 	rpcDistribution := NewDistribution(rpcBucketer)
@@ -49,6 +52,12 @@ func TestAPI(t *testing.T) {
 		t.Fatalf("Got error %v registering metric", err)
 	}
 	if err := RegisterMetric("/proc/start-time", &startTime, Second, "Start Time"); err != nil {
+		t.Fatalf("Got error %v registering metric", err)
+	}
+	if err := RegisterMetric("/proc/some-time", &someTime, None, "Some time"); err != nil {
+		t.Fatalf("Got error %v registering metric", err)
+	}
+	if err := RegisterMetric("/proc/some-time-ptr", &someTimePtr, None, "Some time pointer"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
 	if err := RegisterMetric("/proc/temperature", &temperature, Celsius, "Temperature"); err != nil {
@@ -111,6 +120,8 @@ func TestAPI(t *testing.T) {
 	startTime = -1234567
 	temperature = 22.5
 
+	someTime = time.Date(2015, time.November, 15, 13, 26, 53, 7265341, time.UTC)
+
 	// Add data points to the distribution
 	// < 10: 10
 	// 10 - 25: 15
@@ -125,7 +136,13 @@ func TestAPI(t *testing.T) {
 	verifyChildren(
 		t,
 		root.GetDirectory("proc").List(),
-		"foo", "rpc-count", "rpc-latency", "start-time", "temperature")
+		"foo",
+		"rpc-count",
+		"rpc-latency",
+		"some-time",
+		"some-time-ptr",
+		"start-time",
+		"temperature")
 	verifyChildren(
 		t, root.GetDirectory("proc/foo/bar").List(), "baz")
 
@@ -179,6 +196,26 @@ func TestAPI(t *testing.T) {
 	assertValueEquals(t, Int, startTimeMetric.Value.Type())
 	assertValueEquals(t, int64(-1234567), startTimeMetric.Value.AsInt())
 	assertValueEquals(t, "-1234567", startTimeMetric.Value.AsHtmlString())
+
+	// Check /proc/some-time
+	someTimeMetric := root.GetMetric("/proc/some-time")
+	verifyMetric(t, "Some time", None, someTimeMetric)
+	assertValueEquals(t, Time, someTimeMetric.Value.Type())
+	assertValueEquals(t, "1447594013.007265341", someTimeMetric.Value.AsHtmlString())
+
+	// Check /proc/some-time-ptr
+	someTimePtrMetric := root.GetMetric("/proc/some-time-ptr")
+	verifyMetric(t, "Some time pointer", None, someTimePtrMetric)
+	assertValueEquals(t, Time, someTimePtrMetric.Value.Type())
+	var zeroTime time.Time
+	assertValueEquals(t, zeroTime, someTimePtrMetric.Value.AsTime())
+
+	newTime := time.Date(2015, time.December, 25, 5, 26, 35, 0, time.UTC)
+	someTimePtr = &newTime
+	assertValueEquals(
+		t,
+		"1451021195.000000000",
+		someTimePtrMetric.Value.AsHtmlString())
 
 	// Check /proc/rpc-count
 	rpcCountMetric := root.GetMetric("/proc/rpc-count")
