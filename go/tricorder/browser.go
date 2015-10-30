@@ -19,7 +19,7 @@ const (
 	{{define "METRIC"}}
 	  {{with $top := .}}
             {{if $top.IsDistribution .Metric.Value.Type}}
-	      {{.Metric.AbsPath}} (distribution: {{.Metric.Description}}{{if $top.HasUnit .Metric.Unit}}; unit: {{.Metric.Unit}}{{end}})<br>
+	      {{.Metric.AbsPath}} <span class="parens">(distribution: {{.Metric.Description}}{{if $top.HasUnit .Metric.Unit}}; unit: {{.Metric.Unit}}{{end}})</span><br>
 	      {{with .Metric.Value.AsDistribution.Snapshot}}
 	        <table>
 	        {{range .Breakdown}}
@@ -41,7 +41,7 @@ const (
 	        {{end}}
 	      {{end}}
 	    {{else}}
-	      {{.Metric.AbsPath}} {{.Metric.Value.AsHtmlString}} ({{.Metric.Value.Type}}: {{.Metric.Description}}{{if $top.HasUnit .Metric.Unit}}; unit: {{.Metric.Unit}}{{end}})<br>
+	      {{.Metric.AbsPath}} {{.Metric.Value.AsHtmlString}} <span class="parens">({{.Metric.Value.Type}}: {{.Metric.Description}}{{if $top.HasUnit .Metric.Unit}}; unit: {{.Metric.Unit}}{{end}})</span><br>
 	    {{end}}
 	  {{end}}
 	{{end}}
@@ -69,6 +69,7 @@ const (
 
 	themeCss = `
 	.summary {color:#999999; font-style: italic;}
+	.parens {color:#999999;}
 	  `
 )
 
