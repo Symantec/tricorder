@@ -160,7 +160,7 @@ func emitDistributionAsText(s *snapshot, w io.Writer) error {
 		if piece.First {
 			_, err := fmt.Fprintf(
 				w,
-				"; to %s:%d",
+				";[-inf,%s):%d",
 				strconv.FormatFloat(piece.End, 'f', -1, 32),
 				piece.Count)
 			if err != nil {
@@ -169,7 +169,7 @@ func emitDistributionAsText(s *snapshot, w io.Writer) error {
 		} else if piece.Last {
 			_, err := fmt.Fprintf(
 				w,
-				";%s to :%d",
+				";[%s,inf):%d",
 				strconv.FormatFloat(piece.Start, 'f', -1, 32),
 				piece.Count)
 			if err != nil {
@@ -178,7 +178,7 @@ func emitDistributionAsText(s *snapshot, w io.Writer) error {
 		} else {
 			_, err := fmt.Fprintf(
 				w,
-				";%s to %s:%d",
+				";[%s,%s):%d",
 				strconv.FormatFloat(piece.Start, 'f', -1, 32),
 				strconv.FormatFloat(piece.End, 'f', -1, 32),
 				piece.Count)
