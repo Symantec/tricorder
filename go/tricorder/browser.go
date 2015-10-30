@@ -272,6 +272,7 @@ func getProgramArgs() string {
 func registerDefaultMetrics() {
 	RegisterMetric("/name", &os.Args[0], None, "Program name")
 	RegisterMetric("/args", getProgramArgs, None, "Program args")
+	RegisterMetric("/start-time", &appStartTime, None, "Program start time")
 }
 
 func initHttpFramework() {

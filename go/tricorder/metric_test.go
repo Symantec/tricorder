@@ -132,7 +132,15 @@ func TestAPI(t *testing.T) {
 		rpcDistribution.Add(float64(i))
 	}
 
-	verifyChildren(t, root.List(), "args", "name", "proc", "testargs", "testname")
+	verifyChildren(
+		t,
+		root.List(),
+		"args",
+		"name",
+		"proc",
+		"start-time",
+		"testargs",
+		"testname")
 	verifyChildren(
 		t,
 		root.GetDirectory("proc").List(),

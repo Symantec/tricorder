@@ -46,7 +46,7 @@ Default Metrics
 
 	/name - the application name
 	/args - the application argument
-	/starttime - the application start time
+	/start-time - the application start time
 
 Register Custom Metrics
 
