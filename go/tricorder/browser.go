@@ -195,7 +195,7 @@ func emitMetricAsText(m *metric, w io.Writer) error {
 	if m.Value.Type() == Dist {
 		return emitDistributionAsText(m.Value.AsDistribution().Snapshot(), w)
 	}
-	_, err := fmt.Fprintf(w, "%s\n", m.Value.AsHtmlString())
+	_, err := fmt.Fprintf(w, "%s\n", m.Value.AsTextString())
 	return err
 }
 

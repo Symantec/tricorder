@@ -209,7 +209,9 @@ func TestAPI(t *testing.T) {
 	someTimeMetric := root.GetMetric("/proc/some-time")
 	verifyMetric(t, "Some time", None, someTimeMetric)
 	assertValueEquals(t, Time, someTimeMetric.Value.Type())
-	assertValueEquals(t, "1447594013.007265341", someTimeMetric.Value.AsHtmlString())
+	assertValueEquals(t, "1447594013.007265341", someTimeMetric.Value.AsTextString())
+	someTime = time.Date(2015, time.November, 15, 13, 26, 53, 7265341, time.UTC)
+	assertValueEquals(t, "2015-11-15T13:26:53.007265341Z", someTimeMetric.Value.AsHtmlString())
 
 	// Check /proc/some-time-ptr
 	someTimePtrMetric := root.GetMetric("/proc/some-time-ptr")
@@ -218,11 +220,15 @@ func TestAPI(t *testing.T) {
 	var zeroTime time.Time
 	assertValueEquals(t, zeroTime, someTimePtrMetric.Value.AsTime())
 
-	newTime := time.Date(2015, time.December, 25, 5, 26, 35, 0, time.UTC)
+	newTime := time.Date(2015, time.September, 6, 5, 26, 35, 0, time.UTC)
 	someTimePtr = &newTime
 	assertValueEquals(
 		t,
-		"1451021195.000000000",
+		"1441517195.000000000",
+		someTimePtrMetric.Value.AsTextString())
+	assertValueEquals(
+		t,
+		"2015-09-06T05:26:35Z",
 		someTimePtrMetric.Value.AsHtmlString())
 
 	// Check /proc/rpc-count

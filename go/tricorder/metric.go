@@ -416,10 +416,10 @@ func (v *value) AsTime() (result time.Time) {
 	return val.Interface().(time.Time)
 }
 
-// AsHtmlString returns this value as an html friendly string.
-// AsHtmlString panics if this value does not represent a single value.
-// For example, AsHtmlString panics if this value represents a distribution.
-func (v *value) AsHtmlString() string {
+// AsTextString returns this value as a text friendly string.
+// AsTextString panics if this value does not represent a single value.
+// For example, AsTextString panics if this value represents a distribution.
+func (v *value) AsTextString() string {
 	switch v.Type() {
 	case Int:
 		return strconv.FormatInt(v.AsInt(), 10)
@@ -434,6 +434,19 @@ func (v *value) AsHtmlString() string {
 		return fmt.Sprintf("%d.%09d", t.Unix(), t.Nanosecond())
 	default:
 		panic(panicIncompatibleTypes)
+	}
+}
+
+// AsHtmlString returns this value as an html friendly string.
+// AsHtmlString panics if this value does not represent a single value.
+// For example, AsHtmlString panics if this value represents a distribution.
+func (v *value) AsHtmlString() string {
+	switch v.Type() {
+	case Time:
+		t := v.AsTime().UTC()
+		return t.Format("2006-01-02T15:04:05.999999999Z")
+	default:
+		return v.AsTextString()
 	}
 }
 
