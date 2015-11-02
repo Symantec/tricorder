@@ -1,7 +1,6 @@
 package tricorder
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"reflect"
@@ -21,36 +20,6 @@ const (
 var (
 	root = newDirectory()
 )
-
-func newUnit(str string) (Unit, error) {
-	switch str {
-	case "None":
-		return None, nil
-	case "Millisecond":
-		return Millisecond, nil
-	case "Second":
-		return Second, nil
-	case "Celsius":
-		return Celsius, nil
-	default:
-		return None, errors.New("Invalid unit name.")
-	}
-}
-
-func (u Unit) _string() string {
-	switch u {
-	case None:
-		return "None"
-	case Millisecond:
-		return "Millisecond"
-	case Second:
-		return "Second"
-	case Celsius:
-		return "Celsius"
-	default:
-		return "None"
-	}
-}
 
 // bucketPiece represents a single range in a distribution
 type bucketPiece struct {
@@ -262,35 +231,16 @@ func (d *distribution) Snapshot() *snapshot {
 }
 
 // valueType represents the type of a value
-type valueType int
+type valueType string
 
 const (
-	Int valueType = iota
-	Uint
-	Float
-	String
-	Dist
-	Time
+	Int    valueType = "int"
+	Uint   valueType = "uint"
+	Float  valueType = "float"
+	String valueType = "string"
+	Dist   valueType = "distribution"
+	Time   valueType = "time"
 )
-
-func (t valueType) String() string {
-	switch t {
-	case Int:
-		return "int"
-	case Uint:
-		return "uint"
-	case Float:
-		return "float"
-	case String:
-		return "string"
-	case Dist:
-		return "distribution"
-	case Time:
-		return "time"
-	default:
-		return "none"
-	}
-}
 
 // value represents the value of a metric.
 type value struct {

@@ -11,21 +11,6 @@ var (
 	kCallbackError = errors.New("callback error")
 )
 
-func TestUnit(t *testing.T) {
-	verifyUnit(t, None)
-	verifyUnit(t, Millisecond)
-	verifyUnit(t, Second)
-	verifyUnit(t, Celsius)
-	unit, err := newUnit("bad unit name")
-	if unit != None || err == nil {
-		t.Error("Expected to get error from bad unit name")
-	}
-	if out := Unit(99999).String(); out != "None" {
-		t.Error("Expected None, got %s", out)
-	}
-
-}
-
 func TestAPI(t *testing.T) {
 	// /proc/rpc-latency: Distribution millis 5 buckets, start: 10, scale 2.5
 	// /proc/rpc-count: Callback to get RPC count, uint64
@@ -551,12 +536,5 @@ func verifyChildren(
 		if expected[i] != listEntries[i].Name {
 			t.Errorf("Expected %s, but got %s, at index %d", expected[i], listEntries[i].Name, i)
 		}
-	}
-}
-
-func verifyUnit(t *testing.T, u Unit) {
-	result, err := newUnit(u.String())
-	if result != u || err != nil {
-		t.Error("Round trip for unit %d failed", u)
 	}
 }

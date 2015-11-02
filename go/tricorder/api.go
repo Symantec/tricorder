@@ -5,23 +5,19 @@ import (
 )
 
 // Unit represents an unit of measurement.
-type Unit int
+type Unit string
 
 const (
-	None Unit = iota
-	Millisecond
-	Second
-	Celsius
+	None        Unit = "None"
+	Millisecond Unit = "Millisecond"
+	Second      Unit = "Second"
+	Celsius     Unit = "Celsius"
 )
 
 var (
 	// RegisterMetric returns this if given path is already in use.
 	ErrPathInUse = errors.New("tricorder: Path in use")
 )
-
-func (u Unit) String() string {
-	return u._string()
-}
 
 // RegisterMetric registers a single metric with the health system.
 // path is the absolute path of the metric e.g "/proc/rpc"
