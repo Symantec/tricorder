@@ -17,6 +17,7 @@ import (
 
 const (
 	browseMetricsUrl = "/metrics"
+	restUrl          = "/metricsapi"
 	htmlTemplateStr  = `
 	{{define "METRIC"}}
 	  {{with $top := .}}
@@ -245,6 +246,31 @@ func browseFunc(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+/*
+type jsonListingGroup map[string]*JsonListing
+
+func (j jsonListing) Contains(path string) bool {
+	result := j[path]
+	return result != nil
+}
+
+func (j jsonListingGroup) Add(l *JsonListing) {
+	j[l.Path] = l
+}
+
+func restFunc(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	path := r.URL.Path
+	d, m := root.GetDirectoryOrMetric(path)
+	listingGroup := make(jsonListingGroup)
+	if m != nil {
+		listingGroup.Add(asJsonListing(m))
+	}
+
+	var err error
+}
+*/
+
 func newStatic() http.Handler {
 	result := http.NewServeMux()
 	addStatic(result, "/theme.css", themeCss)
@@ -285,6 +311,7 @@ func initHttpFramework() {
 
 func registerBrowserHandlers() {
 	http.Handle(browseMetricsUrl+"/", http.StripPrefix(browseMetricsUrl, http.HandlerFunc(browseFunc)))
+	//	http.Handle(restUrl+"/", http.StripPrefix(restUrl, http.HandlerFunc(restFunc)))
 	http.Handle("/metricsstatic/", http.StripPrefix("/metricsstatic", newStatic()))
 }
 
