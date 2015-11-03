@@ -123,25 +123,15 @@ func emitDirectoryAsHtml(d *directory, w io.Writer) error {
 	return nil
 }
 
-func emitDirectoryAsText(d *directory, w io.Writer) error {
-	for _, entry := range d.List() {
-		if entry.Directory != nil {
-			err := emitDirectoryAsText(entry.Directory, w)
-			if err != nil {
-				return err
-			}
-		} else {
-			_, err := fmt.Fprintf(w, "%s ", entry.Metric.AbsPath())
-			if err != nil {
-				return err
-			}
-			err = emitMetricAsText(entry.Metric, w)
-			if err != nil {
-				return err
-			}
-		}
+type textCollector struct {
+	W io.Writer
+}
+
+func (c textCollector) Collect(m *metric) (err error) {
+	if _, err = fmt.Fprintf(c.W, "%s ", m.AbsPath()); err != nil {
+		return
 	}
-	return nil
+	return emitMetricAsText(m, c.W)
 }
 
 func emitDistributionAsText(s *snapshot, w io.Writer) error {
@@ -209,7 +199,7 @@ func doTextFormatting(
 		return nil
 	}
 	if m == nil {
-		return emitDirectoryAsText(d, w)
+		return d.GetAllMetrics(textCollector{W: w})
 	}
 	return emitMetricAsText(m, w)
 }

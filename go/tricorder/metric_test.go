@@ -171,6 +171,9 @@ func TestAPI(t *testing.T) {
 		"/proc/some-time-ptr",
 		"/proc/start-time",
 		"/proc/temperature")
+	if err := root.GetAllMetricsByPath("/proc/foo", collectErrorType{E: kCallbackError}); err != kCallbackError {
+		t.Errorf("Expected kCallbackError, got %v", err)
+	}
 	verifyChildren(
 		t, root.GetDirectory("proc/foo/bar").List(), "abool", "anotherBool", "baz")
 
@@ -594,14 +597,25 @@ func verifyChildren(
 
 type metricNamesListType []string
 
-func (l *metricNamesListType) Collect(m *metric) {
+func (l *metricNamesListType) Collect(m *metric) error {
 	*l = append(*l, m.AbsPath())
+	return nil
+}
+
+type collectErrorType struct {
+	E error
+}
+
+func (c collectErrorType) Collect(m *metric) error {
+	return c.E
 }
 
 func verifyGetAllMetrics(
 	t *testing.T, path string, d *directory, expectedPaths ...string) {
 	var actual metricNamesListType
-	d.GetAllMetrics(path, &actual)
+	if err := d.GetAllMetricsByPath(path, &actual); err != nil {
+		t.Errorf("Expected GetAllMetricsByPath to return nil, got %v", err)
+	}
 	if !reflect.DeepEqual(expectedPaths, ([]string)(actual)) {
 		t.Errorf("Expected %v, got %v", expectedPaths, actual)
 	}

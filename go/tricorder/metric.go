@@ -465,7 +465,8 @@ func (n *listEntry) absPath() string {
 
 // metricsCollector represents any data structure used to collect metrics.
 type metricsCollector interface {
-	Collect(m *metric)
+	// Collect collects a single metric.
+	Collect(m *metric) error
 }
 
 // directory represents a directory same as DirectorySpec
@@ -507,19 +508,22 @@ func (d *directory) GetMetric(relativePath string) *metric {
 	return m
 }
 
-// GetAllMetrics does a depth first traversal from relativePath to
+// GetAllMetricsByPath does a depth first traversal from relativePath to
 // find all the metrics and store them within collector. If relativePath
-// denotes a single metric, then GetAllMetrics stores that single metric
+// denotes a single metric, then GetAllMetricsByPath stores that single metric
 // within collector. If relativePath does not exist in this directory, then
-// GetAllMetrics stores nothing in collector.
-func (d *directory) GetAllMetrics(
-	relativePath string, collector metricsCollector) {
+// GetAllMetricsByPath stores nothing in collector.
+// If the Collect() method of collector returns a non nil error,
+// GetAllMetricsByPath stops traversal and returns that same error.
+func (d *directory) GetAllMetricsByPath(
+	relativePath string, collector metricsCollector) error {
 	dir, m := d.GetDirectoryOrMetric(relativePath)
 	if m != nil {
-		collector.Collect(m)
+		return collector.Collect(m)
 	} else if dir != nil {
-		dir.getAllMetrics(collector)
+		return dir.GetAllMetrics(collector)
 	}
+	return nil
 }
 
 // GetDirectoryOrMetric returns either the directory or metric
@@ -531,14 +535,22 @@ func (d *directory) GetDirectoryOrMetric(relativePath string) (
 	return d.getDirectoryOrMetric(newPathSpec(relativePath))
 }
 
-func (d *directory) getAllMetrics(collector metricsCollector) {
+// GetAllMetricsByPath does a depth first traversal of this directory to
+// find all the metrics and store them within collector.
+// If the Collect() method of collector returns a non nil error,
+// GetAllMetrics stops traversal and returns that same error.
+func (d *directory) GetAllMetrics(collector metricsCollector) (err error) {
 	for _, entry := range d.List() {
 		if entry.Directory != nil {
-			entry.Directory.getAllMetrics(collector)
+			err = entry.Directory.GetAllMetrics(collector)
 		} else {
-			collector.Collect(entry.Metric)
+			err = collector.Collect(entry.Metric)
+		}
+		if err != nil {
+			return
 		}
 	}
+	return
 }
 
 func (d *directory) getDirectory(path pathSpec) (result *directory) {
