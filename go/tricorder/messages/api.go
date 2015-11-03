@@ -29,10 +29,10 @@ type Value struct {
 }
 
 type PathResponse struct {
-	Path        string  `json:"path"`
-	Description *string `json:"description,omitempty"`
-	Unit        *string `json:"unit,omitempty"`
-	Value       *Value  `json:"value,omitempty"`
+	Path        string `json:"path"`
+	Description string `json:"description"`
+	Unit        string `json:"unit"`
+	Value       *Value `json:"value"`
 }
 
 type JsonPathResponse struct {
@@ -46,4 +46,8 @@ type ListRequest struct {
 
 type ListResponse struct {
 	Items []*PathResponse
+}
+
+type JsonListResponse struct {
+	Items []*JsonPathResponse
 }
