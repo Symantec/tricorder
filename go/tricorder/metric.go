@@ -246,6 +246,8 @@ var (
 	timeType    = timePtrType.Elem()
 )
 
+// Given a type t from the reflect package, return the corresponding
+// types.Type and true if t is a pointer to that type or false otherwise.
 func getPrimitiveType(t reflect.Type) (types.Type, bool) {
 	switch t {
 	case timePtrType:
@@ -254,6 +256,8 @@ func getPrimitiveType(t reflect.Type) (types.Type, bool) {
 		return types.Time, false
 	default:
 		switch t.Kind() {
+		case reflect.Bool:
+			return types.Bool, false
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			return types.Int, false
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
@@ -313,6 +317,13 @@ func (v *value) evaluate() reflect.Value {
 
 // AsXXX methods return this value as a type XX.
 // AsXXX methods panic if this value is not of type XX.
+func (v *value) AsBool() bool {
+	if v.valType != types.Bool {
+		panic(panicIncompatibleTypes)
+	}
+	return v.evaluate().Bool()
+}
+
 func (v *value) AsInt() int64 {
 	if v.valType != types.Int {
 		panic(panicIncompatibleTypes)
@@ -361,6 +372,11 @@ func (v *value) AsTime() (result time.Time) {
 // For example, AsTextString panics if this value represents a distribution.
 func (v *value) AsTextString() string {
 	switch v.Type() {
+	case types.Bool:
+		if v.AsBool() {
+			return "true"
+		}
+		return "false"
 	case types.Int:
 		return strconv.FormatInt(v.AsInt(), 10)
 	case types.Uint:

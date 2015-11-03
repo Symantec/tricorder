@@ -19,6 +19,7 @@ func registerMetrics() {
 
 	var startTime int64
 	var temperature float64
+	var someBool bool
 
 	rpcDistribution := tricorder.NewDistribution(tricorder.PowersOfTen)
 
@@ -46,9 +47,14 @@ func registerMetrics() {
 	if err != nil {
 		log.Fatalf("Got error %v registering metric", err)
 	}
+	err = barDir.RegisterMetric("abool", &someBool, units.None, "A boolean value")
+	if err != nil {
+		log.Fatalf("Got error %v registering metric", err)
+	}
 
 	startTime = -1234567
 	temperature = 22.5
+	someBool = true
 
 	// Add data points to the distribution
 	// < 10: 10

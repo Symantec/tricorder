@@ -28,6 +28,7 @@ func TestAPI(t *testing.T) {
 	var name, args string
 	var someTime time.Time
 	var someTimePtr *time.Time
+	var someBool bool
 
 	rpcBucketer := NewExponentialBucketer(6, 10, 2.5)
 	rpcDistribution := NewDistribution(rpcBucketer)
@@ -69,6 +70,15 @@ func TestAPI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
+	err = barDir.RegisterMetric("abool", &someBool, units.None, "A boolean value")
+	if err != nil {
+		t.Fatalf("Got error %v registering metric", err)
+	}
+
+	err = barDir.RegisterMetric("anotherBool", boolCallback, units.None, "A boolean callback value")
+	if err != nil {
+		t.Fatalf("Got error %v registering metric", err)
+	}
 
 	// This is already a directory
 	if err := RegisterMetric("/proc/foo/bar", &unused, units.None, "Bad registration"); err != ErrPathInUse {
@@ -106,6 +116,7 @@ func TestAPI(t *testing.T) {
 	args = "--help"
 	startTime = -1234567
 	temperature = 22.5
+	someBool = true
 
 	someTime = time.Date(2015, time.November, 15, 13, 26, 53, 7265341, time.UTC)
 
@@ -139,7 +150,7 @@ func TestAPI(t *testing.T) {
 		"start-time",
 		"temperature")
 	verifyChildren(
-		t, root.GetDirectory("proc/foo/bar").List(), "baz")
+		t, root.GetDirectory("proc/foo/bar").List(), "abool", "anotherBool", "baz")
 
 	// try path's that don't exist
 	if root.GetDirectory("/testargs/foo") != nil {
@@ -231,6 +242,20 @@ func TestAPI(t *testing.T) {
 	assertValueEquals(t, types.Float, bazMetric.Value.Type())
 	assertValueEquals(t, 12.375, bazMetric.Value.AsFloat())
 	assertValueEquals(t, "12.375", bazMetric.Value.AsHtmlString())
+
+	// check /proc/foo/bar/abool
+	aboolMetric := root.GetMetric("proc/foo/bar/abool")
+	verifyMetric(t, "A boolean value", units.None, aboolMetric)
+	assertValueEquals(t, types.Bool, aboolMetric.Value.Type())
+	assertValueEquals(t, true, aboolMetric.Value.AsBool())
+	assertValueEquals(t, "true", aboolMetric.Value.AsHtmlString())
+
+	// check /proc/foo/bar/anotherBool
+	anotherBoolMetric := root.GetMetric("proc/foo/bar/anotherBool")
+	verifyMetric(t, "A boolean callback value", units.None, anotherBoolMetric)
+	assertValueEquals(t, types.Bool, anotherBoolMetric.Value.Type())
+	assertValueEquals(t, false, anotherBoolMetric.Value.AsBool())
+	assertValueEquals(t, "false", anotherBoolMetric.Value.AsHtmlString())
 
 	// test PathFrom
 	assertValueEquals(
@@ -509,6 +534,10 @@ func rpcCountCallback() uint {
 
 func bazCallback() float32 {
 	return 12.375
+}
+
+func boolCallback() bool {
+	return false
 }
 
 func verifyMetric(

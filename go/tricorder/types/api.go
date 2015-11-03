@@ -4,6 +4,7 @@ package types
 type Type string
 
 const (
+	Bool   Type = "bool"
 	Int    Type = "int"
 	Uint   Type = "uint"
 	Float  Type = "float"
