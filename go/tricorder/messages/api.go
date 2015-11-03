@@ -40,10 +40,6 @@ type JsonPathResponse struct {
 	Url string `json:"url"`
 }
 
-type ListRequest struct {
-	AbsPath string
-}
-
 type ListResponse struct {
 	Items []*PathResponse
 }

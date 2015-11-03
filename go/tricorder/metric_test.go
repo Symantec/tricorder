@@ -149,6 +149,28 @@ func TestAPI(t *testing.T) {
 		"some-time-ptr",
 		"start-time",
 		"temperature")
+	verifyGetAllMetrics(
+		t,
+		"foo/bar/baz",
+		root.GetDirectory("proc"),
+		"/proc/foo/bar/baz")
+	verifyGetAllMetrics(
+		t,
+		"ddd",
+		root.GetDirectory("proc"))
+	verifyGetAllMetrics(
+		t,
+		"proc",
+		root,
+		"/proc/foo/bar/abool",
+		"/proc/foo/bar/anotherBool",
+		"/proc/foo/bar/baz",
+		"/proc/rpc-count",
+		"/proc/rpc-latency",
+		"/proc/some-time",
+		"/proc/some-time-ptr",
+		"/proc/start-time",
+		"/proc/temperature")
 	verifyChildren(
 		t, root.GetDirectory("proc/foo/bar").List(), "abool", "anotherBool", "baz")
 
@@ -567,5 +589,20 @@ func verifyChildren(
 		if expected[i] != listEntries[i].Name {
 			t.Errorf("Expected %s, but got %s, at index %d", expected[i], listEntries[i].Name, i)
 		}
+	}
+}
+
+type metricNamesListType []string
+
+func (l *metricNamesListType) Collect(m *metric) {
+	*l = append(*l, m.AbsPath())
+}
+
+func verifyGetAllMetrics(
+	t *testing.T, path string, d *directory, expectedPaths ...string) {
+	var actual metricNamesListType
+	d.GetAllMetrics(path, &actual)
+	if !reflect.DeepEqual(expectedPaths, ([]string)(actual)) {
+		t.Errorf("Expected %v, got %v", expectedPaths, actual)
 	}
 }

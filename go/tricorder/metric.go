@@ -463,6 +463,11 @@ func (n *listEntry) absPath() string {
 	return "/" + n.pathFrom(root).String()
 }
 
+// metricsCollector represents any data structure used to collect metrics.
+type metricsCollector interface {
+	Collect(m *metric)
+}
+
 // directory represents a directory same as DirectorySpec
 type directory struct {
 	contents           map[string]*listEntry
@@ -502,6 +507,21 @@ func (d *directory) GetMetric(relativePath string) *metric {
 	return m
 }
 
+// GetAllMetrics does a depth first traversal from relativePath to
+// find all the metrics and store them within collector. If relativePath
+// denotes a single metric, then GetAllMetrics stores that single metric
+// within collector. If relativePath does not exist in this directory, then
+// GetAllMetrics stores nothing in collector.
+func (d *directory) GetAllMetrics(
+	relativePath string, collector metricsCollector) {
+	dir, m := d.GetDirectoryOrMetric(relativePath)
+	if m != nil {
+		collector.Collect(m)
+	} else if dir != nil {
+		dir.getAllMetrics(collector)
+	}
+}
+
 // GetDirectoryOrMetric returns either the directory or metric
 // at the given path while traversing the directory tree just one time.
 // If path not found: returns nil, nil; if path is a directory:
@@ -509,6 +529,16 @@ func (d *directory) GetMetric(relativePath string) *metric {
 func (d *directory) GetDirectoryOrMetric(relativePath string) (
 	*directory, *metric) {
 	return d.getDirectoryOrMetric(newPathSpec(relativePath))
+}
+
+func (d *directory) getAllMetrics(collector metricsCollector) {
+	for _, entry := range d.List() {
+		if entry.Directory != nil {
+			entry.Directory.getAllMetrics(collector)
+		} else {
+			collector.Collect(entry.Metric)
+		}
+	}
 }
 
 func (d *directory) getDirectory(path pathSpec) (result *directory) {
