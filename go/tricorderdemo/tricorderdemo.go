@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
+	"github.com/Symantec/tricorder/go/tricorder"
+	"github.com/Symantec/tricorder/go/tricorder/units"
 	"github.com/gorilla/context"
-	"github.com/keep94/tricorder/go/tricorder"
 	"github.com/keep94/weblogs"
 	"log"
 	"net/http"
@@ -21,16 +22,16 @@ func registerMetrics() {
 
 	rpcDistribution := tricorder.NewDistribution(tricorder.PowersOfTen)
 
-	if err := tricorder.RegisterMetric("/proc/rpc-latency", rpcDistribution, tricorder.Millisecond, "RPC latency"); err != nil {
+	if err := tricorder.RegisterMetric("/proc/rpc-latency", rpcDistribution, units.Millisecond, "RPC latency"); err != nil {
 		log.Fatalf("Got error %v registering metric", err)
 	}
-	if err := tricorder.RegisterMetric("/proc/rpc-count", rpcCountCallback, tricorder.None, "RPC count"); err != nil {
+	if err := tricorder.RegisterMetric("/proc/rpc-count", rpcCountCallback, units.None, "RPC count"); err != nil {
 		log.Fatalf("Got error %v registering metric", err)
 	}
-	if err := tricorder.RegisterMetric("/proc/start-time", &startTime, tricorder.Second, "Start Time"); err != nil {
+	if err := tricorder.RegisterMetric("/proc/start-time", &startTime, units.Second, "Start Time"); err != nil {
 		log.Fatalf("Got error %v registering metric", err)
 	}
-	if err := tricorder.RegisterMetric("/proc/temperature", &temperature, tricorder.Celsius, "Temperature"); err != nil {
+	if err := tricorder.RegisterMetric("/proc/temperature", &temperature, units.Celsius, "Temperature"); err != nil {
 		log.Fatalf("Got error %v registering metric", err)
 	}
 	fooDir, err := tricorder.RegisterDirectory("proc/foo")
@@ -41,7 +42,7 @@ func registerMetrics() {
 	if err != nil {
 		log.Fatalf("Got error %v registering directory", err)
 	}
-	err = barDir.RegisterMetric("baz", bazCallback, tricorder.None, "Another float value")
+	err = barDir.RegisterMetric("baz", bazCallback, units.None, "Another float value")
 	if err != nil {
 		log.Fatalf("Got error %v registering metric", err)
 	}

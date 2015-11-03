@@ -2,6 +2,8 @@ package tricorder
 
 import (
 	"errors"
+	"github.com/Symantec/tricorder/go/tricorder/types"
+	"github.com/Symantec/tricorder/go/tricorder/units"
 	"reflect"
 	"testing"
 	"time"
@@ -30,29 +32,29 @@ func TestAPI(t *testing.T) {
 	rpcBucketer := NewExponentialBucketer(6, 10, 2.5)
 	rpcDistribution := NewDistribution(rpcBucketer)
 
-	if err := RegisterMetric("/proc/rpc-latency", rpcDistribution, Millisecond, "RPC latency"); err != nil {
+	if err := RegisterMetric("/proc/rpc-latency", rpcDistribution, units.Millisecond, "RPC latency"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
-	if err := RegisterMetric("/proc/rpc-count", rpcCountCallback, None, "RPC count"); err != nil {
+	if err := RegisterMetric("/proc/rpc-count", rpcCountCallback, units.None, "RPC count"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
-	if err := RegisterMetric("/proc/start-time", &startTime, Second, "Start Time"); err != nil {
+	if err := RegisterMetric("/proc/start-time", &startTime, units.Second, "Start Time"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
-	if err := RegisterMetric("/proc/some-time", &someTime, None, "Some time"); err != nil {
+	if err := RegisterMetric("/proc/some-time", &someTime, units.None, "Some time"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
-	if err := RegisterMetric("/proc/some-time-ptr", &someTimePtr, None, "Some time pointer"); err != nil {
+	if err := RegisterMetric("/proc/some-time-ptr", &someTimePtr, units.None, "Some time pointer"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
-	if err := RegisterMetric("/proc/temperature", &temperature, Celsius, "Temperature"); err != nil {
+	if err := RegisterMetric("/proc/temperature", &temperature, units.Celsius, "Temperature"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
-	if err := RegisterMetric("/testname", &name, None, "Name of app"); err != nil {
+	if err := RegisterMetric("/testname", &name, units.None, "Name of app"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
 
-	if err := RegisterMetric("/testargs", &args, None, "Args passed to app"); err != nil {
+	if err := RegisterMetric("/testargs", &args, units.None, "Args passed to app"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
 	fooDir, err := RegisterDirectory("proc/foo")
@@ -63,18 +65,18 @@ func TestAPI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Got error %v registering directory", err)
 	}
-	err = barDir.RegisterMetric("baz", bazCallback, None, "An error")
+	err = barDir.RegisterMetric("baz", bazCallback, units.None, "An error")
 	if err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
 
 	// This is already a directory
-	if err := RegisterMetric("/proc/foo/bar", &unused, None, "Bad registration"); err != ErrPathInUse {
+	if err := RegisterMetric("/proc/foo/bar", &unused, units.None, "Bad registration"); err != ErrPathInUse {
 		t.Errorf("Expected ErrPathInUse, got %v", err)
 	}
 
 	// This path is already registered as a metric
-	if err := RegisterMetric("proc/foo/bar/baz", &unused, None, "Bad registration"); err != ErrPathInUse {
+	if err := RegisterMetric("proc/foo/bar/baz", &unused, units.None, "Bad registration"); err != ErrPathInUse {
 		t.Errorf("Expected ErrPathInUse, got %v", err)
 	}
 
@@ -84,12 +86,12 @@ func TestAPI(t *testing.T) {
 	}
 
 	// Can't call RegisterMetric on an empty path
-	if err := RegisterMetric("/", &unused, None, "Empty path"); err != ErrPathInUse {
+	if err := RegisterMetric("/", &unused, units.None, "Empty path"); err != ErrPathInUse {
 		t.Errorf("Expected ErrPathInUse, got %v", err)
 	}
 
 	// Can't call RegisterMetric where parent dir already a metric
-	if err := RegisterMetric("/args/illegal", &unused, None, "parent dir already a metric"); err != ErrPathInUse {
+	if err := RegisterMetric("/args/illegal", &unused, units.None, "parent dir already a metric"); err != ErrPathInUse {
 		t.Errorf("Expected ErrPathInUse, got %v", err)
 	}
 
@@ -164,44 +166,44 @@ func TestAPI(t *testing.T) {
 
 	// Check /testargs
 	argsMetric := root.GetMetric("/testargs")
-	verifyMetric(t, "Args passed to app", None, argsMetric)
-	assertValueEquals(t, String, argsMetric.Value.Type())
+	verifyMetric(t, "Args passed to app", units.None, argsMetric)
+	assertValueEquals(t, types.String, argsMetric.Value.Type())
 	assertValueEquals(t, "--help", argsMetric.Value.AsString())
 	assertValueEquals(t, "\"--help\"", argsMetric.Value.AsHtmlString())
 
 	// Check /testname
 	nameMetric := root.GetMetric("/testname")
-	verifyMetric(t, "Name of app", None, nameMetric)
-	assertValueEquals(t, String, nameMetric.Value.Type())
+	verifyMetric(t, "Name of app", units.None, nameMetric)
+	assertValueEquals(t, types.String, nameMetric.Value.Type())
 	assertValueEquals(t, "My application", nameMetric.Value.AsString())
 	assertValueEquals(t, "\"My application\"", nameMetric.Value.AsHtmlString())
 
 	// Check /proc/temperature
 	temperatureMetric := root.GetMetric("/proc/temperature")
-	verifyMetric(t, "Temperature", Celsius, temperatureMetric)
-	assertValueEquals(t, Float, temperatureMetric.Value.Type())
+	verifyMetric(t, "Temperature", units.Celsius, temperatureMetric)
+	assertValueEquals(t, types.Float, temperatureMetric.Value.Type())
 	assertValueEquals(t, 22.5, temperatureMetric.Value.AsFloat())
 	assertValueEquals(t, "22.5", temperatureMetric.Value.AsHtmlString())
 
 	// Check /proc/start-time
 	startTimeMetric := root.GetMetric("/proc/start-time")
-	verifyMetric(t, "Start Time", Second, startTimeMetric)
-	assertValueEquals(t, Int, startTimeMetric.Value.Type())
+	verifyMetric(t, "Start Time", units.Second, startTimeMetric)
+	assertValueEquals(t, types.Int, startTimeMetric.Value.Type())
 	assertValueEquals(t, int64(-1234567), startTimeMetric.Value.AsInt())
 	assertValueEquals(t, "-1234567", startTimeMetric.Value.AsHtmlString())
 
 	// Check /proc/some-time
 	someTimeMetric := root.GetMetric("/proc/some-time")
-	verifyMetric(t, "Some time", None, someTimeMetric)
-	assertValueEquals(t, Time, someTimeMetric.Value.Type())
+	verifyMetric(t, "Some time", units.None, someTimeMetric)
+	assertValueEquals(t, types.Time, someTimeMetric.Value.Type())
 	assertValueEquals(t, "1447594013.007265341", someTimeMetric.Value.AsTextString())
 	someTime = time.Date(2015, time.November, 15, 13, 26, 53, 7265341, time.UTC)
 	assertValueEquals(t, "2015-11-15T13:26:53.007265341Z", someTimeMetric.Value.AsHtmlString())
 
 	// Check /proc/some-time-ptr
 	someTimePtrMetric := root.GetMetric("/proc/some-time-ptr")
-	verifyMetric(t, "Some time pointer", None, someTimePtrMetric)
-	assertValueEquals(t, Time, someTimePtrMetric.Value.Type())
+	verifyMetric(t, "Some time pointer", units.None, someTimePtrMetric)
+	assertValueEquals(t, types.Time, someTimePtrMetric.Value.Type())
 	var zeroTime time.Time
 	assertValueEquals(t, zeroTime, someTimePtrMetric.Value.AsTime())
 
@@ -218,15 +220,15 @@ func TestAPI(t *testing.T) {
 
 	// Check /proc/rpc-count
 	rpcCountMetric := root.GetMetric("/proc/rpc-count")
-	verifyMetric(t, "RPC count", None, rpcCountMetric)
-	assertValueEquals(t, Uint, rpcCountMetric.Value.Type())
+	verifyMetric(t, "RPC count", units.None, rpcCountMetric)
+	assertValueEquals(t, types.Uint, rpcCountMetric.Value.Type())
 	assertValueEquals(t, uint64(500), rpcCountMetric.Value.AsUint())
 	assertValueEquals(t, "500", rpcCountMetric.Value.AsHtmlString())
 
 	// check /proc/foo/bar/baz
 	bazMetric := root.GetMetric("proc/foo/bar/baz")
-	verifyMetric(t, "An error", None, bazMetric)
-	assertValueEquals(t, Float, bazMetric.Value.Type())
+	verifyMetric(t, "An error", units.None, bazMetric)
+	assertValueEquals(t, types.Float, bazMetric.Value.Type())
 	assertValueEquals(t, 12.375, bazMetric.Value.AsFloat())
 	assertValueEquals(t, "12.375", bazMetric.Value.AsHtmlString())
 
@@ -239,8 +241,8 @@ func TestAPI(t *testing.T) {
 
 	// Check /proc/rpc-latency
 	rpcLatency := root.GetMetric("/proc/rpc-latency")
-	verifyMetric(t, "RPC latency", Millisecond, rpcLatency)
-	assertValueEquals(t, Dist, rpcLatency.Value.Type())
+	verifyMetric(t, "RPC latency", units.Millisecond, rpcLatency)
+	assertValueEquals(t, types.Dist, rpcLatency.Value.Type())
 
 	actual := rpcLatency.Value.AsDistribution().Snapshot()
 
@@ -510,7 +512,7 @@ func bazCallback() float32 {
 }
 
 func verifyMetric(
-	t *testing.T, desc string, unit Unit, m *metric) {
+	t *testing.T, desc string, unit units.Unit, m *metric) {
 	if desc != m.Description {
 		t.Errorf("Expected %s, got %s", desc, m.Description)
 	}

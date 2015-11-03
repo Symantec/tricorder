@@ -2,6 +2,8 @@ package tricorder
 
 import (
 	"fmt"
+	"github.com/Symantec/tricorder/go/tricorder/types"
+	"github.com/Symantec/tricorder/go/tricorder/units"
 	"math"
 	"reflect"
 	"sort"
@@ -230,23 +232,11 @@ func (d *distribution) Snapshot() *snapshot {
 
 }
 
-// valueType represents the type of a value
-type valueType string
-
-const (
-	Int    valueType = "int"
-	Uint   valueType = "uint"
-	Float  valueType = "float"
-	String valueType = "string"
-	Dist   valueType = "distribution"
-	Time   valueType = "time"
-)
-
 // value represents the value of a metric.
 type value struct {
 	val           reflect.Value
 	dist          *distribution
-	valType       valueType
+	valType       types.Type
 	isValAPointer bool
 	isfunc        bool
 }
@@ -256,22 +246,22 @@ var (
 	timeType    = timePtrType.Elem()
 )
 
-func getPrimitiveType(t reflect.Type) (valueType, bool) {
+func getPrimitiveType(t reflect.Type) (types.Type, bool) {
 	switch t {
 	case timePtrType:
-		return Time, true
+		return types.Time, true
 	case timeType:
-		return Time, false
+		return types.Time, false
 	default:
 		switch t.Kind() {
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			return Int, false
+			return types.Int, false
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			return Uint, false
+			return types.Uint, false
 		case reflect.Float32, reflect.Float64:
-			return Float, false
+			return types.Float, false
 		case reflect.String:
-			return String, false
+			return types.String, false
 		default:
 			panic(panicInvalidMetric)
 		}
@@ -281,11 +271,11 @@ func getPrimitiveType(t reflect.Type) (valueType, bool) {
 func newValue(spec interface{}) *value {
 	capDist, ok := spec.(*Distribution)
 	if ok {
-		return &value{dist: (*distribution)(capDist), valType: Dist}
+		return &value{dist: (*distribution)(capDist), valType: types.Dist}
 	}
 	dist, ok := spec.(*distribution)
 	if ok {
-		return &value{dist: dist, valType: Dist}
+		return &value{dist: dist, valType: types.Dist}
 	}
 	v := reflect.ValueOf(spec)
 	t := v.Type()
@@ -309,7 +299,7 @@ func newValue(spec interface{}) *value {
 }
 
 // Type returns the type of this value: Int, Float, Uint, String, or Dist
-func (v *value) Type() valueType {
+func (v *value) Type() types.Type {
 	return v.valType
 }
 
@@ -324,35 +314,35 @@ func (v *value) evaluate() reflect.Value {
 // AsXXX methods return this value as a type XX.
 // AsXXX methods panic if this value is not of type XX.
 func (v *value) AsInt() int64 {
-	if v.valType != Int {
+	if v.valType != types.Int {
 		panic(panicIncompatibleTypes)
 	}
 	return v.evaluate().Int()
 }
 
 func (v *value) AsUint() uint64 {
-	if v.valType != Uint {
+	if v.valType != types.Uint {
 		panic(panicIncompatibleTypes)
 	}
 	return v.evaluate().Uint()
 }
 
 func (v *value) AsFloat() float64 {
-	if v.valType != Float {
+	if v.valType != types.Float {
 		panic(panicIncompatibleTypes)
 	}
 	return v.evaluate().Float()
 }
 
 func (v *value) AsString() string {
-	if v.valType != String {
+	if v.valType != types.String {
 		panic(panicIncompatibleTypes)
 	}
 	return v.evaluate().String()
 }
 
 func (v *value) AsTime() (result time.Time) {
-	if v.valType != Time {
+	if v.valType != types.Time {
 		panic(panicIncompatibleTypes)
 	}
 	val := v.evaluate()
@@ -371,15 +361,15 @@ func (v *value) AsTime() (result time.Time) {
 // For example, AsTextString panics if this value represents a distribution.
 func (v *value) AsTextString() string {
 	switch v.Type() {
-	case Int:
+	case types.Int:
 		return strconv.FormatInt(v.AsInt(), 10)
-	case Uint:
+	case types.Uint:
 		return strconv.FormatUint(v.AsUint(), 10)
-	case Float:
+	case types.Float:
 		return strconv.FormatFloat(v.AsFloat(), 'f', -1, 64)
-	case String:
+	case types.String:
 		return "\"" + v.AsString() + "\""
-	case Time:
+	case types.Time:
 		t := v.AsTime()
 		return fmt.Sprintf("%d.%09d", t.Unix(), t.Nanosecond())
 	default:
@@ -392,7 +382,7 @@ func (v *value) AsTextString() string {
 // For example, AsHtmlString panics if this value represents a distribution.
 func (v *value) AsHtmlString() string {
 	switch v.Type() {
-	case Time:
+	case types.Time:
 		t := v.AsTime().UTC()
 		return t.Format("2006-01-02T15:04:05.999999999Z")
 	default:
@@ -403,7 +393,7 @@ func (v *value) AsHtmlString() string {
 // AsDistribution returns this value as a Distribution.
 // AsDistribution panics if this value does not represent a distribution
 func (v *value) AsDistribution() *distribution {
-	if v.valType != Dist {
+	if v.valType != types.Dist {
 		panic(panicIncompatibleTypes)
 	}
 	return v.dist
@@ -414,7 +404,7 @@ type metric struct {
 	// The description of the metric
 	Description string
 	// The unit of measurement
-	Unit Unit
+	Unit units.Unit
 	// The value of the metric
 	Value              *value
 	enclosingListEntry *listEntry
@@ -582,7 +572,7 @@ func (d *directory) registerDirectory(path pathSpec) (
 func (d *directory) registerMetric(
 	path pathSpec,
 	value interface{},
-	unit Unit,
+	unit units.Unit,
 	description string) (err error) {
 	if path.Empty() {
 		return ErrPathInUse

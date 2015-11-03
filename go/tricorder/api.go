@@ -2,16 +2,7 @@ package tricorder
 
 import (
 	"errors"
-)
-
-// Unit represents an unit of measurement.
-type Unit string
-
-const (
-	None        Unit = "None"
-	Millisecond Unit = "Millisecond"
-	Second      Unit = "Second"
-	Celsius     Unit = "Celsius"
+	"github.com/Symantec/tricorder/go/tricorder/units"
 )
 
 var (
@@ -30,7 +21,7 @@ var (
 func RegisterMetric(
 	path string,
 	metric interface{},
-	unit Unit,
+	unit units.Unit,
 	description string) error {
 	return root.registerMetric(newPathSpec(path), metric, unit, description)
 }
@@ -111,7 +102,7 @@ func RegisterDirectory(path string) (dirSpec *DirectorySpec, err error) {
 func (d *DirectorySpec) RegisterMetric(
 	path string,
 	metric interface{},
-	unit Unit,
+	unit units.Unit,
 	description string) error {
 	return (*directory)(d).registerMetric(newPathSpec(path), metric, unit, description)
 }

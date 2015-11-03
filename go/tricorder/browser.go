@@ -3,6 +3,8 @@ package tricorder
 import (
 	"bytes"
 	"fmt"
+	"github.com/Symantec/tricorder/go/tricorder/types"
+	"github.com/Symantec/tricorder/go/tricorder/units"
 	"html/template"
 	"io"
 	"log"
@@ -92,12 +94,12 @@ func (v *view) Link(d *directory) string {
 	return browseMetricsUrl + d.AbsPath()
 }
 
-func (v *view) IsDistribution(t valueType) bool {
-	return t == Dist
+func (v *view) IsDistribution(t types.Type) bool {
+	return t == types.Dist
 }
 
-func (v *view) HasUnit(u Unit) bool {
-	return u != None
+func (v *view) HasUnit(u units.Unit) bool {
+	return u != units.None
 }
 
 func (v *view) ToFloat32(f float64) float32 {
@@ -192,7 +194,7 @@ func emitDistributionAsText(s *snapshot, w io.Writer) error {
 }
 
 func emitMetricAsText(m *metric, w io.Writer) error {
-	if m.Value.Type() == Dist {
+	if m.Value.Type() == types.Dist {
 		return emitDistributionAsText(m.Value.AsDistribution().Snapshot(), w)
 	}
 	_, err := fmt.Fprintf(w, "%s\n", m.Value.AsTextString())
@@ -271,9 +273,9 @@ func getProgramArgs() string {
 }
 
 func registerDefaultMetrics() {
-	RegisterMetric("/name", &os.Args[0], None, "Program name")
-	RegisterMetric("/args", getProgramArgs, None, "Program args")
-	RegisterMetric("/start-time", &appStartTime, None, "Program start time")
+	RegisterMetric("/name", &os.Args[0], units.None, "Program name")
+	RegisterMetric("/args", getProgramArgs, units.None, "Program args")
+	RegisterMetric("/start-time", &appStartTime, units.None, "Program start time")
 }
 
 func initHttpFramework() {
