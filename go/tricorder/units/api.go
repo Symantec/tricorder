@@ -5,7 +5,7 @@ type Unit string
 
 const (
 	None        Unit = "None"
-	Millisecond Unit = "Millisecond"
-	Second      Unit = "Second"
+	Millisecond Unit = "Milliseconds"
+	Second      Unit = "Seconds"
 	Celsius     Unit = "Celsius"
 )
