@@ -12,6 +12,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/rpc"
 	"os"
 	"strconv"
 	"strings"
@@ -139,18 +140,18 @@ func htmlEmitDirectoryOrMetric(
 	return htmlEmitMetric(m, w)
 }
 
-func rpcAsPathResponse(m *metric) *messages.PathResponse {
-	return &messages.PathResponse{
+func rpcAsMetric(m *metric) *messages.Metric {
+	return &messages.Metric{
 		Path:        m.AbsPath(),
 		Description: m.Description,
 		Unit:        m.Unit,
 		Value:       m.Value.AsRPCValue()}
 }
 
-type rpcCollector []*messages.PathResponse
+type rpcMetricsCollector messages.Metrics
 
-func (c *rpcCollector) Collect(m *metric) (err error) {
-	*c = append(*c, rpcAsPathResponse(m))
+func (c *rpcMetricsCollector) Collect(m *metric) (err error) {
+	*c = append(*c, rpcAsMetric(m))
 	return nil
 }
 
@@ -264,7 +265,7 @@ func jsonHandlerFunc(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	jsonSetUpHeaders(w.Header())
 	path := r.URL.Path
-	var collector rpcCollector
+	var collector rpcMetricsCollector
 	root.GetAllMetricsByPath(path, &collector)
 	var buffer bytes.Buffer
 	content, err := json.Marshal(collector)
@@ -274,6 +275,12 @@ func jsonHandlerFunc(w http.ResponseWriter, r *http.Request) {
 	}
 	json.Indent(&buffer, content, "", "\t")
 	buffer.WriteTo(w)
+}
+
+type rpcType int
+
+func (t *rpcType) ListMetrics(path string, response *messages.Metrics) error {
+	return root.GetAllMetricsByPath(path, (*rpcMetricsCollector)(response))
 }
 
 func newStatic() http.Handler {
@@ -345,8 +352,14 @@ func initHttpHandlers() {
 	http.Handle("/metricsstatic/", http.StripPrefix("/metricsstatic", newStatic()))
 }
 
+func initRpcHandlers() {
+	rpc.RegisterName("MetricsServer", new(rpcType))
+	rpc.HandleHTTP()
+}
+
 func init() {
 	initDefaultMetrics()
 	initHttpFramework()
 	initHttpHandlers()
+	initRpcHandlers()
 }

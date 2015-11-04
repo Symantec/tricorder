@@ -30,13 +30,11 @@ type Value struct {
 	DistributionValue *Distribution `json:"distributionValue,omitempty"`
 }
 
-type PathResponse struct {
+type Metric struct {
 	Path        string     `json:"path"`
 	Description string     `json:"description"`
 	Unit        units.Unit `json:"unit"`
 	Value       *Value     `json:"value"`
 }
 
-type ListResponse struct {
-	Items []*PathResponse
-}
+type Metrics []*Metric
