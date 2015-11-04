@@ -2,7 +2,10 @@ package tricorder
 
 import (
 	"bytes"
+	"compress/gzip"
+	"encoding/json"
 	"fmt"
+	"github.com/Symantec/tricorder/go/tricorder/messages"
 	"github.com/Symantec/tricorder/go/tricorder/types"
 	"github.com/Symantec/tricorder/go/tricorder/units"
 	"html/template"
@@ -123,6 +126,23 @@ func emitDirectoryAsHtml(d *directory, w io.Writer) error {
 	return nil
 }
 
+type jsonCollector []*messages.JsonPathResponse
+
+func (c *jsonCollector) Collect(m *metric) (err error) {
+	pr := asPathResponseForRPC(m)
+	*c = append(*c, &messages.JsonPathResponse{
+		PathResponse: pr, Uri: restUrl + pr.Path})
+	return nil
+}
+
+func asPathResponseForRPC(m *metric) *messages.PathResponse {
+	return &messages.PathResponse{
+		Path:        m.AbsPath(),
+		Description: m.Description,
+		Unit:        m.Unit,
+		Value:       m.Value.AsRPCValue()}
+}
+
 type textCollector struct {
 	W io.Writer
 }
@@ -236,30 +256,26 @@ func browseFunc(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-/*
-type jsonListingGroup map[string]*JsonListing
-
-func (j jsonListing) Contains(path string) bool {
-	result := j[path]
-	return result != nil
-}
-
-func (j jsonListingGroup) Add(l *JsonListing) {
-	j[l.Path] = l
+func restSetUpHeaders(h http.Header) {
+	h.Set("Content-Type", "text/plain")
+	h.Set("X-Tricorder-Media-Type", "tricorder.v1")
 }
 
 func restFunc(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
+	restSetUpHeaders(w.Header())
 	path := r.URL.Path
-	d, m := root.GetDirectoryOrMetric(path)
-	listingGroup := make(jsonListingGroup)
-	if m != nil {
-		listingGroup.Add(asJsonListing(m))
+	var collector jsonCollector
+	root.GetAllMetricsByPath(path, &collector)
+	var buffer bytes.Buffer
+	content, err := json.Marshal(collector)
+	if err != nil {
+		handleError(w, err)
+		return
 	}
-
-	var err error
+	json.Indent(&buffer, content, "", "\t")
+	buffer.WriteTo(w)
 }
-*/
 
 func newStatic() http.Handler {
 	result := http.NewServeMux()
@@ -299,9 +315,34 @@ func initHttpFramework() {
 	errLog = log.New(os.Stderr, "", log.LstdFlags|log.Lmicroseconds)
 }
 
+type gzipResponseWriter struct {
+	http.ResponseWriter
+	W io.Writer
+}
+
+func (w *gzipResponseWriter) Write(b []byte) (int, error) {
+	return w.W.Write(b)
+}
+
+type gzipHandler struct {
+	H http.Handler
+}
+
+func (h gzipHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+		h.H.ServeHTTP(w, r)
+		return
+	}
+	w.Header().Set("Content-Encoding", "gzip")
+	gz := gzip.NewWriter(w)
+	defer gz.Close()
+	gzr := &gzipResponseWriter{ResponseWriter: w, W: gz}
+	h.H.ServeHTTP(gzr, r)
+}
+
 func registerBrowserHandlers() {
 	http.Handle(browseMetricsUrl+"/", http.StripPrefix(browseMetricsUrl, http.HandlerFunc(browseFunc)))
-	//	http.Handle(restUrl+"/", http.StripPrefix(restUrl, http.HandlerFunc(restFunc)))
+	http.Handle(restUrl+"/", http.StripPrefix(restUrl, gzipHandler{http.HandlerFunc(restFunc)}))
 	http.Handle("/metricsstatic/", http.StripPrefix("/metricsstatic", newStatic()))
 }
 
@@ -309,5 +350,4 @@ func init() {
 	registerDefaultMetrics()
 	initHttpFramework()
 	registerBrowserHandlers()
-
 }

@@ -2,6 +2,7 @@ package messages
 
 import (
 	"github.com/Symantec/tricorder/go/tricorder/types"
+	"github.com/Symantec/tricorder/go/tricorder/units"
 )
 
 type Range struct {
@@ -11,16 +12,17 @@ type Range struct {
 }
 
 type Distribution struct {
-	Min    float64  `json:"min"`
-	Max    float64  `json:"max"`
-	Avg    float64  `json:"avg"`
-	Median float64  `json:"median"`
-	Count  uint64   `json:"count"`
-	Ranges []*Range `json:"ranges,omitempty"`
+	Min     float64  `json:"min"`
+	Max     float64  `json:"max"`
+	Average float64  `json:"average"`
+	Median  float64  `json:"median"`
+	Count   uint64   `json:"count"`
+	Ranges  []*Range `json:"ranges,omitempty"`
 }
 
 type Value struct {
 	Kind              types.Type    `json:"kind"`
+	BoolValue         *bool         `json:"boolValue,omitempty"`
 	IntValue          *int64        `json:"intValue,omitempty"`
 	UintValue         *uint64       `json:"uintValue,omitempty"`
 	FloatValue        *float64      `json:"floatValue,omitempty"`
@@ -29,15 +31,15 @@ type Value struct {
 }
 
 type PathResponse struct {
-	Path        string `json:"path"`
-	Description string `json:"description"`
-	Unit        string `json:"unit"`
-	Value       *Value `json:"value"`
+	Path        string     `json:"path"`
+	Description string     `json:"description"`
+	Unit        units.Unit `json:"unit"`
+	Value       *Value     `json:"value"`
 }
 
 type JsonPathResponse struct {
 	*PathResponse
-	Url string `json:"url"`
+	Uri string `json:"uri"`
 }
 
 type ListResponse struct {

@@ -2,6 +2,7 @@ package tricorder
 
 import (
 	"fmt"
+	"github.com/Symantec/tricorder/go/tricorder/messages"
 	"github.com/Symantec/tricorder/go/tricorder/types"
 	"github.com/Symantec/tricorder/go/tricorder/units"
 	"math"
@@ -365,6 +366,57 @@ func (v *value) AsTime() (result time.Time) {
 		return *p
 	}
 	return val.Interface().(time.Time)
+}
+
+func asRPCRanges(ranges breakdown) []*messages.Range {
+	result := make([]*messages.Range, len(ranges))
+	for i := range ranges {
+		result[i] = &messages.Range{Count: ranges[i].Count}
+		if !ranges[i].First {
+			result[i].Lower = &ranges[i].Start
+		}
+		if !ranges[i].Last {
+			result[i].Upper = &ranges[i].End
+		}
+	}
+	return result
+}
+
+func (v *value) AsRPCValue() *messages.Value {
+	t := v.Type()
+	switch t {
+	case types.Bool:
+		b := v.AsBool()
+		return &messages.Value{Kind: t, BoolValue: &b}
+	case types.Int:
+		i := v.AsInt()
+		return &messages.Value{Kind: t, IntValue: &i}
+	case types.Uint:
+		u := v.AsUint()
+		return &messages.Value{Kind: t, UintValue: &u}
+	case types.Float:
+		f := v.AsFloat()
+		return &messages.Value{Kind: t, FloatValue: &f}
+	case types.String:
+		s := v.AsString()
+		return &messages.Value{Kind: t, StringValue: &s}
+	case types.Time:
+		s := v.AsTextString()
+		return &messages.Value{Kind: t, StringValue: &s}
+	case types.Dist:
+		snapshot := v.AsDistribution().Snapshot()
+		return &messages.Value{
+			Kind: t,
+			DistributionValue: &messages.Distribution{
+				Min:     snapshot.Min,
+				Max:     snapshot.Max,
+				Average: snapshot.Average,
+				Median:  snapshot.Median,
+				Count:   snapshot.Count,
+				Ranges:  asRPCRanges(snapshot.Breakdown)}}
+	default:
+		panic(panicIncompatibleTypes)
+	}
 }
 
 // AsTextString returns this value as a text friendly string.

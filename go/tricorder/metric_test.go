@@ -149,16 +149,16 @@ func TestAPI(t *testing.T) {
 		"some-time-ptr",
 		"start-time",
 		"temperature")
-	verifyGetAllMetrics(
+	verifyGetAllMetricsByPath(
 		t,
 		"foo/bar/baz",
 		root.GetDirectory("proc"),
 		"/proc/foo/bar/baz")
-	verifyGetAllMetrics(
+	verifyGetAllMetricsByPath(
 		t,
 		"ddd",
 		root.GetDirectory("proc"))
-	verifyGetAllMetrics(
+	verifyGetAllMetricsByPath(
 		t,
 		"proc",
 		root,
@@ -610,7 +610,7 @@ func (c collectErrorType) Collect(m *metric) error {
 	return c.E
 }
 
-func verifyGetAllMetrics(
+func verifyGetAllMetricsByPath(
 	t *testing.T, path string, d *directory, expectedPaths ...string) {
 	var actual metricNamesListType
 	if err := d.GetAllMetricsByPath(path, &actual); err != nil {
