@@ -19,9 +19,9 @@ import (
 )
 
 const (
-	browseMetricsUrl = "/metrics"
-	restUrl          = "/metricsapi"
-	htmlTemplateStr  = `
+	htmlUrl         = "/metrics"
+	jsonUrl         = "/metricsapi"
+	htmlTemplateStr = `
 	{{define "METRIC"}}
 	  {{with $top := .}}
             {{if $top.IsDistribution .Metric.Value.Type}}
@@ -85,62 +85,75 @@ var (
 	appStartTime time.Time
 )
 
-type view struct {
+type htmlView struct {
 	Directory *directory
 	Metric    *metric
 }
 
-func (v *view) AsMetricView(m *metric) *view {
-	return &view{Metric: m}
+func (v *htmlView) AsMetricView(m *metric) *htmlView {
+	return &htmlView{Metric: m}
 }
 
-func (v *view) Link(d *directory) string {
-	return browseMetricsUrl + d.AbsPath()
+func (v *htmlView) Link(d *directory) string {
+	return htmlUrl + d.AbsPath()
 }
 
-func (v *view) IsDistribution(t types.Type) bool {
+func (v *htmlView) IsDistribution(t types.Type) bool {
 	return t == types.Dist
 }
 
-func (v *view) HasUnit(u units.Unit) bool {
+func (v *htmlView) HasUnit(u units.Unit) bool {
 	return u != units.None
 }
 
-func (v *view) ToFloat32(f float64) float32 {
+func (v *htmlView) ToFloat32(f float64) float32 {
 	return float32(f)
 }
 
-func emitMetricAsHtml(m *metric, w io.Writer) error {
-	v := &view{Metric: m}
+func htmlEmitMetric(m *metric, w io.Writer) error {
+	v := &htmlView{Metric: m}
 	if err := htmlTemplate.Execute(w, v); err != nil {
 		return err
 	}
 	return nil
 }
 
-func emitDirectoryAsHtml(d *directory, w io.Writer) error {
-	v := &view{Directory: d}
+func htmlEmitDirectory(d *directory, w io.Writer) error {
+	v := &htmlView{Directory: d}
 	if err := htmlTemplate.Execute(w, v); err != nil {
 		return err
 	}
 	return nil
 }
 
-type jsonCollector []*messages.JsonPathResponse
-
-func (c *jsonCollector) Collect(m *metric) (err error) {
-	pr := asPathResponseForRPC(m)
-	*c = append(*c, &messages.JsonPathResponse{
-		PathResponse: pr, Uri: restUrl + pr.Path})
-	return nil
+func htmlEmitDirectoryOrMetric(
+	path string, w http.ResponseWriter) error {
+	d, m := root.GetDirectoryOrMetric(path)
+	if d == nil && m == nil {
+		fmt.Fprintf(w, "Path does not exist.")
+		return nil
+	}
+	if m == nil {
+		return htmlEmitDirectory(d, w)
+	}
+	return htmlEmitMetric(m, w)
 }
 
-func asPathResponseForRPC(m *metric) *messages.PathResponse {
+func rpcAsPathResponse(m *metric) *messages.PathResponse {
 	return &messages.PathResponse{
 		Path:        m.AbsPath(),
 		Description: m.Description,
 		Unit:        m.Unit,
 		Value:       m.Value.AsRPCValue()}
+}
+
+type jsonCollector []*messages.JsonPathResponse
+
+func (c *jsonCollector) Collect(m *metric) (err error) {
+	pr := rpcAsPathResponse(m)
+	*c = append(*c, &messages.JsonPathResponse{
+		PathResponse: pr, Uri: jsonUrl + pr.Path})
+	return nil
 }
 
 type textCollector struct {
@@ -151,10 +164,10 @@ func (c textCollector) Collect(m *metric) (err error) {
 	if _, err = fmt.Fprintf(c.W, "%s ", m.AbsPath()); err != nil {
 		return
 	}
-	return emitMetricAsText(m, c.W)
+	return textEmitMetric(m, c.W)
 }
 
-func emitDistributionAsText(s *snapshot, w io.Writer) error {
+func textEmitDistribution(s *snapshot, w io.Writer) error {
 	_, err := fmt.Fprintf(
 		w,
 		"{min:%s;max:%s;avg:%s;median:%s;count:%d",
@@ -204,16 +217,17 @@ func emitDistributionAsText(s *snapshot, w io.Writer) error {
 	return err
 }
 
-func emitMetricAsText(m *metric, w io.Writer) error {
+func textEmitMetric(m *metric, w io.Writer) error {
 	if m.Value.Type() == types.Dist {
-		return emitDistributionAsText(m.Value.AsDistribution().Snapshot(), w)
+		return textEmitDistribution(m.Value.AsDistribution().Snapshot(), w)
 	}
 	_, err := fmt.Fprintf(w, "%s\n", m.Value.AsTextString())
 	return err
 }
 
-func doTextFormatting(
-	d *directory, m *metric, w http.ResponseWriter) error {
+func textEmitDirectoryOrMetric(
+	path string, w http.ResponseWriter) error {
+	d, m := root.GetDirectoryOrMetric(path)
 	if d == nil && m == nil {
 		fmt.Fprintf(w, "*Path does not exist.*")
 		return nil
@@ -221,19 +235,7 @@ func doTextFormatting(
 	if m == nil {
 		return d.GetAllMetrics(textCollector{W: w})
 	}
-	return emitMetricAsText(m, w)
-}
-
-func doHtmlFormatting(
-	d *directory, m *metric, w http.ResponseWriter) error {
-	if d == nil && m == nil {
-		fmt.Fprintf(w, "Path does not exist.")
-		return nil
-	}
-	if m == nil {
-		return emitDirectoryAsHtml(d, w)
-	}
-	return emitMetricAsHtml(m, w)
+	return textEmitMetric(m, w)
 }
 
 func handleError(w http.ResponseWriter, err error) {
@@ -241,29 +243,28 @@ func handleError(w http.ResponseWriter, err error) {
 	errLog.Printf("Error in template: %v\n", err)
 }
 
-func browseFunc(w http.ResponseWriter, r *http.Request) {
+func htmlAndTextHandlerFunc(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	path := r.URL.Path
-	d, m := root.GetDirectoryOrMetric(path)
 	var err error
 	if r.Form.Get("format") == "text" {
-		err = doTextFormatting(d, m, w)
+		err = textEmitDirectoryOrMetric(path, w)
 	} else {
-		err = doHtmlFormatting(d, m, w)
+		err = htmlEmitDirectoryOrMetric(path, w)
 	}
 	if err != nil {
 		handleError(w, err)
 	}
 }
 
-func restSetUpHeaders(h http.Header) {
+func jsonSetUpHeaders(h http.Header) {
 	h.Set("Content-Type", "text/plain")
 	h.Set("X-Tricorder-Media-Type", "tricorder.v1")
 }
 
-func restFunc(w http.ResponseWriter, r *http.Request) {
+func jsonHandlerFunc(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	restSetUpHeaders(w.Header())
+	jsonSetUpHeaders(w.Header())
 	path := r.URL.Path
 	var collector jsonCollector
 	root.GetAllMetricsByPath(path, &collector)
@@ -304,7 +305,7 @@ func getProgramArgs() string {
 	return strings.Join(os.Args[1:], " ")
 }
 
-func registerDefaultMetrics() {
+func initDefaultMetrics() {
 	RegisterMetric("/name", &os.Args[0], units.None, "Program name")
 	RegisterMetric("/args", getProgramArgs, units.None, "Program args")
 	RegisterMetric("/start-time", &appStartTime, units.None, "Program start time")
@@ -340,14 +341,14 @@ func (h gzipHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.H.ServeHTTP(gzr, r)
 }
 
-func registerBrowserHandlers() {
-	http.Handle(browseMetricsUrl+"/", http.StripPrefix(browseMetricsUrl, http.HandlerFunc(browseFunc)))
-	http.Handle(restUrl+"/", http.StripPrefix(restUrl, gzipHandler{http.HandlerFunc(restFunc)}))
+func initHttpHandlers() {
+	http.Handle(htmlUrl+"/", http.StripPrefix(htmlUrl, http.HandlerFunc(htmlAndTextHandlerFunc)))
+	http.Handle(jsonUrl+"/", http.StripPrefix(jsonUrl, gzipHandler{http.HandlerFunc(jsonHandlerFunc)}))
 	http.Handle("/metricsstatic/", http.StripPrefix("/metricsstatic", newStatic()))
 }
 
 func init() {
-	registerDefaultMetrics()
+	initDefaultMetrics()
 	initHttpFramework()
-	registerBrowserHandlers()
+	initHttpHandlers()
 }
