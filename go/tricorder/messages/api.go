@@ -37,15 +37,6 @@ type PathResponse struct {
 	Value       *Value     `json:"value"`
 }
 
-type JsonPathResponse struct {
-	*PathResponse
-	Uri string `json:"uri"`
-}
-
 type ListResponse struct {
 	Items []*PathResponse
-}
-
-type JsonListResponse struct {
-	Items []*JsonPathResponse
 }

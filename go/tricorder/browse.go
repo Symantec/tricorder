@@ -147,12 +147,10 @@ func rpcAsPathResponse(m *metric) *messages.PathResponse {
 		Value:       m.Value.AsRPCValue()}
 }
 
-type jsonCollector []*messages.JsonPathResponse
+type rpcCollector []*messages.PathResponse
 
-func (c *jsonCollector) Collect(m *metric) (err error) {
-	pr := rpcAsPathResponse(m)
-	*c = append(*c, &messages.JsonPathResponse{
-		PathResponse: pr, Uri: jsonUrl + pr.Path})
+func (c *rpcCollector) Collect(m *metric) (err error) {
+	*c = append(*c, rpcAsPathResponse(m))
 	return nil
 }
 
@@ -266,7 +264,7 @@ func jsonHandlerFunc(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	jsonSetUpHeaders(w.Header())
 	path := r.URL.Path
-	var collector jsonCollector
+	var collector rpcCollector
 	root.GetAllMetricsByPath(path, &collector)
 	var buffer bytes.Buffer
 	content, err := json.Marshal(collector)
