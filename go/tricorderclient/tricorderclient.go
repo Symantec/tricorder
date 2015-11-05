@@ -29,7 +29,7 @@ func main() {
 		log.Fatal("dialing:", err)
 	}
 	defer client.Close()
-	var metrics messages.Metrics
+	var metrics messages.MetricList
 	err = client.Call("MetricsServer.ListMetrics", "", &metrics)
 	if err != nil {
 		log.Fatal("Calling:", err)

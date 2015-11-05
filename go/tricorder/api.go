@@ -11,13 +11,13 @@ var (
 )
 
 // RegisterMetric registers a single metric with the health system.
-// path is the absolute path of the metric e.g "/proc/rpc"
-// metric is the metric to register.
-// RegisterMetric panics if metric is not of a valid type.
-// unit is the unit of measurement for the metric.
+// path is the absolute path of the metric e.g "/proc/rpc";
+// metric is the metric to register;
+// unit is the unit of measurement for the metric;
 // description is the description of the metric.
 // RegisterMetric returns an error if unsuccessful such as if path
 // already represents a metric or a directory.
+// RegisterMetric panics if metric is not of a valid type.
 func RegisterMetric(
 	path string,
 	metric interface{},
@@ -27,8 +27,8 @@ func RegisterMetric(
 }
 
 // Bucketer represents the organization of buckets for Distribution
-// instances. Multiple Distribution instances can share the same Bucketer
-// instance.
+// instances. Because bucketer instances are immutable, multiple distribution
+// instances can share the same Bucketer instance.
 type Bucketer struct {
 	pieces []*bucketPiece
 }

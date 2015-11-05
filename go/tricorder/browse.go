@@ -148,7 +148,7 @@ func rpcAsMetric(m *metric) *messages.Metric {
 		Value:       m.Value.AsRPCValue()}
 }
 
-type rpcMetricsCollector messages.Metrics
+type rpcMetricsCollector messages.MetricList
 
 func (c *rpcMetricsCollector) Collect(m *metric) (err error) {
 	*c = append(*c, rpcAsMetric(m))
@@ -300,7 +300,7 @@ func jsonHandlerFunc(w http.ResponseWriter, r *http.Request) {
 
 type rpcType int
 
-func (t *rpcType) ListMetrics(path string, response *messages.Metrics) error {
+func (t *rpcType) ListMetrics(path string, response *messages.MetricList) error {
 	return root.GetAllMetricsByPath(path, (*rpcMetricsCollector)(response))
 }
 

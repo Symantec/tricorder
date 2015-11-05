@@ -368,10 +368,10 @@ func (v *value) AsTime() (result time.Time) {
 	return val.Interface().(time.Time)
 }
 
-func asRPCRanges(ranges breakdown) []*messages.Range {
-	result := make([]*messages.Range, len(ranges))
+func asRPCRanges(ranges breakdown) []*messages.RangeWithCount {
+	result := make([]*messages.RangeWithCount, len(ranges))
 	for i := range ranges {
-		result[i] = &messages.Range{Count: ranges[i].Count}
+		result[i] = &messages.RangeWithCount{Count: ranges[i].Count}
 		if !ranges[i].First {
 			result[i].Lower = &ranges[i].Start
 		}

@@ -22,18 +22,18 @@ Package tricorder registers static content such as CSS files at "/metricsstatic"
 
 URL formats to view metrics:
 
-	http://yourhostname:8080/metrics
+	http://yourhostname.com/metrics
 		View all top level metrics in HTML
-	http://yourhostname:8080/metrics/single/metric/path
+	http://yourhostname.com/metrics/single/metric/path
 		View the metric with path single/metric/path in HTML.
-	http://yourhostname:8080/metrics/dirpath
+	http://yourhostname.com/metrics/dirpath
 		View all metrics with paths starting with 'dirpath/' in HTML.
 		Does not expand metrics under subdirectories such as
 		dirpath/asubdir but shows subdirectories such as
 		dirpath/subdir as a hyper link instead.
-	http://yourhostname:8080/metrics/single/metric/path?format=text
+	http://yourhostname.com/metrics/single/metric/path?format=text
 		Value of metric single/metric/path in plain text.
-	http://yourhostname:8080/metrics/dirpath/?format=text
+	http://yourhostname.com/metrics/dirpath/?format=text
 		Shows all metrics starting with 'dirpath/' in plain text.
 		Unlike the HTML version, expands all subdirectories under
 		/dirpath.
@@ -44,13 +44,14 @@ URL formats to view metrics:
 
 Fetching metrics using go RPC
 
-Package tricorder registers the following go rpc methods:
+Package tricorder registers the following go rpc methods. You can see
+these methods by visiting http://yourhostname.com/debug/rpc
 
 MetricsServer.ListMetrics:
 
 Recursively lists all metrics under a particular path.
 Request is the absolute path as a string.
-Response is a messages.Metrics type.
+Response is a messages.MetricList type.
 
 MetricsServer.GetMetric
 
@@ -64,10 +65,10 @@ Example:
 	import "github.com/Symantec/tricorder/go/tricorder/messages"
 	client, _ := rpc.DialHTTP("tcp", ":8080")
 	defer client.Close()
-	var metrics messages.Metrics
+	var metrics messages.MetricList
 	client.Call("MetricsServer.ListMetrics", "/a/directory", &metrics)
 	var metric messages.Metric
-	err := client.Call("MetricsSErver.GetMetric", "/a/metric", &metric)
+	err := client.Call("MetricsServer.GetMetric", "/a/metric", &metric)
 	if err == nil {
 		// we found /a/metric
 	}
@@ -78,12 +79,12 @@ Package tricorder registers its REST API at "/metricsapi"
 
 REST urls:
 
-	http://yourhostname:8080/metricsapi/
+	http://yourhostname.com/metricsapi/
 		Returns a json array of every metric
-	http://yourhostname:8080/metricsapi/a/path
+	http://yourhostname.com/metricsapi/a/path
 		Returns a possibly empty json array array of every metric
-		under /a/path.
-	http://yourhostname:8080/metricsapi/path/to/metric?singleton=true
+		anywhere under /a/path.
+	http://yourhostname.com/metricsapi/path/to/metric?singleton=true
 		Returns a metric json object with absolute path
 		/path/to/metric or gives a 404 error if no such metric
 		exists.
@@ -118,6 +119,12 @@ update atomic.
 
 Metric types:
 
+	bool
+		tricorder.RegisterMetric(
+			"a/path/to/bool",
+			&boolValue,
+			tricorder.None,
+			"bool value description")
 	int, int8, int16, int32, int64
 		tricorder.RegisterMetric(
 			"a/path/to/int",
