@@ -1,3 +1,4 @@
+// Package units contains the various units of measurement for a metric.
 package units
 
 // Unit represents a unit of measurement

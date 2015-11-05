@@ -1,3 +1,4 @@
+// Package types contains the various types for metric values.
 package types
 
 // Type represents the type of a metric value
