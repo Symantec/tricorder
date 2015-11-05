@@ -1,8 +1,13 @@
 package messages
 
 import (
+	"errors"
 	"github.com/Symantec/tricorder/go/tricorder/types"
 	"github.com/Symantec/tricorder/go/tricorder/units"
+)
+
+var (
+	ErrMetricNotFound = errors.New("messages: No metric found.")
 )
 
 type Range struct {

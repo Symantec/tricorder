@@ -261,18 +261,39 @@ func jsonSetUpHeaders(h http.Header) {
 	h.Set("X-Tricorder-Media-Type", "tricorder.v1")
 }
 
+func httpError(w http.ResponseWriter, status int) {
+	http.Error(
+		w,
+		fmt.Sprintf(
+			"%d %s",
+			status,
+			http.StatusText(status)),
+		status)
+}
+
 func jsonHandlerFunc(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	jsonSetUpHeaders(w.Header())
 	path := r.URL.Path
-	var collector rpcMetricsCollector
-	root.GetAllMetricsByPath(path, &collector)
-	var buffer bytes.Buffer
-	content, err := json.Marshal(collector)
+	var content []byte
+	var err error
+	if r.Form.Get("singleton") != "" {
+		m := root.GetMetric(path)
+		if m == nil {
+			httpError(w, http.StatusNotFound)
+			return
+		}
+		content, err = json.Marshal(rpcAsMetric(m))
+	} else {
+		var collector rpcMetricsCollector
+		root.GetAllMetricsByPath(path, &collector)
+		content, err = json.Marshal(collector)
+	}
 	if err != nil {
 		handleError(w, err)
 		return
 	}
+	var buffer bytes.Buffer
 	json.Indent(&buffer, content, "", "\t")
 	buffer.WriteTo(w)
 }
@@ -281,6 +302,15 @@ type rpcType int
 
 func (t *rpcType) ListMetrics(path string, response *messages.Metrics) error {
 	return root.GetAllMetricsByPath(path, (*rpcMetricsCollector)(response))
+}
+
+func (t *rpcType) GetMetric(path string, response *messages.Metric) error {
+	m := root.GetMetric(path)
+	if m == nil {
+		return messages.ErrMetricNotFound
+	}
+	*response = *rpcAsMetric(m)
+	return nil
 }
 
 func newStatic() http.Handler {
