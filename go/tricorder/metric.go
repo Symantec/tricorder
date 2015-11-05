@@ -439,6 +439,9 @@ func (v *value) AsTextString() string {
 		return "\"" + v.AsString() + "\""
 	case types.Time:
 		t := v.AsTime()
+		if t.IsZero() {
+			return "0.000000000"
+		}
 		return fmt.Sprintf("%d.%09d", t.Unix(), t.Nanosecond())
 	default:
 		panic(panicIncompatibleTypes)

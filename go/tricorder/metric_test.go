@@ -2,6 +2,7 @@ package tricorder
 
 import (
 	"errors"
+	"github.com/Symantec/tricorder/go/tricorder/messages"
 	"github.com/Symantec/tricorder/go/tricorder/types"
 	"github.com/Symantec/tricorder/go/tricorder/units"
 	"reflect"
@@ -203,52 +204,78 @@ func TestAPI(t *testing.T) {
 	// Check /testargs
 	argsMetric := root.GetMetric("/testargs")
 	verifyMetric(t, "Args passed to app", units.None, argsMetric)
-	assertValueEquals(t, types.String, argsMetric.Value.Type())
-	assertValueEquals(t, "--help", argsMetric.Value.AsString())
+	assertValueDeepEquals(
+		t,
+		&messages.Value{
+			Kind:        types.String,
+			StringValue: stringPtr("--help")},
+		argsMetric.Value.AsRPCValue())
 	assertValueEquals(t, "\"--help\"", argsMetric.Value.AsHtmlString())
 
 	// Check /testname
 	nameMetric := root.GetMetric("/testname")
 	verifyMetric(t, "Name of app", units.None, nameMetric)
-	assertValueEquals(t, types.String, nameMetric.Value.Type())
-	assertValueEquals(t, "My application", nameMetric.Value.AsString())
+	assertValueDeepEquals(
+		t,
+		&messages.Value{
+			Kind:        types.String,
+			StringValue: stringPtr("My application")},
+		nameMetric.Value.AsRPCValue())
 	assertValueEquals(t, "\"My application\"", nameMetric.Value.AsHtmlString())
 
 	// Check /proc/temperature
 	temperatureMetric := root.GetMetric("/proc/temperature")
 	verifyMetric(t, "Temperature", units.Celsius, temperatureMetric)
-	assertValueEquals(t, types.Float, temperatureMetric.Value.Type())
-	assertValueEquals(t, 22.5, temperatureMetric.Value.AsFloat())
+	assertValueDeepEquals(
+		t,
+		&messages.Value{
+			Kind:       types.Float,
+			FloatValue: floatPtr(22.5)},
+		temperatureMetric.Value.AsRPCValue())
 	assertValueEquals(t, "22.5", temperatureMetric.Value.AsHtmlString())
 
 	// Check /proc/start-time
 	startTimeMetric := root.GetMetric("/proc/start-time")
 	verifyMetric(t, "Start Time", units.Second, startTimeMetric)
-	assertValueEquals(t, types.Int, startTimeMetric.Value.Type())
-	assertValueEquals(t, int64(-1234567), startTimeMetric.Value.AsInt())
+	assertValueDeepEquals(
+		t,
+		&messages.Value{
+			Kind:     types.Int,
+			IntValue: intPtr(-1234567)},
+		startTimeMetric.Value.AsRPCValue())
 	assertValueEquals(t, "-1234567", startTimeMetric.Value.AsHtmlString())
 
 	// Check /proc/some-time
 	someTimeMetric := root.GetMetric("/proc/some-time")
 	verifyMetric(t, "Some time", units.None, someTimeMetric)
-	assertValueEquals(t, types.Time, someTimeMetric.Value.Type())
-	assertValueEquals(t, "1447594013.007265341", someTimeMetric.Value.AsTextString())
-	someTime = time.Date(2015, time.November, 15, 13, 26, 53, 7265341, time.UTC)
+	assertValueDeepEquals(
+		t,
+		&messages.Value{
+			Kind:        types.Time,
+			StringValue: stringPtr("1447594013.007265341")},
+		someTimeMetric.Value.AsRPCValue())
 	assertValueEquals(t, "2015-11-15T13:26:53.007265341Z", someTimeMetric.Value.AsHtmlString())
 
 	// Check /proc/some-time-ptr
 	someTimePtrMetric := root.GetMetric("/proc/some-time-ptr")
 	verifyMetric(t, "Some time pointer", units.None, someTimePtrMetric)
-	assertValueEquals(t, types.Time, someTimePtrMetric.Value.Type())
-	var zeroTime time.Time
-	assertValueEquals(t, zeroTime, someTimePtrMetric.Value.AsTime())
+	// a nil time pointer should result in 0 time.
+	assertValueDeepEquals(
+		t,
+		&messages.Value{
+			Kind:        types.Time,
+			StringValue: stringPtr("0.000000000")},
+		someTimePtrMetric.Value.AsRPCValue())
+	assertValueEquals(t, "0001-01-01T00:00:00Z", someTimePtrMetric.Value.AsHtmlString())
 
 	newTime := time.Date(2015, time.September, 6, 5, 26, 35, 0, time.UTC)
 	someTimePtr = &newTime
-	assertValueEquals(
+	assertValueDeepEquals(
 		t,
-		"1441517195.000000000",
-		someTimePtrMetric.Value.AsTextString())
+		&messages.Value{
+			Kind:        types.Time,
+			StringValue: stringPtr("1441517195.000000000")},
+		someTimePtrMetric.Value.AsRPCValue())
 	assertValueEquals(
 		t,
 		"2015-09-06T05:26:35Z",
@@ -257,30 +284,98 @@ func TestAPI(t *testing.T) {
 	// Check /proc/rpc-count
 	rpcCountMetric := root.GetMetric("/proc/rpc-count")
 	verifyMetric(t, "RPC count", units.None, rpcCountMetric)
-	assertValueEquals(t, types.Uint, rpcCountMetric.Value.Type())
-	assertValueEquals(t, uint64(500), rpcCountMetric.Value.AsUint())
+	assertValueDeepEquals(
+		t,
+		&messages.Value{
+			Kind:      types.Uint,
+			UintValue: uintPtr(500)},
+		rpcCountMetric.Value.AsRPCValue())
 	assertValueEquals(t, "500", rpcCountMetric.Value.AsHtmlString())
 
 	// check /proc/foo/bar/baz
 	bazMetric := root.GetMetric("proc/foo/bar/baz")
 	verifyMetric(t, "An error", units.None, bazMetric)
-	assertValueEquals(t, types.Float, bazMetric.Value.Type())
-	assertValueEquals(t, 12.375, bazMetric.Value.AsFloat())
+	assertValueDeepEquals(
+		t,
+		&messages.Value{
+			Kind:       types.Float,
+			FloatValue: floatPtr(12.375)},
+		bazMetric.Value.AsRPCValue())
 	assertValueEquals(t, "12.375", bazMetric.Value.AsHtmlString())
 
 	// check /proc/foo/bar/abool
 	aboolMetric := root.GetMetric("proc/foo/bar/abool")
 	verifyMetric(t, "A boolean value", units.None, aboolMetric)
-	assertValueEquals(t, types.Bool, aboolMetric.Value.Type())
-	assertValueEquals(t, true, aboolMetric.Value.AsBool())
+	assertValueDeepEquals(
+		t,
+		&messages.Value{
+			Kind:      types.Bool,
+			BoolValue: boolPtr(true)},
+		aboolMetric.Value.AsRPCValue())
 	assertValueEquals(t, "true", aboolMetric.Value.AsHtmlString())
 
 	// check /proc/foo/bar/anotherBool
 	anotherBoolMetric := root.GetMetric("proc/foo/bar/anotherBool")
 	verifyMetric(t, "A boolean callback value", units.None, anotherBoolMetric)
-	assertValueEquals(t, types.Bool, anotherBoolMetric.Value.Type())
-	assertValueEquals(t, false, anotherBoolMetric.Value.AsBool())
+	assertValueDeepEquals(
+		t,
+		&messages.Value{
+			Kind:      types.Bool,
+			BoolValue: boolPtr(false)},
+		anotherBoolMetric.Value.AsRPCValue())
 	assertValueEquals(t, "false", anotherBoolMetric.Value.AsHtmlString())
+
+	// Check /proc/rpc-latency
+	rpcLatency := root.GetMetric("/proc/rpc-latency")
+	verifyMetric(t, "RPC latency", units.Millisecond, rpcLatency)
+
+	actual := rpcLatency.Value.AsRPCValue()
+
+	if actual.DistributionValue.Median < 249 || actual.DistributionValue.Median >= 250 {
+		t.Errorf("Median out of range: %f", actual.DistributionValue.Median)
+	}
+
+	expected := &messages.Value{
+		Kind: types.Dist,
+		DistributionValue: &messages.Distribution{
+			Min:     0.0,
+			Max:     499.0,
+			Average: 249.5,
+			Median:  actual.DistributionValue.Median,
+			Count:   500,
+			Ranges: []*messages.RangeWithCount{
+				{
+					Upper: floatPtr(10.0),
+					Count: 10,
+				},
+				{
+					Lower: floatPtr(10.0),
+					Upper: floatPtr(25.0),
+					Count: 15,
+				},
+				{
+					Lower: floatPtr(25.0),
+					Upper: floatPtr(62.5),
+					Count: 38,
+				},
+				{
+					Lower: floatPtr(62.5),
+					Upper: floatPtr(156.25),
+					Count: 94,
+				},
+				{
+					Lower: floatPtr(156.25),
+					Upper: floatPtr(390.625),
+					Count: 234,
+				},
+				{
+					Lower: floatPtr(390.625),
+					Count: 109,
+				},
+			},
+		},
+	}
+	assertValueDeepEquals(t, expected, actual)
 
 	// test PathFrom
 	assertValueEquals(
@@ -289,71 +384,6 @@ func TestAPI(t *testing.T) {
 		t, "/proc/rpc-count", rpcCountMetric.AbsPath())
 	assertValueEquals(t, "/proc/foo", fooDir.AbsPath())
 
-	// Check /proc/rpc-latency
-	rpcLatency := root.GetMetric("/proc/rpc-latency")
-	verifyMetric(t, "RPC latency", units.Millisecond, rpcLatency)
-	assertValueEquals(t, types.Dist, rpcLatency.Value.Type())
-
-	actual := rpcLatency.Value.AsDistribution().Snapshot()
-
-	if actual.Median < 249 || actual.Median >= 250 {
-		t.Errorf("Median out of range: %f", actual.Median)
-	}
-
-	expected := &snapshot{
-		Min:     0.0,
-		Max:     499.0,
-		Average: 249.5,
-		Median:  actual.Median,
-		Count:   500,
-		Breakdown: breakdown{
-			{
-				bucketPiece: &bucketPiece{
-					End:   10.0,
-					First: true,
-				},
-				Count: 10,
-			},
-			{
-				bucketPiece: &bucketPiece{
-					Start: 10.0,
-					End:   25.0,
-				},
-				Count: 15,
-			},
-			{
-				bucketPiece: &bucketPiece{
-					Start: 25.0,
-					End:   62.5,
-				},
-				Count: 38,
-			},
-			{
-				bucketPiece: &bucketPiece{
-					Start: 62.5,
-					End:   156.25,
-				},
-				Count: 94,
-			},
-			{
-				bucketPiece: &bucketPiece{
-					Start: 156.25,
-					End:   390.625,
-				},
-				Count: 234,
-			},
-			{
-				bucketPiece: &bucketPiece{
-					Start: 390.625,
-					Last:  true,
-				},
-				Count: 109,
-			},
-		},
-	}
-	if !reflect.DeepEqual(expected, actual) {
-		t.Errorf("Expected %v, got %v", expected, actual)
-	}
 }
 
 func TestLinearDistribution(t *testing.T) {
@@ -582,6 +612,13 @@ func assertValueEquals(
 	}
 }
 
+func assertValueDeepEquals(
+	t *testing.T, expected, actual interface{}) {
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("Expected %v, got %v", expected, actual)
+	}
+}
+
 func verifyChildren(
 	t *testing.T, listEntries []*listEntry, expected ...string) {
 	if len(listEntries) != len(expected) {
@@ -619,4 +656,24 @@ func verifyGetAllMetricsByPath(
 	if !reflect.DeepEqual(expectedPaths, ([]string)(actual)) {
 		t.Errorf("Expected %v, got %v", expectedPaths, actual)
 	}
+}
+
+func stringPtr(s string) *string {
+	return &s
+}
+
+func intPtr(i int64) *int64 {
+	return &i
+}
+
+func uintPtr(u uint64) *uint64 {
+	return &u
+}
+
+func floatPtr(f float64) *float64 {
+	return &f
+}
+
+func boolPtr(b bool) *bool {
+	return &b
 }
