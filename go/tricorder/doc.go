@@ -15,10 +15,10 @@ Use the tricorder package in your application like so:
 		}
 	}
 
-Viewing Metrics
+Viewing Metrics with a Web Browser
 
 Package tricorder uses the net/http package register its web UI at path "/metrics".
-Package tricorder registers static content such as CSS files at "/metricsdemo".
+Package tricorder registers static content such as CSS files at "/metricsstatic".
 
 URL formats to view metrics:
 
@@ -42,20 +42,74 @@ URL formats to view metrics:
 			dirpath/first 12345
 			dirpath/second 5.28
 
-Default Metrics
+Fetching metrics using go RPC
 
-	/name - the application name
-	/args - the application argument
-	/start-time - the application start time
+Package tricorder registers the following go rpc methods:
+
+MetricsServer.ListMetrics:
+
+Recursively lists all metrics under a particular path.
+Request is the absolute path as a string.
+Response is a messages.Metrics type.
+
+MetricsServer.GetMetric
+
+Gets a single metric with a particular path or returns
+messages.ErrMetricNotFound if there is no such metric.
+Request is the absolute path as a string.
+Response is a messages.Metric type.
+
+Example:
+
+	import "github.com/Symantec/tricorder/go/tricorder/messages"
+	client, _ := rpc.DialHTTP("tcp", ":8080")
+	defer client.Close()
+	var metrics messages.Metrics
+	client.Call("MetricsServer.ListMetrics", "/a/directory", &metrics)
+	var metric messages.Metric
+	err := client.Call("MetricsSErver.GetMetric", "/a/metric", &metric)
+	if err == nil {
+		// we found /a/metric
+	}
+
+Fetching metrics using REST API
+
+Package tricorder registers its REST API at "/metricsapi"
+
+REST urls:
+
+	http://yourhostname:8080/metricsapi/
+		Returns a json array of every metric
+	http://yourhostname:8080/metricsapi/a/path
+		Returns a possibly empty json array array of every metric
+		under /a/path.
+	http://yourhostname:8080/metricsapi/path/to/metric?singleton=true
+		Returns a metric json object with absolute path
+		/path/to/metric or gives a 404 error if no such metric
+		exists.
+
+Sample metric json object:
+
+	{
+		"path": "/proc/foo/bar/baz",
+		"description": "Another float value",
+		"unit": "None",
+		"value": {
+			"kind": "float",
+			"floatValue": 12.375
+		}
+	}
+
+For more information on the json schema, see the messages.Metric type.
 
 Register Custom Metrics
 
-Use tricorder.RegisterMetric() and tricorder.RegisterDirectory()
-to register custom metrics. You must register all custom metrics
-at the beginning of the program before starting additional goroutines
-or calling http.ListenAndServe. Always pass the address of a variable
-to RegisterMetric() so that tricorder can see changes in the variable's
-value.
+To add additional metrics to the default metrics tricorder provides,
+Use tricorder.RegisterMetric() and tricorder.RegisterDirectory().
+You must register all custom metrics at the beginning of the program
+before starting additional goroutines or calling http.ListenAndServe.
+Always pass the address of a variable to RegisterMetric() so that
+tricorder can see changes in the variable's value.
 
 To register a time.Time, you can pass a **time.Time to RegisterMetric().
 To update the time value, change the pointer to point to a different time
