@@ -12,13 +12,6 @@ import (
 )
 
 func registerMetrics() {
-	// /proc/rpc-latency: Distribution millis 5 buckets, start: 10, scale 2.5
-	// /proc/rpc-count: Callback to get RPC count, uint64
-	// /proc/start-time: An int64 showing start time as seconds since epoch
-	// /proc/temperature: A float64 showing tempurature in celsius
-	// /proc/foo/bar/baz: Callback to get a float64 that returns an error
-
-	var startTime int64
 	var temperature float64
 	var someBool bool
 
@@ -36,9 +29,6 @@ func registerMetrics() {
 		rpcCountCallback,
 		units.None,
 		"RPC count"); err != nil {
-		log.Fatalf("Got error %v registering metric", err)
-	}
-	if err := tricorder.RegisterMetric("/proc/start-time", &startTime, units.Second, "Start Time"); err != nil {
 		log.Fatalf("Got error %v registering metric", err)
 	}
 	if err := tricorder.RegisterMetric("/proc/temperature", &temperature, units.Celsius, "Temperature"); err != nil {
@@ -65,7 +55,6 @@ func registerMetrics() {
 		log.Fatalf("Got error %v registering metric", err)
 	}
 
-	startTime = -1234567
 	temperature = 22.5
 	someBool = true
 
