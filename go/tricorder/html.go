@@ -1,27 +1,17 @@
 package tricorder
 
 import (
-	"bytes"
-	"compress/gzip"
-	"encoding/json"
 	"fmt"
-	"github.com/Symantec/tricorder/go/tricorder/messages"
 	"github.com/Symantec/tricorder/go/tricorder/types"
 	"github.com/Symantec/tricorder/go/tricorder/units"
 	"html/template"
 	"io"
-	"log"
 	"net/http"
-	"net/rpc"
-	"os"
 	"strconv"
-	"strings"
-	"time"
 )
 
 const (
 	htmlUrl         = "/metrics"
-	jsonUrl         = "/metricsapi"
 	htmlTemplateStr = `
 	{{define "METRIC"}}
 	  {{with $top := .}}
@@ -82,8 +72,6 @@ const (
 
 var (
 	htmlTemplate = template.Must(template.New("browser").Parse(htmlTemplateStr))
-	errLog       *log.Logger
-	appStartTime time.Time
 )
 
 type htmlView struct {
@@ -145,21 +133,6 @@ func htmlEmitDirectoryOrMetric(
 		return htmlEmitDirectory(d, s, w)
 	}
 	return htmlEmitMetric(m, s, w)
-}
-
-func rpcAsMetric(m *metric, s *session) *messages.Metric {
-	return &messages.Metric{
-		Path:        m.AbsPath(),
-		Description: m.Description,
-		Unit:        m.Unit,
-		Value:       m.AsRPCValue(s)}
-}
-
-type rpcMetricsCollector messages.MetricList
-
-func (c *rpcMetricsCollector) Collect(m *metric, s *session) (err error) {
-	*c = append(*c, rpcAsMetric(m, s))
-	return nil
 }
 
 type textCollector struct {
@@ -244,11 +217,6 @@ func textEmitDirectoryOrMetric(
 	return textEmitMetric(m, nil, w)
 }
 
-func handleError(w http.ResponseWriter, err error) {
-	fmt.Fprintln(w, "Error in template.")
-	errLog.Printf("Error in template: %v\n", err)
-}
-
 func htmlAndTextHandlerFunc(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	path := r.URL.Path
@@ -263,141 +231,18 @@ func htmlAndTextHandlerFunc(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func jsonSetUpHeaders(h http.Header) {
-	h.Set("Content-Type", "text/plain")
-	h.Set("X-Tricorder-Media-Type", "tricorder.v1")
-}
-
-func httpError(w http.ResponseWriter, status int) {
-	http.Error(
-		w,
-		fmt.Sprintf(
-			"%d %s",
-			status,
-			http.StatusText(status)),
-		status)
-}
-
-func jsonHandlerFunc(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	jsonSetUpHeaders(w.Header())
-	path := r.URL.Path
-	var content []byte
-	var err error
-	if r.Form.Get("singleton") != "" {
-		m := root.GetMetric(path)
-		if m == nil {
-			httpError(w, http.StatusNotFound)
-			return
-		}
-		content, err = json.Marshal(rpcAsMetric(m, nil))
-	} else {
-		var collector rpcMetricsCollector
-		root.GetAllMetricsByPath(path, &collector, nil)
-		content, err = json.Marshal(collector)
-	}
-	if err != nil {
-		handleError(w, err)
-		return
-	}
-	var buffer bytes.Buffer
-	json.Indent(&buffer, content, "", "\t")
-	buffer.WriteTo(w)
-}
-
-type rpcType int
-
-func (t *rpcType) ListMetrics(path string, response *messages.MetricList) error {
-	return root.GetAllMetricsByPath(
-		path, (*rpcMetricsCollector)(response), nil)
-}
-
-func (t *rpcType) GetMetric(path string, response *messages.Metric) error {
-	m := root.GetMetric(path)
-	if m == nil {
-		return messages.ErrMetricNotFound
-	}
-	*response = *rpcAsMetric(m, nil)
-	return nil
-}
-
 func newStatic() http.Handler {
 	result := http.NewServeMux()
 	addStatic(result, "/theme.css", themeCss)
 	return result
 }
 
-func addStatic(mux *http.ServeMux, path, content string) {
-	addStaticBinary(mux, path, []byte(content))
-}
-
-func addStaticBinary(mux *http.ServeMux, path string, content []byte) {
-	mux.Handle(
-		path,
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			http.ServeContent(
-				w,
-				r,
-				path,
-				appStartTime,
-				bytes.NewReader(content))
-		}))
-}
-
-func getProgramArgs() string {
-	return strings.Join(os.Args[1:], " ")
-}
-
-func initDefaultMetrics() {
-	RegisterMetric("/name", &os.Args[0], units.None, "Program name")
-	RegisterMetric("/args", getProgramArgs, units.None, "Program args")
-	RegisterMetric("/start-time", &appStartTime, units.None, "Program start time")
-}
-
-func initHttpFramework() {
-	appStartTime = time.Now()
-	errLog = log.New(os.Stderr, "", log.LstdFlags|log.Lmicroseconds)
-}
-
-type gzipResponseWriter struct {
-	http.ResponseWriter
-	W io.Writer
-}
-
-func (w *gzipResponseWriter) Write(b []byte) (int, error) {
-	return w.W.Write(b)
-}
-
-type gzipHandler struct {
-	H http.Handler
-}
-
-func (h gzipHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-		h.H.ServeHTTP(w, r)
-		return
-	}
-	w.Header().Set("Content-Encoding", "gzip")
-	gz := gzip.NewWriter(w)
-	defer gz.Close()
-	gzr := &gzipResponseWriter{ResponseWriter: w, W: gz}
-	h.H.ServeHTTP(gzr, r)
-}
-
-func initHttpHandlers() {
-	http.Handle(htmlUrl+"/", http.StripPrefix(htmlUrl, http.HandlerFunc(htmlAndTextHandlerFunc)))
-	http.Handle(jsonUrl+"/", http.StripPrefix(jsonUrl, gzipHandler{http.HandlerFunc(jsonHandlerFunc)}))
-	http.Handle("/metricsstatic/", http.StripPrefix("/metricsstatic", newStatic()))
-}
-
-func initRpcHandlers() {
-	rpc.RegisterName("MetricsServer", new(rpcType))
-	rpc.HandleHTTP()
-}
-
-func init() {
-	initDefaultMetrics()
-	initHttpFramework()
-	initHttpHandlers()
-	initRpcHandlers()
+func initHtmlHandlers() {
+	http.Handle(
+		htmlUrl+"/",
+		http.StripPrefix(
+			htmlUrl, http.HandlerFunc(htmlAndTextHandlerFunc)))
+	http.Handle(
+		"/metricsstatic/",
+		http.StripPrefix("/metricsstatic", newStatic()))
 }
