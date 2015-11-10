@@ -9,4 +9,5 @@ const (
 	Millisecond Unit = "Milliseconds"
 	Second      Unit = "Seconds"
 	Celsius     Unit = "Celsius"
+	Byte        Unit = "Bytes"
 )

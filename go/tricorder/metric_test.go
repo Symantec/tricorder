@@ -237,7 +237,7 @@ func TestAPI(t *testing.T) {
 	if err := RegisterMetric("/proc/rpc-count", rpcCountCallback, units.None, "RPC count"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
-	if err := RegisterMetric("/proc/start-time", &startTime, units.Second, "Start Time"); err != nil {
+	if err := RegisterMetric("/proc/test-start-time", &startTime, units.Second, "Start Time"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
 	if err := RegisterMetric("/proc/some-time", &someTime, units.None, "Some time"); err != nil {
@@ -299,7 +299,7 @@ func TestAPI(t *testing.T) {
 	}
 
 	// Can't call RegisterMetric where parent dir already a metric
-	if err := RegisterMetric("/args/illegal", &unused, units.None, "parent dir already a metric"); err != ErrPathInUse {
+	if err := RegisterMetric("/proc/args/illegal", &unused, units.None, "parent dir already a metric"); err != ErrPathInUse {
 		t.Errorf("Expected ErrPathInUse, got %v", err)
 	}
 
@@ -331,24 +331,30 @@ func TestAPI(t *testing.T) {
 	verifyChildren(
 		t,
 		root.List(),
-		"args",
 		"firstGroup",
-		"name",
 		"proc",
 		"secondGroup",
-		"start-time",
 		"testargs",
 		"testname")
 	verifyChildren(
 		t,
 		root.GetDirectory("proc").List(),
+		"args",
+		"cpu",
 		"foo",
+		"io",
+		"ipc",
+		"memory",
+		"name",
 		"rpc-count",
 		"rpc-latency",
+		"scheduler",
+		"signals",
 		"some-time",
 		"some-time-ptr",
 		"start-time",
-		"temperature")
+		"temperature",
+		"test-start-time")
 	verifyGetAllMetricsByPath(
 		t,
 		"foo/bar/baz",
@@ -360,17 +366,11 @@ func TestAPI(t *testing.T) {
 		root.GetDirectory("proc"))
 	verifyGetAllMetricsByPath(
 		t,
-		"proc",
+		"proc/foo",
 		root,
 		"/proc/foo/bar/abool",
 		"/proc/foo/bar/anotherBool",
-		"/proc/foo/bar/baz",
-		"/proc/rpc-count",
-		"/proc/rpc-latency",
-		"/proc/some-time",
-		"/proc/some-time-ptr",
-		"/proc/start-time",
-		"/proc/temperature")
+		"/proc/foo/bar/baz")
 	if err := root.GetAllMetricsByPath("/proc/foo", collectErrorType{E: kCallbackError}, nil); err != kCallbackError {
 		t.Errorf("Expected kCallbackError, got %v", err)
 	}
@@ -434,7 +434,7 @@ func TestAPI(t *testing.T) {
 	assertValueEquals(t, "22.5", temperatureMetric.AsHtmlString(nil))
 
 	// Check /proc/start-time
-	startTimeMetric := root.GetMetric("/proc/start-time")
+	startTimeMetric := root.GetMetric("/proc/test-start-time")
 	verifyMetric(t, "Start Time", units.Second, startTimeMetric)
 	assertValueDeepEquals(
 		t,
