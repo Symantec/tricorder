@@ -3,6 +3,7 @@ package tricorder
 import (
 	"errors"
 	"github.com/Symantec/tricorder/go/tricorder/units"
+	"time"
 )
 
 var (
@@ -117,6 +118,18 @@ type Distribution distribution
 // Add adds a single value to a Distribution instance.
 func (d *Distribution) Add(value float64) {
 	(*distribution)(d).Add(value)
+}
+
+// Adds a duration to this distribution. Because Distribution objects
+// are not aware of units, the caller must pass the unit of time as
+// the second parameter. For example
+// d.AddDuration(someDuration, duration.Second) will record someDuration
+// in seconds. It is up to the caller always to pass the same timeUnit
+// parameter to AddDuration for a particular distribution instance; otherwise,
+// the distribution of values will not make sense.
+func (d *Distribution) AddDuration(
+	duration time.Duration, timeUnit time.Duration) {
+	d.Add(float64(duration) / float64(timeUnit))
 }
 
 // DirectorySpec represents a specific directory in the heirarchy of
