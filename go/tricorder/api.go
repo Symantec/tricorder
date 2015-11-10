@@ -124,7 +124,9 @@ func (b *Bucketer) NewDistribution() *Distribution {
 type Distribution distribution
 
 // Add adds a single value to a Distribution instance.
-func (d *Distribution) Add(value float64) {
+// value can be a float32, float64, or a time.Duration.
+// If a time.Duration, Add converts it to seconds.
+func (d *Distribution) Add(value interface{}) {
 	(*distribution)(d).Add(value)
 }
 
