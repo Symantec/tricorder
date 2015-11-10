@@ -22,12 +22,20 @@ func registerMetrics() {
 	var temperature float64
 	var someBool bool
 
-	rpcDistribution := tricorder.NewDistribution(tricorder.PowersOfTen)
+	rpcDistribution := tricorder.PowersOfTen.NewDistribution()
 
-	if err := tricorder.RegisterMetric("/proc/rpc-latency", rpcDistribution, units.Millisecond, "RPC latency"); err != nil {
+	if err := tricorder.RegisterMetric(
+		"/proc/rpc-latency",
+		rpcDistribution,
+		units.Millisecond,
+		"RPC latency"); err != nil {
 		log.Fatalf("Got error %v registering metric", err)
 	}
-	if err := tricorder.RegisterMetric("/proc/rpc-count", rpcCountCallback, units.None, "RPC count"); err != nil {
+	if err := tricorder.RegisterMetric(
+		"/proc/rpc-count",
+		rpcCountCallback,
+		units.None,
+		"RPC count"); err != nil {
 		log.Fatalf("Got error %v registering metric", err)
 	}
 	if err := tricorder.RegisterMetric("/proc/start-time", &startTime, units.Second, "Start Time"); err != nil {
@@ -44,7 +52,11 @@ func registerMetrics() {
 	if err != nil {
 		log.Fatalf("Got error %v registering directory", err)
 	}
-	err = barDir.RegisterMetric("baz", bazCallback, units.None, "Another float value")
+	err = barDir.RegisterMetric(
+		"baz",
+		bazCallback,
+		units.None,
+		"Another float value")
 	if err != nil {
 		log.Fatalf("Got error %v registering metric", err)
 	}

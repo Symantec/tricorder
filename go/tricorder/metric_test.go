@@ -229,31 +229,63 @@ func TestAPI(t *testing.T) {
 	var someBool bool
 
 	rpcBucketer := NewExponentialBucketer(6, 10, 2.5)
-	rpcDistribution := NewDistribution(rpcBucketer)
+	rpcDistribution := rpcBucketer.NewDistribution()
 
-	if err := RegisterMetric("/proc/rpc-latency", rpcDistribution, units.Millisecond, "RPC latency"); err != nil {
+	if err := RegisterMetric(
+		"/proc/rpc-latency",
+		rpcDistribution,
+		units.Millisecond,
+		"RPC latency"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
-	if err := RegisterMetric("/proc/rpc-count", rpcCountCallback, units.None, "RPC count"); err != nil {
+	if err := RegisterMetric(
+		"/proc/rpc-count",
+		rpcCountCallback,
+		units.None,
+		"RPC count"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
-	if err := RegisterMetric("/proc/start-time", &startTime, units.Second, "Start Time"); err != nil {
+	if err := RegisterMetric(
+		"/proc/start-time",
+		&startTime,
+		units.Second,
+		"Start Time"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
-	if err := RegisterMetric("/proc/some-time", &someTime, units.None, "Some time"); err != nil {
+	if err := RegisterMetric(
+		"/proc/some-time",
+		&someTime,
+		units.None,
+		"Some time"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
-	if err := RegisterMetric("/proc/some-time-ptr", &someTimePtr, units.None, "Some time pointer"); err != nil {
+	if err := RegisterMetric(
+		"/proc/some-time-ptr",
+		&someTimePtr,
+		units.None,
+		"Some time pointer"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
-	if err := RegisterMetric("/proc/temperature", &temperature, units.Celsius, "Temperature"); err != nil {
+	if err := RegisterMetric(
+		"/proc/temperature",
+		&temperature,
+		units.Celsius,
+		"Temperature"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
-	if err := RegisterMetric("/testname", &name, units.None, "Name of app"); err != nil {
+	if err := RegisterMetric(
+		"/testname",
+		&name,
+		units.None,
+		"Name of app"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
 
-	if err := RegisterMetric("/testargs", &args, units.None, "Args passed to app"); err != nil {
+	if err := RegisterMetric(
+		"/testargs",
+		&args,
+		units.None,
+		"Args passed to app"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
 	fooDir, err := RegisterDirectory("proc/foo")
@@ -268,23 +300,39 @@ func TestAPI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
-	err = barDir.RegisterMetric("abool", &someBool, units.None, "A boolean value")
+	err = barDir.RegisterMetric(
+		"abool",
+		&someBool,
+		units.None,
+		"A boolean value")
 	if err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
 
-	err = barDir.RegisterMetric("anotherBool", boolCallback, units.None, "A boolean callback value")
+	err = barDir.RegisterMetric(
+		"anotherBool",
+		boolCallback,
+		units.None,
+		"A boolean callback value")
 	if err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
 
 	// This is already a directory
-	if err := RegisterMetric("/proc/foo/bar", &unused, units.None, "Bad registration"); err != ErrPathInUse {
+	if err := RegisterMetric(
+		"/proc/foo/bar",
+		&unused,
+		units.None,
+		"Bad registration"); err != ErrPathInUse {
 		t.Errorf("Expected ErrPathInUse, got %v", err)
 	}
 
 	// This path is already registered as a metric
-	if err := RegisterMetric("proc/foo/bar/baz", &unused, units.None, "Bad registration"); err != ErrPathInUse {
+	if err := RegisterMetric(
+		"proc/foo/bar/baz",
+		&unused,
+		units.None,
+		"Bad registration"); err != ErrPathInUse {
 		t.Errorf("Expected ErrPathInUse, got %v", err)
 	}
 
@@ -294,12 +342,20 @@ func TestAPI(t *testing.T) {
 	}
 
 	// Can't call RegisterMetric on an empty path
-	if err := RegisterMetric("/", &unused, units.None, "Empty path"); err != ErrPathInUse {
+	if err := RegisterMetric(
+		"/",
+		&unused,
+		units.None,
+		"Empty path"); err != ErrPathInUse {
 		t.Errorf("Expected ErrPathInUse, got %v", err)
 	}
 
 	// Can't call RegisterMetric where parent dir already a metric
-	if err := RegisterMetric("/args/illegal", &unused, units.None, "parent dir already a metric"); err != ErrPathInUse {
+	if err := RegisterMetric(
+		"/args/illegal",
+		&unused,
+		units.None,
+		"parent dir already a metric"); err != ErrPathInUse {
 		t.Errorf("Expected ErrPathInUse, got %v", err)
 	}
 
@@ -316,7 +372,8 @@ func TestAPI(t *testing.T) {
 	temperature = 22.5
 	someBool = true
 
-	someTime = time.Date(2015, time.November, 15, 13, 26, 53, 7265341, time.UTC)
+	someTime = time.Date(
+		2015, time.November, 15, 13, 26, 53, 7265341, time.UTC)
 
 	// Add data points to the distribution
 	// < 10: 10

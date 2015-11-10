@@ -105,14 +105,14 @@ func NewArbitraryBucketer(endpoints []float64) *Bucketer {
 		newArbitraryBucketerStream(endpoints))
 }
 
+// NewDistribution creates a new Distribution that uses this bucketer
+// to distribute values.
+func (b *Bucketer) NewDistribution() *Distribution {
+	return (*Distribution)(newDistribution(b))
+}
+
 // Distribution represents a metric that is a distribution of value.
 type Distribution distribution
-
-// NewDistribution creates a new Distribution that uses the given bucketer
-// to distribute values.
-func NewDistribution(bucketer *Bucketer) *Distribution {
-	return (*Distribution)(newDistribution(bucketer))
-}
 
 // Add adds a single value to a Distribution instance.
 func (d *Distribution) Add(value float64) {
