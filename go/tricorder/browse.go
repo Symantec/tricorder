@@ -27,7 +27,7 @@ const (
 	  {{with $top := .}}
             {{if .IsDistribution}}
 	      {{.Metric.AbsPath}} <span class="parens">(distribution: {{.Metric.Description}}{{if .HasUnit}}; unit: {{.Metric.Unit}}{{end}})</span><br>
-	      {{with .Metric.Value.AsDistribution.Snapshot}}
+	      {{with .Metric.AsDistribution.Snapshot}}
 	        <table>
 	        {{range .Breakdown}}
 	          {{if .Count}}
@@ -48,7 +48,7 @@ const (
 	        {{end}}
 	      {{end}}
 	    {{else}}
-	      {{.Metric.AbsPath}} {{.AsHtmlString}} <span class="parens">({{.Metric.Value.Type}}: {{.Metric.Description}}{{if .HasUnit}}; unit: {{.Metric.Unit}}{{end}})</span><br>
+	      {{.Metric.AbsPath}} {{.AsHtmlString}} <span class="parens">({{.Metric.Type}}: {{.Metric.Description}}{{if .HasUnit}}; unit: {{.Metric.Unit}}{{end}})</span><br>
 	    {{end}}
 	  {{end}}
 	{{end}}
@@ -97,11 +97,11 @@ func (v *htmlView) AsMetricView(m *metric) *htmlView {
 }
 
 func (v *htmlView) AsHtmlString() string {
-	return v.Metric.Value.AsHtmlString(v.Session)
+	return v.Metric.AsHtmlString(v.Session)
 }
 
 func (v *htmlView) IsDistribution() bool {
-	return v.Metric.Value.Type() == types.Dist
+	return v.Metric.Type() == types.Dist
 }
 
 func (v *htmlView) HasUnit() bool {
@@ -152,7 +152,7 @@ func rpcAsMetric(m *metric, s *session) *messages.Metric {
 		Path:        m.AbsPath(),
 		Description: m.Description,
 		Unit:        m.Unit,
-		Value:       m.Value.AsRPCValue(s)}
+		Value:       m.AsRPCValue(s)}
 }
 
 type rpcMetricsCollector messages.MetricList
@@ -224,10 +224,10 @@ func textEmitDistribution(s *snapshot, w io.Writer) error {
 }
 
 func textEmitMetric(m *metric, s *session, w io.Writer) error {
-	if m.Value.Type() == types.Dist {
-		return textEmitDistribution(m.Value.AsDistribution().Snapshot(), w)
+	if m.Type() == types.Dist {
+		return textEmitDistribution(m.AsDistribution().Snapshot(), w)
 	}
-	_, err := fmt.Fprintf(w, "%s\n", m.Value.AsTextString(s))
+	_, err := fmt.Fprintf(w, "%s\n", m.AsTextString(s))
 	return err
 }
 

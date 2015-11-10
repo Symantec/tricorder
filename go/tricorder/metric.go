@@ -569,7 +569,7 @@ type metric struct {
 	// The unit of measurement
 	Unit units.Unit
 	// The value of the metric
-	Value              *value
+	*value
 	enclosingListEntry *listEntry
 }
 
@@ -812,7 +812,7 @@ func (d *directory) registerMetric(
 	metric := &metric{
 		Description: description,
 		Unit:        unit,
-		Value:       newValue(value, region)}
+		value:       newValue(value, region)}
 	return current.storeMetric(path.Base(), metric)
 }
 
