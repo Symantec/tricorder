@@ -36,6 +36,8 @@ type Distribution struct {
 	Average float64 `json:"average"`
 	// The approximate median value
 	Median float64 `json:"median"`
+	// The sum
+	Sum float64 `json:"total"`
 	// The total number of values
 	Count uint64 `json:"count"`
 	// The number of values within each range

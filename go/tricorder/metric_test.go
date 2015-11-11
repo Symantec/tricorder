@@ -6,6 +6,7 @@ import (
 	"github.com/Symantec/tricorder/go/tricorder/types"
 	"github.com/Symantec/tricorder/go/tricorder/units"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 )
@@ -14,14 +15,210 @@ var (
 	kCallbackError = errors.New("callback error")
 )
 
+var (
+	firstGlobal   = 100
+	secondGlobal  = 200
+	thirdGlobal   = 300
+	fourthGlobal  = 400
+	fifthGlobal   = 500
+	sixthGlobal   = 600
+	seventhGlobal = 700
+	eighthGlobal  = 800
+)
+
+func incrementFirstAndSecondGlobal() {
+	firstGlobal++
+	secondGlobal++
+}
+
+func incrementThirdToSixthGlobal() {
+	thirdGlobal++
+	fourthGlobal++
+	fifthGlobal++
+	sixthGlobal++
+}
+
+func incrementSeventhAndEighthGlobal() {
+	seventhGlobal++
+	eighthGlobal++
+}
+
+func registerMetricsForGlobalsTest() {
+	r1and2 := RegisterRegion(incrementFirstAndSecondGlobal)
+	r3to6 := RegisterRegion(incrementThirdToSixthGlobal)
+	r7and8 := RegisterRegion(incrementSeventhAndEighthGlobal)
+	RegisterMetricInRegion(
+		"/firstGroup/first", &firstGlobal, r1and2, units.None, "")
+	RegisterMetricInRegion(
+		"/firstGroup/second", &secondGlobal, r1and2, units.None, "")
+	RegisterMetricInRegion(
+		"/firstGroup/third", &thirdGlobal, r3to6, units.None, "")
+	RegisterMetricInRegion(
+		"/firstGroup/fourth", &fourthGlobal, r3to6, units.None, "")
+	RegisterMetricInRegion(
+		"/secondGroup/fifth", &fifthGlobal, r3to6, units.None, "")
+	RegisterMetricInRegion(
+		"/secondGroup/sixth", &sixthGlobal, r3to6, units.None, "")
+	RegisterMetricInRegion(
+		"/secondGroup/seventh", &seventhGlobal, r7and8, units.None, "")
+	RegisterMetricInRegion(
+		"/secondGroup/eighth", &eighthGlobal, r7and8, units.None, "")
+}
+
+type intMetricsCollectorForTesting struct {
+	// Number of expected metrics
+	Count int
+	// Barrier to ensure that go routines collecting metrics run
+	// concurrently
+	Barrier *sync.WaitGroup
+	// The values collected by path
+	Values map[string]int64
+}
+
+func (c *intMetricsCollectorForTesting) Collect(m *metric, s *session) error {
+	c.Values[m.AbsPath()] = m.AsInt(s)
+	c.Count--
+	if c.Count == 0 {
+		c.Barrier.Done()
+		c.Barrier.Wait()
+	}
+	return nil
+}
+
+func doGlobalsTest(t *testing.T) {
+	var barrier sync.WaitGroup
+	var wg sync.WaitGroup
+
+	// First be sure that fetching values regions work even when
+	// caller does not create a session. In this case, each fetch
+	// will invoke the region's update function.
+	assertValueEquals(
+		t,
+		int64(101),
+		root.GetMetric("/firstGroup/first").AsInt(nil))
+
+	assertValueEquals(
+		t,
+		int64(202),
+		root.GetMetric("/firstGroup/second").AsInt(nil))
+
+	assertValueEquals(
+		t,
+		int64(301),
+		root.GetMetric("/firstGroup/third").AsInt(nil))
+
+	assertValueEquals(
+		t,
+		int64(602),
+		root.GetMetric("/secondGroup/sixth").AsInt(nil))
+
+	assertValueEquals(
+		t,
+		int64(701),
+		root.GetMetric("/secondGroup/seventh").AsInt(nil))
+
+	assertValueEquals(
+		t,
+		int64(802),
+		root.GetMetric("/secondGroup/eighth").AsInt(nil))
+
+	// The test has invoked each region's update function twice.
+	// So all values should end in 02 at this point.
+
+	collectorFirstGroup := &intMetricsCollectorForTesting{
+		Count: 4, Barrier: &barrier, Values: make(map[string]int64)}
+	collectorSecondGroup := &intMetricsCollectorForTesting{
+		Count: 4, Barrier: &barrier, Values: make(map[string]int64)}
+	// Our barrier expects 2 goroutines
+	barrier.Add(2)
+
+	// Collect metric in two goroutines running concurrently.
+	// Because the collections run concurrently, each region's update
+	// function gets called only one time even though they both collect
+	// from region r3to6.
+
+	wg.Add(2)
+	go func() {
+		root.GetAllMetricsByPath(
+			"/firstGroup", collectorFirstGroup, nil)
+		wg.Done()
+	}()
+	go func() {
+		root.GetAllMetricsByPath(
+			"/secondGroup", collectorSecondGroup, nil)
+		wg.Done()
+	}()
+	wg.Wait()
+	expectedFirstGroup := map[string]int64{
+		"/firstGroup/first":  103,
+		"/firstGroup/second": 203,
+		"/firstGroup/third":  303,
+		"/firstGroup/fourth": 403,
+	}
+	expectedSecondGroup := map[string]int64{
+		"/secondGroup/fifth":   503,
+		"/secondGroup/sixth":   603,
+		"/secondGroup/seventh": 703,
+		"/secondGroup/eighth":  803,
+	}
+	assertValueDeepEquals(t, expectedFirstGroup, collectorFirstGroup.Values)
+	assertValueDeepEquals(t, expectedSecondGroup, collectorSecondGroup.Values)
+
+	// Now collect the same metrics only do it sequentially.
+	collectorFirstGroupSeq := &intMetricsCollectorForTesting{
+		Count: 4, Barrier: &barrier, Values: make(map[string]int64)}
+	collectorSecondGroupSeq := &intMetricsCollectorForTesting{
+		Count: 4, Barrier: &barrier, Values: make(map[string]int64)}
+
+	// This time our barrier expects only one goroutine
+	barrier.Add(1)
+
+	// Collect metric in two goroutines running one after the other.
+	// The session mechanism ensures that each region's update
+	// function is called once per collection even if multiple variables
+	// in that region get collected. However, since the collections
+	// run one after the other, the update function of r3to6 region gets
+	// called twice, once per collection because both collections
+	// collect metrics from that region.
+	wg.Add(1)
+	go func() {
+		root.GetAllMetricsByPath(
+			"/firstGroup", collectorFirstGroupSeq, nil)
+		wg.Done()
+	}()
+	wg.Wait()
+
+	// Barrier expects one goroutine
+	barrier.Add(1)
+
+	wg.Add(1)
+	go func() {
+		root.GetAllMetricsByPath(
+			"/secondGroup", collectorSecondGroupSeq, nil)
+		wg.Done()
+	}()
+	wg.Wait()
+	expectedFirstGroupSeq := map[string]int64{
+		"/firstGroup/first":  104,
+		"/firstGroup/second": 204,
+		"/firstGroup/third":  304,
+		"/firstGroup/fourth": 404,
+	}
+	expectedSecondGroupSeq := map[string]int64{
+		"/secondGroup/fifth":   505,
+		"/secondGroup/sixth":   605,
+		"/secondGroup/seventh": 704,
+		"/secondGroup/eighth":  804,
+	}
+	assertValueDeepEquals(t, expectedFirstGroupSeq, collectorFirstGroupSeq.Values)
+	assertValueDeepEquals(t, expectedSecondGroupSeq, collectorSecondGroupSeq.Values)
+
+}
+
 func TestAPI(t *testing.T) {
-	// /proc/rpc-latency: Distribution millis 5 buckets, start: 10, scale 2.5
-	// /proc/rpc-count: Callback to get RPC count, uint64
-	// /proc/start-time: An int64 showing start time as seconds since epoch
-	// /proc/temperature: A float64 showing tempurature in celsius
-	// /proc/foo/bar/baz: Callback to get a float64 that returns an error
-	// /testname - name of app
-	// /testargs - A string arguments to app
+	// Do concurrent globals test
+	registerMetricsForGlobalsTest()
+	doGlobalsTest(t)
 
 	var startTime int64
 	var temperature float64
@@ -32,31 +229,63 @@ func TestAPI(t *testing.T) {
 	var someBool bool
 
 	rpcBucketer := NewExponentialBucketer(6, 10, 2.5)
-	rpcDistribution := NewDistribution(rpcBucketer)
+	rpcDistribution := rpcBucketer.NewDistribution()
 
-	if err := RegisterMetric("/proc/rpc-latency", rpcDistribution, units.Millisecond, "RPC latency"); err != nil {
+	if err := RegisterMetric(
+		"/proc/rpc-latency",
+		rpcDistribution,
+		units.Millisecond,
+		"RPC latency"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
-	if err := RegisterMetric("/proc/rpc-count", rpcCountCallback, units.None, "RPC count"); err != nil {
+	if err := RegisterMetric(
+		"/proc/rpc-count",
+		rpcCountCallback,
+		units.None,
+		"RPC count"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
-	if err := RegisterMetric("/proc/start-time", &startTime, units.Second, "Start Time"); err != nil {
+	if err := RegisterMetric(
+		"/proc/test-start-time",
+		&startTime,
+		units.Second,
+		"Start Time"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
-	if err := RegisterMetric("/proc/some-time", &someTime, units.None, "Some time"); err != nil {
+	if err := RegisterMetric(
+		"/proc/some-time",
+		&someTime,
+		units.None,
+		"Some time"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
-	if err := RegisterMetric("/proc/some-time-ptr", &someTimePtr, units.None, "Some time pointer"); err != nil {
+	if err := RegisterMetric(
+		"/proc/some-time-ptr",
+		&someTimePtr,
+		units.None,
+		"Some time pointer"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
-	if err := RegisterMetric("/proc/temperature", &temperature, units.Celsius, "Temperature"); err != nil {
+	if err := RegisterMetric(
+		"/proc/temperature",
+		&temperature,
+		units.Celsius,
+		"Temperature"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
-	if err := RegisterMetric("/testname", &name, units.None, "Name of app"); err != nil {
+	if err := RegisterMetric(
+		"/testname",
+		&name,
+		units.None,
+		"Name of app"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
 
-	if err := RegisterMetric("/testargs", &args, units.None, "Args passed to app"); err != nil {
+	if err := RegisterMetric(
+		"/testargs",
+		&args,
+		units.None,
+		"Args passed to app"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
 	fooDir, err := RegisterDirectory("proc/foo")
@@ -71,23 +300,39 @@ func TestAPI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
-	err = barDir.RegisterMetric("abool", &someBool, units.None, "A boolean value")
+	err = barDir.RegisterMetric(
+		"abool",
+		&someBool,
+		units.None,
+		"A boolean value")
 	if err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
 
-	err = barDir.RegisterMetric("anotherBool", boolCallback, units.None, "A boolean callback value")
+	err = barDir.RegisterMetric(
+		"anotherBool",
+		boolCallback,
+		units.None,
+		"A boolean callback value")
 	if err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
 
 	// This is already a directory
-	if err := RegisterMetric("/proc/foo/bar", &unused, units.None, "Bad registration"); err != ErrPathInUse {
+	if err := RegisterMetric(
+		"/proc/foo/bar",
+		&unused,
+		units.None,
+		"Bad registration"); err != ErrPathInUse {
 		t.Errorf("Expected ErrPathInUse, got %v", err)
 	}
 
 	// This path is already registered as a metric
-	if err := RegisterMetric("proc/foo/bar/baz", &unused, units.None, "Bad registration"); err != ErrPathInUse {
+	if err := RegisterMetric(
+		"proc/foo/bar/baz",
+		&unused,
+		units.None,
+		"Bad registration"); err != ErrPathInUse {
 		t.Errorf("Expected ErrPathInUse, got %v", err)
 	}
 
@@ -102,7 +347,11 @@ func TestAPI(t *testing.T) {
 	}
 
 	// Can't call RegisterMetric where parent dir already a metric
-	if err := RegisterMetric("/args/illegal", &unused, units.None, "parent dir already a metric"); err != ErrPathInUse {
+	if err := RegisterMetric(
+		"/proc/args/illegal",
+		&unused,
+		units.None,
+		"parent dir already a metric"); err != ErrPathInUse {
 		t.Errorf("Expected ErrPathInUse, got %v", err)
 	}
 
@@ -119,7 +368,8 @@ func TestAPI(t *testing.T) {
 	temperature = 22.5
 	someBool = true
 
-	someTime = time.Date(2015, time.November, 15, 13, 26, 53, 7265341, time.UTC)
+	someTime = time.Date(
+		2015, time.November, 15, 13, 26, 53, 7265341, time.UTC)
 
 	// Add data points to the distribution
 	// < 10: 10
@@ -127,29 +377,39 @@ func TestAPI(t *testing.T) {
 	// 25 - 62.5: 38
 	// 62.5 - 156.25: 94
 	// 156.25 - 390.625: 234
+	var dur time.Duration
 	for i := 0; i < 500; i++ {
-		rpcDistribution.Add(float64(i))
+		rpcDistribution.AddDuration(dur, time.Millisecond)
+		dur += time.Millisecond
 	}
 
 	verifyChildren(
 		t,
 		root.List(),
-		"args",
-		"name",
+		"firstGroup",
 		"proc",
-		"start-time",
+		"secondGroup",
 		"testargs",
 		"testname")
 	verifyChildren(
 		t,
 		root.GetDirectory("proc").List(),
+		"args",
+		"cpu",
 		"foo",
+		"io",
+		"ipc",
+		"memory",
+		"name",
 		"rpc-count",
 		"rpc-latency",
+		"scheduler",
+		"signals",
 		"some-time",
 		"some-time-ptr",
 		"start-time",
-		"temperature")
+		"temperature",
+		"test-start-time")
 	verifyGetAllMetricsByPath(
 		t,
 		"foo/bar/baz",
@@ -161,18 +421,12 @@ func TestAPI(t *testing.T) {
 		root.GetDirectory("proc"))
 	verifyGetAllMetricsByPath(
 		t,
-		"proc",
+		"proc/foo",
 		root,
 		"/proc/foo/bar/abool",
 		"/proc/foo/bar/anotherBool",
-		"/proc/foo/bar/baz",
-		"/proc/rpc-count",
-		"/proc/rpc-latency",
-		"/proc/some-time",
-		"/proc/some-time-ptr",
-		"/proc/start-time",
-		"/proc/temperature")
-	if err := root.GetAllMetricsByPath("/proc/foo", collectErrorType{E: kCallbackError}); err != kCallbackError {
+		"/proc/foo/bar/baz")
+	if err := root.GetAllMetricsByPath("/proc/foo", collectErrorType{E: kCallbackError}, nil); err != kCallbackError {
 		t.Errorf("Expected kCallbackError, got %v", err)
 	}
 	verifyChildren(
@@ -209,8 +463,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:        types.String,
 			StringValue: stringPtr("--help")},
-		argsMetric.Value.AsRPCValue())
-	assertValueEquals(t, "\"--help\"", argsMetric.Value.AsHtmlString())
+		argsMetric.AsRPCValue(nil))
+	assertValueEquals(t, "\"--help\"", argsMetric.AsHtmlString(nil))
 
 	// Check /testname
 	nameMetric := root.GetMetric("/testname")
@@ -220,8 +474,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:        types.String,
 			StringValue: stringPtr("My application")},
-		nameMetric.Value.AsRPCValue())
-	assertValueEquals(t, "\"My application\"", nameMetric.Value.AsHtmlString())
+		nameMetric.AsRPCValue(nil))
+	assertValueEquals(t, "\"My application\"", nameMetric.AsHtmlString(nil))
 
 	// Check /proc/temperature
 	temperatureMetric := root.GetMetric("/proc/temperature")
@@ -231,19 +485,19 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:       types.Float,
 			FloatValue: floatPtr(22.5)},
-		temperatureMetric.Value.AsRPCValue())
-	assertValueEquals(t, "22.5", temperatureMetric.Value.AsHtmlString())
+		temperatureMetric.AsRPCValue(nil))
+	assertValueEquals(t, "22.5", temperatureMetric.AsHtmlString(nil))
 
 	// Check /proc/start-time
-	startTimeMetric := root.GetMetric("/proc/start-time")
+	startTimeMetric := root.GetMetric("/proc/test-start-time")
 	verifyMetric(t, "Start Time", units.Second, startTimeMetric)
 	assertValueDeepEquals(
 		t,
 		&messages.Value{
 			Kind:     types.Int,
 			IntValue: intPtr(-1234567)},
-		startTimeMetric.Value.AsRPCValue())
-	assertValueEquals(t, "-1234567", startTimeMetric.Value.AsHtmlString())
+		startTimeMetric.AsRPCValue(nil))
+	assertValueEquals(t, "-1234567", startTimeMetric.AsHtmlString(nil))
 
 	// Check /proc/some-time
 	someTimeMetric := root.GetMetric("/proc/some-time")
@@ -253,8 +507,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:        types.Time,
 			StringValue: stringPtr("1447594013.007265341")},
-		someTimeMetric.Value.AsRPCValue())
-	assertValueEquals(t, "2015-11-15T13:26:53.007265341Z", someTimeMetric.Value.AsHtmlString())
+		someTimeMetric.AsRPCValue(nil))
+	assertValueEquals(t, "2015-11-15T13:26:53.007265341Z", someTimeMetric.AsHtmlString(nil))
 
 	// Check /proc/some-time-ptr
 	someTimePtrMetric := root.GetMetric("/proc/some-time-ptr")
@@ -265,8 +519,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:        types.Time,
 			StringValue: stringPtr("0.000000000")},
-		someTimePtrMetric.Value.AsRPCValue())
-	assertValueEquals(t, "0001-01-01T00:00:00Z", someTimePtrMetric.Value.AsHtmlString())
+		someTimePtrMetric.AsRPCValue(nil))
+	assertValueEquals(t, "0001-01-01T00:00:00Z", someTimePtrMetric.AsHtmlString(nil))
 
 	newTime := time.Date(2015, time.September, 6, 5, 26, 35, 0, time.UTC)
 	someTimePtr = &newTime
@@ -275,11 +529,11 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:        types.Time,
 			StringValue: stringPtr("1441517195.000000000")},
-		someTimePtrMetric.Value.AsRPCValue())
+		someTimePtrMetric.AsRPCValue(nil))
 	assertValueEquals(
 		t,
 		"2015-09-06T05:26:35Z",
-		someTimePtrMetric.Value.AsHtmlString())
+		someTimePtrMetric.AsHtmlString(nil))
 
 	// Check /proc/rpc-count
 	rpcCountMetric := root.GetMetric("/proc/rpc-count")
@@ -289,8 +543,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:      types.Uint,
 			UintValue: uintPtr(500)},
-		rpcCountMetric.Value.AsRPCValue())
-	assertValueEquals(t, "500", rpcCountMetric.Value.AsHtmlString())
+		rpcCountMetric.AsRPCValue(nil))
+	assertValueEquals(t, "500", rpcCountMetric.AsHtmlString(nil))
 
 	// check /proc/foo/bar/baz
 	bazMetric := root.GetMetric("proc/foo/bar/baz")
@@ -300,8 +554,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:       types.Float,
 			FloatValue: floatPtr(12.375)},
-		bazMetric.Value.AsRPCValue())
-	assertValueEquals(t, "12.375", bazMetric.Value.AsHtmlString())
+		bazMetric.AsRPCValue(nil))
+	assertValueEquals(t, "12.375", bazMetric.AsHtmlString(nil))
 
 	// check /proc/foo/bar/abool
 	aboolMetric := root.GetMetric("proc/foo/bar/abool")
@@ -311,8 +565,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:      types.Bool,
 			BoolValue: boolPtr(true)},
-		aboolMetric.Value.AsRPCValue())
-	assertValueEquals(t, "true", aboolMetric.Value.AsHtmlString())
+		aboolMetric.AsRPCValue(nil))
+	assertValueEquals(t, "true", aboolMetric.AsHtmlString(nil))
 
 	// check /proc/foo/bar/anotherBool
 	anotherBoolMetric := root.GetMetric("proc/foo/bar/anotherBool")
@@ -322,14 +576,14 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:      types.Bool,
 			BoolValue: boolPtr(false)},
-		anotherBoolMetric.Value.AsRPCValue())
-	assertValueEquals(t, "false", anotherBoolMetric.Value.AsHtmlString())
+		anotherBoolMetric.AsRPCValue(nil))
+	assertValueEquals(t, "false", anotherBoolMetric.AsHtmlString(nil))
 
 	// Check /proc/rpc-latency
 	rpcLatency := root.GetMetric("/proc/rpc-latency")
 	verifyMetric(t, "RPC latency", units.Millisecond, rpcLatency)
 
-	actual := rpcLatency.Value.AsRPCValue()
+	actual := rpcLatency.AsRPCValue(nil)
 
 	if actual.DistributionValue.Median < 249 || actual.DistributionValue.Median >= 250 {
 		t.Errorf("Median out of range: %f", actual.DistributionValue.Median)
@@ -341,6 +595,7 @@ func TestAPI(t *testing.T) {
 			Min:     0.0,
 			Max:     499.0,
 			Average: 249.5,
+			Sum:     124750.0,
 			Median:  actual.DistributionValue.Median,
 			Count:   500,
 			Ranges: []*messages.RangeWithCount{
@@ -387,81 +642,54 @@ func TestAPI(t *testing.T) {
 }
 
 func TestLinearDistribution(t *testing.T) {
-	bucketer := NewLinearBucketer(3, 12, 5)
-	dist := newDistribution(bucketer)
-	actualEmpty := dist.Snapshot()
-	expectedEmpty := &snapshot{
-		Count: 0,
-		Breakdown: breakdown{
-			{
-				bucketPiece: &bucketPiece{
-					End:   12.0,
-					First: true,
-				},
-				Count: 0,
-			},
-			{
-				bucketPiece: &bucketPiece{
-					Start: 12.0,
-					End:   17.0,
-				},
-				Count: 0,
-			},
-			{
-				bucketPiece: &bucketPiece{
-					Start: 17.0,
-					Last:  true,
-				},
-				Count: 0,
-			},
-		},
-	}
-	if !reflect.DeepEqual(expectedEmpty, actualEmpty) {
-		t.Errorf("Expected %v, got %v", expectedEmpty, actualEmpty)
-	}
+	verifyBucketer(
+		t, NewLinearBucketer(3, 12, 5), 12.0, 17.0)
+}
+
+func TestExponentialDistribution(t *testing.T) {
+	verifyBucketer(
+		t, NewExponentialBucketer(5, 12.0, 3.5),
+		12.0, 42.0, 147.0, 514.5)
+}
+
+func TestGeometricDistribution(t *testing.T) {
+	verifyBucketer(
+		t, NewGeometricBucketer(0.5, 20),
+		0.5, 1.0, 2.0, 5.0, 10.0, 20.0)
+	verifyBucketer(
+		t, NewGeometricBucketer(0.51, 19.9),
+		0.5, 1.0, 2.0, 5.0, 10.0, 20.0)
+	verifyBucketer(
+		t, NewGeometricBucketer(0.49, 20.1),
+		0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0)
+	verifyBucketer(
+		t, NewGeometricBucketer(100.0, 1000.0),
+		100.0, 200.0, 500.0, 1000.0)
+	verifyBucketer(
+		t, NewGeometricBucketer(99.99, 1000.0),
+		50.0, 100.0, 200.0, 500.0, 1000.0)
+	verifyBucketer(
+		t, NewGeometricBucketer(99.99, 1000.01),
+		50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0)
+	verifyBucketer(
+		t, NewGeometricBucketer(0.02, 5),
+		0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0)
+	verifyBucketer(
+		t, NewGeometricBucketer(0.0201, 5.01),
+		0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0)
+	verifyBucketer(
+		t, NewGeometricBucketer(0.0199, 4.99),
+		0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0)
+	verifyBucketer(
+		t, NewGeometricBucketer(0.005, 0.005), 0.005)
+	verifyBucketer(
+		t, NewGeometricBucketer(0.007, 0.007), 0.005, 0.01)
 }
 
 func TestArbitraryDistribution(t *testing.T) {
 	bucketer := NewArbitraryBucketer([]float64{10, 22, 50})
+	verifyBucketer(t, bucketer, 10.0, 22.0, 50.0)
 	dist := newDistribution(bucketer)
-	actualEmpty := dist.Snapshot()
-	expectedEmpty := &snapshot{
-		Count: 0,
-		Breakdown: breakdown{
-			{
-				bucketPiece: &bucketPiece{
-					End:   10.0,
-					First: true,
-				},
-				Count: 0,
-			},
-			{
-				bucketPiece: &bucketPiece{
-					Start: 10.0,
-					End:   22.0,
-				},
-				Count: 0,
-			},
-			{
-				bucketPiece: &bucketPiece{
-					Start: 22.0,
-					End:   50.0,
-				},
-				Count: 0,
-			},
-			{
-				bucketPiece: &bucketPiece{
-					Start: 50.0,
-					Last:  true,
-				},
-				Count: 0,
-			},
-		},
-	}
-	if !reflect.DeepEqual(expectedEmpty, actualEmpty) {
-		t.Errorf("Expected %v, got %v", expectedEmpty, actualEmpty)
-	}
-
 	for i := 100; i >= 1; i-- {
 		dist.Add(float64(i))
 	}
@@ -475,6 +703,7 @@ func TestArbitraryDistribution(t *testing.T) {
 		Average: 50.5,
 		// Let exact matching pass
 		Median: actual.Median,
+		Sum:    5050.0,
 		Count:  100,
 		Breakdown: breakdown{
 			{
@@ -632,9 +861,22 @@ func verifyChildren(
 	}
 }
 
+func verifyBucketer(
+	t *testing.T, bucketer *Bucketer, endpoints ...float64) {
+	dist := newDistribution(bucketer)
+	buckets := dist.Snapshot().Breakdown
+	if len(endpoints)+1 != len(buckets) {
+		t.Errorf("Expected %d buckets, got %d", len(endpoints)+1, len(buckets))
+		return
+	}
+	for i := range endpoints {
+		assertValueEquals(t, endpoints[i], buckets[i].End)
+	}
+}
+
 type metricNamesListType []string
 
-func (l *metricNamesListType) Collect(m *metric) error {
+func (l *metricNamesListType) Collect(m *metric, s *session) error {
 	*l = append(*l, m.AbsPath())
 	return nil
 }
@@ -643,14 +885,14 @@ type collectErrorType struct {
 	E error
 }
 
-func (c collectErrorType) Collect(m *metric) error {
+func (c collectErrorType) Collect(m *metric, s *session) error {
 	return c.E
 }
 
 func verifyGetAllMetricsByPath(
 	t *testing.T, path string, d *directory, expectedPaths ...string) {
 	var actual metricNamesListType
-	if err := d.GetAllMetricsByPath(path, &actual); err != nil {
+	if err := d.GetAllMetricsByPath(path, &actual, nil); err != nil {
 		t.Errorf("Expected GetAllMetricsByPath to return nil, got %v", err)
 	}
 	if !reflect.DeepEqual(expectedPaths, ([]string)(actual)) {

@@ -24,6 +24,80 @@ var (
 	root = newDirectory()
 )
 
+// session represents one request to retrieve various metrics.
+// session instances handle the calling of region update functions
+type session struct {
+	visitedRegions map[*region]bool
+}
+
+func newSession() *session {
+	return &session{visitedRegions: make(map[*region]bool)}
+}
+
+// Visit indicates that caller is about to fetch metrics from a
+// particular region. If this is the session's first time to visit the
+// region and no other session is currently visiting it, then
+// Visit calls the region's update function.
+func (s *session) Visit(r *region) {
+	if !s.visitedRegions[r] {
+		r.RLock()
+		s.visitedRegions[r] = true
+	}
+}
+
+// Close signals that the caller has retrieved all metrics for the
+// particular request. In particular Close indicates that this session
+// is finished visiting its regions.
+func (s *session) Close() error {
+	for visitedRegion := range s.visitedRegions {
+		visitedRegion.RUnlock()
+	}
+	return nil
+}
+
+type region struct {
+	sendCh     chan int
+	receiveCh  chan bool
+	lockCount  int
+	updateFunc func()
+}
+
+func newRegion(updateFunc func()) *region {
+	result := &region{
+		sendCh:     make(chan int),
+		receiveCh:  make(chan bool),
+		updateFunc: updateFunc}
+	go func() {
+		result.handleRequests()
+	}()
+	return result
+}
+
+func (r *region) handleRequests() {
+	for {
+		prevLockCount := r.lockCount
+		r.lockCount += <-r.sendCh
+		if r.lockCount < 0 {
+			panic("Lock count fell below 0")
+		}
+		// Update region for first lock holders
+		if prevLockCount == 0 && r.lockCount > 0 {
+			r.updateFunc()
+		}
+		r.receiveCh <- true
+	}
+}
+
+func (r *region) RLock() {
+	r.sendCh <- 1
+	<-r.receiveCh
+}
+
+func (r *region) RUnlock() {
+	r.sendCh <- -1
+	<-r.receiveCh
+}
+
 // bucketPiece represents a single range in a distribution
 type bucketPiece struct {
 	// Start value of range inclusive
@@ -37,7 +111,7 @@ type bucketPiece struct {
 }
 
 func newExponentialBucketerStream(
-	count int, start, scale float64) (int, <-chan float64) {
+	count int, start, scale float64) <-chan float64 {
 	if count < 2 || start <= 0.0 || scale <= 1.0 {
 		panic("count >= 2 && start > 0.0 && scale > 1")
 	}
@@ -50,11 +124,11 @@ func newExponentialBucketerStream(
 		}
 		close(stream)
 	}()
-	return count - 1, stream
+	return stream
 }
 
 func newLinearBucketerStream(
-	count int, start, increment float64) (int, <-chan float64) {
+	count int, start, increment float64) <-chan float64 {
 	if count < 2 || increment <= 0.0 {
 		panic("count >= 2 && increment > 0")
 	}
@@ -67,10 +141,10 @@ func newLinearBucketerStream(
 		}
 		close(stream)
 	}()
-	return count - 1, stream
+	return stream
 }
 
-func newArbitraryBucketerStream(endpoints []float64) (int, <-chan float64) {
+func newArbitraryBucketerStream(endpoints []float64) <-chan float64 {
 	if len(endpoints) == 0 {
 		panic("endpoints must have at least one element.")
 	}
@@ -81,26 +155,67 @@ func newArbitraryBucketerStream(endpoints []float64) (int, <-chan float64) {
 		}
 		close(stream)
 	}()
-	return len(endpoints), stream
+	return stream
 }
 
-func newBucketerFromStream(
-	streamSize int, stream <-chan float64) *Bucketer {
-	if streamSize < 1 {
-		panic("streamSize must be at least 1")
+var (
+	coefficientsForGeometricBucketer = []float64{1.0, 2.0, 5.0}
+)
+
+func findGeometricBaseAndOffset(x float64) (base float64, offset int) {
+	base = 1.0
+	for x >= 10.0 {
+		x /= 10.0
+		base *= 10.0
 	}
-	pieces := make([]*bucketPiece, streamSize+1)
+	for x < 1.0 {
+		x *= 10.0
+		base /= 10.0
+	}
+	coeffLen := len(coefficientsForGeometricBucketer)
+	for i := coeffLen - 1; i >= 0; i-- {
+		if x >= coefficientsForGeometricBucketer[i] {
+			return base, i
+		}
+	}
+	return base / 10.0, coeffLen - 1
+}
+
+func newGeometricBucketerStream(lower, upper float64) <-chan float64 {
+	if lower <= 0 || upper < lower {
+		panic("lower must > 0 and upper >= lower")
+	}
+	base, offset := findGeometricBaseAndOffset(lower)
+	stream := make(chan float64)
+	coeffLen := len(coefficientsForGeometricBucketer)
+	go func(base float64, offset int) {
+		emitValue := base * coefficientsForGeometricBucketer[offset]
+		for emitValue < upper {
+			stream <- emitValue
+			offset++
+			if offset == coeffLen {
+				base *= 10
+				offset = 0
+			}
+			emitValue = base * coefficientsForGeometricBucketer[offset]
+		}
+		stream <- emitValue
+		close(stream)
+	}(base, offset)
+	return stream
+}
+
+func newBucketerFromStream(stream <-chan float64) *Bucketer {
+	var pieces []*bucketPiece
 	lower := <-stream
-	pieces[0] = &bucketPiece{First: true, End: lower}
-	idx := 1
+	pieces = append(pieces, &bucketPiece{First: true, End: lower})
 	for upper := range stream {
-		pieces[idx] = &bucketPiece{
-			Start: lower, End: upper}
+		pieces = append(
+			pieces, &bucketPiece{Start: lower, End: upper})
 		lower = upper
-		idx++
 	}
-	pieces[idx] = &bucketPiece{
-		Last: true, Start: lower}
+	pieces = append(
+		pieces, &bucketPiece{Last: true, Start: lower})
 	return &Bucketer{pieces: pieces}
 }
 
@@ -116,12 +231,11 @@ type breakdown []breakdownPiece
 
 // snapshot represents a snapshot of a distribution
 type snapshot struct {
-	Min     float64
-	Max     float64
-	Average float64
-
-	// TODO: Have to discuss how to implement this
+	Min       float64
+	Max       float64
+	Average   float64
 	Median    float64
+	Sum       float64
 	Count     uint64
 	Breakdown breakdown
 }
@@ -227,6 +341,7 @@ func (d *distribution) Snapshot() *snapshot {
 		Max:       d.max,
 		Average:   d.total / float64(d.count),
 		Median:    d.calculateMedian(),
+		Sum:       d.total,
 		Count:     d.count,
 		Breakdown: bdn,
 	}
@@ -236,6 +351,7 @@ func (d *distribution) Snapshot() *snapshot {
 // value represents the value of a metric.
 type value struct {
 	val           reflect.Value
+	region        *region
 	dist          *distribution
 	valType       types.Type
 	isValAPointer bool
@@ -273,7 +389,7 @@ func getPrimitiveType(t reflect.Type) (types.Type, bool) {
 	}
 }
 
-func newValue(spec interface{}) *value {
+func newValue(spec interface{}, region *region) *value {
 	capDist, ok := spec.(*Distribution)
 	if ok {
 		return &value{dist: (*distribution)(capDist), valType: types.Dist}
@@ -300,7 +416,11 @@ func newValue(spec interface{}) *value {
 	}
 	v = v.Elem()
 	valType, isValAPointer := getPrimitiveType(v.Type())
-	return &value{val: v, valType: valType, isValAPointer: isValAPointer}
+	return &value{
+		val:           v,
+		region:        region,
+		valType:       valType,
+		isValAPointer: isValAPointer}
 }
 
 // Type returns the type of this value: Int, Float, Uint, String, or Dist
@@ -308,8 +428,15 @@ func (v *value) Type() types.Type {
 	return v.valType
 }
 
-func (v *value) evaluate() reflect.Value {
+func (v *value) evaluate(s *session) reflect.Value {
 	if !v.isfunc {
+		if v.region != nil {
+			if s == nil {
+				s = newSession()
+				defer s.Close()
+			}
+			s.Visit(v.region)
+		}
 		return v.val
 	}
 	result := v.val.Call(nil)
@@ -318,46 +445,48 @@ func (v *value) evaluate() reflect.Value {
 
 // AsXXX methods return this value as a type XX.
 // AsXXX methods panic if this value is not of type XX.
-func (v *value) AsBool() bool {
+// If the caller passes a nil session to an AsXXX method,
+// it creates its own session internally.
+func (v *value) AsBool(s *session) bool {
 	if v.valType != types.Bool {
 		panic(panicIncompatibleTypes)
 	}
-	return v.evaluate().Bool()
+	return v.evaluate(s).Bool()
 }
 
-func (v *value) AsInt() int64 {
+func (v *value) AsInt(s *session) int64 {
 	if v.valType != types.Int {
 		panic(panicIncompatibleTypes)
 	}
-	return v.evaluate().Int()
+	return v.evaluate(s).Int()
 }
 
-func (v *value) AsUint() uint64 {
+func (v *value) AsUint(s *session) uint64 {
 	if v.valType != types.Uint {
 		panic(panicIncompatibleTypes)
 	}
-	return v.evaluate().Uint()
+	return v.evaluate(s).Uint()
 }
 
-func (v *value) AsFloat() float64 {
+func (v *value) AsFloat(s *session) float64 {
 	if v.valType != types.Float {
 		panic(panicIncompatibleTypes)
 	}
-	return v.evaluate().Float()
+	return v.evaluate(s).Float()
 }
 
-func (v *value) AsString() string {
+func (v *value) AsString(s *session) string {
 	if v.valType != types.String {
 		panic(panicIncompatibleTypes)
 	}
-	return v.evaluate().String()
+	return v.evaluate(s).String()
 }
 
-func (v *value) AsTime() (result time.Time) {
+func (v *value) AsTime(s *session) (result time.Time) {
 	if v.valType != types.Time {
 		panic(panicIncompatibleTypes)
 	}
-	val := v.evaluate()
+	val := v.evaluate(s)
 	if v.isValAPointer {
 		p := val.Interface().(*time.Time)
 		if p == nil {
@@ -382,26 +511,28 @@ func asRPCRanges(ranges breakdown) []*messages.RangeWithCount {
 	return result
 }
 
-func (v *value) AsRPCValue() *messages.Value {
+// AsRPCValue returns this value as a messages.Value.
+// If caller passes a nil session, AsRPCValue creates its own internally.
+func (v *value) AsRPCValue(s *session) *messages.Value {
 	t := v.Type()
 	switch t {
 	case types.Bool:
-		b := v.AsBool()
+		b := v.AsBool(s)
 		return &messages.Value{Kind: t, BoolValue: &b}
 	case types.Int:
-		i := v.AsInt()
+		i := v.AsInt(s)
 		return &messages.Value{Kind: t, IntValue: &i}
 	case types.Uint:
-		u := v.AsUint()
+		u := v.AsUint(s)
 		return &messages.Value{Kind: t, UintValue: &u}
 	case types.Float:
-		f := v.AsFloat()
+		f := v.AsFloat(s)
 		return &messages.Value{Kind: t, FloatValue: &f}
 	case types.String:
-		s := v.AsString()
+		s := v.AsString(s)
 		return &messages.Value{Kind: t, StringValue: &s}
 	case types.Time:
-		s := v.AsTextString()
+		s := v.AsTextString(s)
 		return &messages.Value{Kind: t, StringValue: &s}
 	case types.Dist:
 		snapshot := v.AsDistribution().Snapshot()
@@ -412,6 +543,7 @@ func (v *value) AsRPCValue() *messages.Value {
 				Max:     snapshot.Max,
 				Average: snapshot.Average,
 				Median:  snapshot.Median,
+				Sum:     snapshot.Sum,
 				Count:   snapshot.Count,
 				Ranges:  asRPCRanges(snapshot.Breakdown)}}
 	default:
@@ -422,23 +554,24 @@ func (v *value) AsRPCValue() *messages.Value {
 // AsTextString returns this value as a text friendly string.
 // AsTextString panics if this value does not represent a single value.
 // For example, AsTextString panics if this value represents a distribution.
-func (v *value) AsTextString() string {
+// If caller passes a nil session, AsTextString creates its own internally.
+func (v *value) AsTextString(s *session) string {
 	switch v.Type() {
 	case types.Bool:
-		if v.AsBool() {
+		if v.AsBool(s) {
 			return "true"
 		}
 		return "false"
 	case types.Int:
-		return strconv.FormatInt(v.AsInt(), 10)
+		return strconv.FormatInt(v.AsInt(s), 10)
 	case types.Uint:
-		return strconv.FormatUint(v.AsUint(), 10)
+		return strconv.FormatUint(v.AsUint(s), 10)
 	case types.Float:
-		return strconv.FormatFloat(v.AsFloat(), 'f', -1, 64)
+		return strconv.FormatFloat(v.AsFloat(s), 'f', -1, 64)
 	case types.String:
-		return "\"" + v.AsString() + "\""
+		return "\"" + v.AsString(s) + "\""
 	case types.Time:
-		t := v.AsTime()
+		t := v.AsTime(s)
 		if t.IsZero() {
 			return "0.000000000"
 		}
@@ -451,13 +584,14 @@ func (v *value) AsTextString() string {
 // AsHtmlString returns this value as an html friendly string.
 // AsHtmlString panics if this value does not represent a single value.
 // For example, AsHtmlString panics if this value represents a distribution.
-func (v *value) AsHtmlString() string {
+// If caller passes a nil session, AsHtmlString creates its own internally.
+func (v *value) AsHtmlString(s *session) string {
 	switch v.Type() {
 	case types.Time:
-		t := v.AsTime().UTC()
+		t := v.AsTime(s).UTC()
 		return t.Format("2006-01-02T15:04:05.999999999Z")
 	default:
-		return v.AsTextString()
+		return v.AsTextString(s)
 	}
 }
 
@@ -477,7 +611,7 @@ type metric struct {
 	// The unit of measurement
 	Unit units.Unit
 	// The value of the metric
-	Value              *value
+	*value
 	enclosingListEntry *listEntry
 }
 
@@ -520,8 +654,9 @@ func (n *listEntry) absPath() string {
 
 // metricsCollector represents any data structure used to collect metrics.
 type metricsCollector interface {
-	// Collect collects a single metric.
-	Collect(m *metric) error
+	// Collect collects a single metric. Implementations may assume
+	// that s is non nil.
+	Collect(m *metric, s *session) error
 }
 
 // directory represents a directory same as DirectorySpec
@@ -570,13 +705,23 @@ func (d *directory) GetMetric(relativePath string) *metric {
 // GetAllMetricsByPath stores nothing in collector.
 // If the Collect() method of collector returns a non nil error,
 // GetAllMetricsByPath stops traversal and returns that same error.
+// Callers may pass nil for the session in which case
+// GetAllMetricsByPath() creates its own session object internally.
+// However, if a caller is calling GetAllMetricsByPath() multiple times
+// to service the same request, the caller should create a session
+// for the request, pass it whenever a session is required and finally
+// close the session when done servicing the request.
 func (d *directory) GetAllMetricsByPath(
-	relativePath string, collector metricsCollector) error {
+	relativePath string, collector metricsCollector, s *session) error {
 	dir, m := d.GetDirectoryOrMetric(relativePath)
 	if m != nil {
-		return collector.Collect(m)
+		if s == nil {
+			s = newSession()
+			defer s.Close()
+		}
+		return collector.Collect(m, s)
 	} else if dir != nil {
-		return dir.GetAllMetrics(collector)
+		return dir.GetAllMetrics(collector, s)
 	}
 	return nil
 }
@@ -594,12 +739,23 @@ func (d *directory) GetDirectoryOrMetric(relativePath string) (
 // find all the metrics and store them within collector.
 // If the Collect() method of collector returns a non nil error,
 // GetAllMetrics stops traversal and returns that same error.
-func (d *directory) GetAllMetrics(collector metricsCollector) (err error) {
+// Callers may pass nil for the session in which case
+// GetAllMetric() creates its own session object internally.
+// However, if a caller is calling GetAllMetrics() multiple times
+// to service the same request, the caller should create a session
+// for the request, pass it whenever a session is required and
+// finally close the session when done servicing the request.
+func (d *directory) GetAllMetrics(
+	collector metricsCollector, s *session) (err error) {
+	if s == nil {
+		s = newSession()
+		defer s.Close()
+	}
 	for _, entry := range d.List() {
 		if entry.Directory != nil {
-			err = entry.Directory.GetAllMetrics(collector)
+			err = entry.Directory.GetAllMetrics(collector, s)
 		} else {
-			err = collector.Collect(entry.Metric)
+			err = collector.Collect(entry.Metric, s)
 		}
 		if err != nil {
 			return
@@ -685,6 +841,7 @@ func (d *directory) registerDirectory(path pathSpec) (
 func (d *directory) registerMetric(
 	path pathSpec,
 	value interface{},
+	region *region,
 	unit units.Unit,
 	description string) (err error) {
 	if path.Empty() {
@@ -697,7 +854,7 @@ func (d *directory) registerMetric(
 	metric := &metric{
 		Description: description,
 		Unit:        unit,
-		Value:       newValue(value)}
+		value:       newValue(value, region)}
 	return current.storeMetric(path.Base(), metric)
 }
 
