@@ -190,12 +190,11 @@ type breakdown []breakdownPiece
 
 // snapshot represents a snapshot of a distribution
 type snapshot struct {
-	Min     float64
-	Max     float64
-	Average float64
-
-	// TODO: Have to discuss how to implement this
+	Min       float64
+	Max       float64
+	Average   float64
 	Median    float64
+	Sum       float64
 	Count     uint64
 	Breakdown breakdown
 }
@@ -301,6 +300,7 @@ func (d *distribution) Snapshot() *snapshot {
 		Max:       d.max,
 		Average:   d.total / float64(d.count),
 		Median:    d.calculateMedian(),
+		Sum:       d.total,
 		Count:     d.count,
 		Breakdown: bdn,
 	}
@@ -502,6 +502,7 @@ func (v *value) AsRPCValue(s *session) *messages.Value {
 				Max:     snapshot.Max,
 				Average: snapshot.Average,
 				Median:  snapshot.Median,
+				Sum:     snapshot.Sum,
 				Count:   snapshot.Count,
 				Ranges:  asRPCRanges(snapshot.Breakdown)}}
 	default:
