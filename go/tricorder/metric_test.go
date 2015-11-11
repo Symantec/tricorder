@@ -595,6 +595,7 @@ func TestAPI(t *testing.T) {
 			Min:     0.0,
 			Max:     499.0,
 			Average: 249.5,
+			Sum:     124750.0,
 			Median:  actual.DistributionValue.Median,
 			Count:   500,
 			Ranges: []*messages.RangeWithCount{
@@ -729,6 +730,7 @@ func TestArbitraryDistribution(t *testing.T) {
 		Average: 50.5,
 		// Let exact matching pass
 		Median: actual.Median,
+		Sum:    5050.0,
 		Count:  100,
 		Breakdown: breakdown{
 			{
