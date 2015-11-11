@@ -76,7 +76,7 @@ type intMetricsCollectorForTesting struct {
 }
 
 func (c *intMetricsCollectorForTesting) Collect(m *metric, s *session) error {
-	c.Values[m.AbsPath()] = m.Value.AsInt(s)
+	c.Values[m.AbsPath()] = m.AsInt(s)
 	c.Count--
 	if c.Count == 0 {
 		c.Barrier.Done()
@@ -95,32 +95,32 @@ func doGlobalsTest(t *testing.T) {
 	assertValueEquals(
 		t,
 		int64(101),
-		root.GetMetric("/firstGroup/first").Value.AsInt(nil))
+		root.GetMetric("/firstGroup/first").AsInt(nil))
 
 	assertValueEquals(
 		t,
 		int64(202),
-		root.GetMetric("/firstGroup/second").Value.AsInt(nil))
+		root.GetMetric("/firstGroup/second").AsInt(nil))
 
 	assertValueEquals(
 		t,
 		int64(301),
-		root.GetMetric("/firstGroup/third").Value.AsInt(nil))
+		root.GetMetric("/firstGroup/third").AsInt(nil))
 
 	assertValueEquals(
 		t,
 		int64(602),
-		root.GetMetric("/secondGroup/sixth").Value.AsInt(nil))
+		root.GetMetric("/secondGroup/sixth").AsInt(nil))
 
 	assertValueEquals(
 		t,
 		int64(701),
-		root.GetMetric("/secondGroup/seventh").Value.AsInt(nil))
+		root.GetMetric("/secondGroup/seventh").AsInt(nil))
 
 	assertValueEquals(
 		t,
 		int64(802),
-		root.GetMetric("/secondGroup/eighth").Value.AsInt(nil))
+		root.GetMetric("/secondGroup/eighth").AsInt(nil))
 
 	// The test has invoked each region's update function twice.
 	// So all values should end in 02 at this point.
@@ -408,8 +408,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:        types.String,
 			StringValue: stringPtr("--help")},
-		argsMetric.Value.AsRPCValue(nil))
-	assertValueEquals(t, "\"--help\"", argsMetric.Value.AsHtmlString(nil))
+		argsMetric.AsRPCValue(nil))
+	assertValueEquals(t, "\"--help\"", argsMetric.AsHtmlString(nil))
 
 	// Check /testname
 	nameMetric := root.GetMetric("/testname")
@@ -419,8 +419,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:        types.String,
 			StringValue: stringPtr("My application")},
-		nameMetric.Value.AsRPCValue(nil))
-	assertValueEquals(t, "\"My application\"", nameMetric.Value.AsHtmlString(nil))
+		nameMetric.AsRPCValue(nil))
+	assertValueEquals(t, "\"My application\"", nameMetric.AsHtmlString(nil))
 
 	// Check /proc/temperature
 	temperatureMetric := root.GetMetric("/proc/temperature")
@@ -430,8 +430,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:       types.Float,
 			FloatValue: floatPtr(22.5)},
-		temperatureMetric.Value.AsRPCValue(nil))
-	assertValueEquals(t, "22.5", temperatureMetric.Value.AsHtmlString(nil))
+		temperatureMetric.AsRPCValue(nil))
+	assertValueEquals(t, "22.5", temperatureMetric.AsHtmlString(nil))
 
 	// Check /proc/start-time
 	startTimeMetric := root.GetMetric("/proc/start-time")
@@ -441,8 +441,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:     types.Int,
 			IntValue: intPtr(-1234567)},
-		startTimeMetric.Value.AsRPCValue(nil))
-	assertValueEquals(t, "-1234567", startTimeMetric.Value.AsHtmlString(nil))
+		startTimeMetric.AsRPCValue(nil))
+	assertValueEquals(t, "-1234567", startTimeMetric.AsHtmlString(nil))
 
 	// Check /proc/some-time
 	someTimeMetric := root.GetMetric("/proc/some-time")
@@ -452,8 +452,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:        types.Time,
 			StringValue: stringPtr("1447594013.007265341")},
-		someTimeMetric.Value.AsRPCValue(nil))
-	assertValueEquals(t, "2015-11-15T13:26:53.007265341Z", someTimeMetric.Value.AsHtmlString(nil))
+		someTimeMetric.AsRPCValue(nil))
+	assertValueEquals(t, "2015-11-15T13:26:53.007265341Z", someTimeMetric.AsHtmlString(nil))
 
 	// Check /proc/some-time-ptr
 	someTimePtrMetric := root.GetMetric("/proc/some-time-ptr")
@@ -464,8 +464,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:        types.Time,
 			StringValue: stringPtr("0.000000000")},
-		someTimePtrMetric.Value.AsRPCValue(nil))
-	assertValueEquals(t, "0001-01-01T00:00:00Z", someTimePtrMetric.Value.AsHtmlString(nil))
+		someTimePtrMetric.AsRPCValue(nil))
+	assertValueEquals(t, "0001-01-01T00:00:00Z", someTimePtrMetric.AsHtmlString(nil))
 
 	newTime := time.Date(2015, time.September, 6, 5, 26, 35, 0, time.UTC)
 	someTimePtr = &newTime
@@ -474,11 +474,11 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:        types.Time,
 			StringValue: stringPtr("1441517195.000000000")},
-		someTimePtrMetric.Value.AsRPCValue(nil))
+		someTimePtrMetric.AsRPCValue(nil))
 	assertValueEquals(
 		t,
 		"2015-09-06T05:26:35Z",
-		someTimePtrMetric.Value.AsHtmlString(nil))
+		someTimePtrMetric.AsHtmlString(nil))
 
 	// Check /proc/rpc-count
 	rpcCountMetric := root.GetMetric("/proc/rpc-count")
@@ -488,8 +488,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:      types.Uint,
 			UintValue: uintPtr(500)},
-		rpcCountMetric.Value.AsRPCValue(nil))
-	assertValueEquals(t, "500", rpcCountMetric.Value.AsHtmlString(nil))
+		rpcCountMetric.AsRPCValue(nil))
+	assertValueEquals(t, "500", rpcCountMetric.AsHtmlString(nil))
 
 	// check /proc/foo/bar/baz
 	bazMetric := root.GetMetric("proc/foo/bar/baz")
@@ -499,8 +499,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:       types.Float,
 			FloatValue: floatPtr(12.375)},
-		bazMetric.Value.AsRPCValue(nil))
-	assertValueEquals(t, "12.375", bazMetric.Value.AsHtmlString(nil))
+		bazMetric.AsRPCValue(nil))
+	assertValueEquals(t, "12.375", bazMetric.AsHtmlString(nil))
 
 	// check /proc/foo/bar/abool
 	aboolMetric := root.GetMetric("proc/foo/bar/abool")
@@ -510,8 +510,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:      types.Bool,
 			BoolValue: boolPtr(true)},
-		aboolMetric.Value.AsRPCValue(nil))
-	assertValueEquals(t, "true", aboolMetric.Value.AsHtmlString(nil))
+		aboolMetric.AsRPCValue(nil))
+	assertValueEquals(t, "true", aboolMetric.AsHtmlString(nil))
 
 	// check /proc/foo/bar/anotherBool
 	anotherBoolMetric := root.GetMetric("proc/foo/bar/anotherBool")
@@ -521,14 +521,14 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:      types.Bool,
 			BoolValue: boolPtr(false)},
-		anotherBoolMetric.Value.AsRPCValue(nil))
-	assertValueEquals(t, "false", anotherBoolMetric.Value.AsHtmlString(nil))
+		anotherBoolMetric.AsRPCValue(nil))
+	assertValueEquals(t, "false", anotherBoolMetric.AsHtmlString(nil))
 
 	// Check /proc/rpc-latency
 	rpcLatency := root.GetMetric("/proc/rpc-latency")
 	verifyMetric(t, "RPC latency", units.Millisecond, rpcLatency)
 
-	actual := rpcLatency.Value.AsRPCValue(nil)
+	actual := rpcLatency.AsRPCValue(nil)
 
 	if actual.DistributionValue.Median < 249 || actual.DistributionValue.Median >= 250 {
 		t.Errorf("Median out of range: %f", actual.DistributionValue.Median)
