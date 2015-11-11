@@ -642,81 +642,54 @@ func TestAPI(t *testing.T) {
 }
 
 func TestLinearDistribution(t *testing.T) {
-	bucketer := NewLinearBucketer(3, 12, 5)
-	dist := newDistribution(bucketer)
-	actualEmpty := dist.Snapshot()
-	expectedEmpty := &snapshot{
-		Count: 0,
-		Breakdown: breakdown{
-			{
-				bucketPiece: &bucketPiece{
-					End:   12.0,
-					First: true,
-				},
-				Count: 0,
-			},
-			{
-				bucketPiece: &bucketPiece{
-					Start: 12.0,
-					End:   17.0,
-				},
-				Count: 0,
-			},
-			{
-				bucketPiece: &bucketPiece{
-					Start: 17.0,
-					Last:  true,
-				},
-				Count: 0,
-			},
-		},
-	}
-	if !reflect.DeepEqual(expectedEmpty, actualEmpty) {
-		t.Errorf("Expected %v, got %v", expectedEmpty, actualEmpty)
-	}
+	verifyBucketer(
+		t, NewLinearBucketer(3, 12, 5), 12.0, 17.0)
+}
+
+func TestExponentialDistribution(t *testing.T) {
+	verifyBucketer(
+		t, NewExponentialBucketer(5, 12.0, 3.5),
+		12.0, 42.0, 147.0, 514.5)
+}
+
+func TestGeometricDistribution(t *testing.T) {
+	verifyBucketer(
+		t, NewGeometricBucketer(0.5, 20),
+		0.5, 1.0, 2.0, 5.0, 10.0, 20.0)
+	verifyBucketer(
+		t, NewGeometricBucketer(0.51, 19.9),
+		0.5, 1.0, 2.0, 5.0, 10.0, 20.0)
+	verifyBucketer(
+		t, NewGeometricBucketer(0.49, 20.1),
+		0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0)
+	verifyBucketer(
+		t, NewGeometricBucketer(100.0, 1000.0),
+		100.0, 200.0, 500.0, 1000.0)
+	verifyBucketer(
+		t, NewGeometricBucketer(99.99, 1000.0),
+		50.0, 100.0, 200.0, 500.0, 1000.0)
+	verifyBucketer(
+		t, NewGeometricBucketer(99.99, 1000.01),
+		50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0)
+	verifyBucketer(
+		t, NewGeometricBucketer(0.02, 5),
+		0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0)
+	verifyBucketer(
+		t, NewGeometricBucketer(0.0201, 5.01),
+		0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0)
+	verifyBucketer(
+		t, NewGeometricBucketer(0.0199, 4.99),
+		0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0)
+	verifyBucketer(
+		t, NewGeometricBucketer(0.005, 0.005), 0.005)
+	verifyBucketer(
+		t, NewGeometricBucketer(0.007, 0.007), 0.005, 0.01)
 }
 
 func TestArbitraryDistribution(t *testing.T) {
 	bucketer := NewArbitraryBucketer([]float64{10, 22, 50})
+	verifyBucketer(t, bucketer, 10.0, 22.0, 50.0)
 	dist := newDistribution(bucketer)
-	actualEmpty := dist.Snapshot()
-	expectedEmpty := &snapshot{
-		Count: 0,
-		Breakdown: breakdown{
-			{
-				bucketPiece: &bucketPiece{
-					End:   10.0,
-					First: true,
-				},
-				Count: 0,
-			},
-			{
-				bucketPiece: &bucketPiece{
-					Start: 10.0,
-					End:   22.0,
-				},
-				Count: 0,
-			},
-			{
-				bucketPiece: &bucketPiece{
-					Start: 22.0,
-					End:   50.0,
-				},
-				Count: 0,
-			},
-			{
-				bucketPiece: &bucketPiece{
-					Start: 50.0,
-					Last:  true,
-				},
-				Count: 0,
-			},
-		},
-	}
-	if !reflect.DeepEqual(expectedEmpty, actualEmpty) {
-		t.Errorf("Expected %v, got %v", expectedEmpty, actualEmpty)
-	}
-
 	for i := 100; i >= 1; i-- {
 		dist.Add(float64(i))
 	}
@@ -885,6 +858,19 @@ func verifyChildren(
 		if expected[i] != listEntries[i].Name {
 			t.Errorf("Expected %s, but got %s, at index %d", expected[i], listEntries[i].Name, i)
 		}
+	}
+}
+
+func verifyBucketer(
+	t *testing.T, bucketer *Bucketer, endpoints ...float64) {
+	dist := newDistribution(bucketer)
+	buckets := dist.Snapshot().Breakdown
+	if len(endpoints)+1 != len(buckets) {
+		t.Errorf("Expected %d buckets, got %d", len(endpoints)+1, len(buckets))
+		return
+	}
+	for i := range endpoints {
+		assertValueEquals(t, endpoints[i], buckets[i].End)
 	}
 }
 
