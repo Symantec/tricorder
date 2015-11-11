@@ -6,6 +6,7 @@ import (
 	"github.com/Symantec/tricorder/go/tricorder/types"
 	"github.com/Symantec/tricorder/go/tricorder/units"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 )
@@ -14,14 +15,210 @@ var (
 	kCallbackError = errors.New("callback error")
 )
 
+var (
+	firstGlobal   = 100
+	secondGlobal  = 200
+	thirdGlobal   = 300
+	fourthGlobal  = 400
+	fifthGlobal   = 500
+	sixthGlobal   = 600
+	seventhGlobal = 700
+	eighthGlobal  = 800
+)
+
+func incrementFirstAndSecondGlobal() {
+	firstGlobal++
+	secondGlobal++
+}
+
+func incrementThirdToSixthGlobal() {
+	thirdGlobal++
+	fourthGlobal++
+	fifthGlobal++
+	sixthGlobal++
+}
+
+func incrementSeventhAndEighthGlobal() {
+	seventhGlobal++
+	eighthGlobal++
+}
+
+func registerMetricsForGlobalsTest() {
+	r1and2 := RegisterRegion(incrementFirstAndSecondGlobal)
+	r3to6 := RegisterRegion(incrementThirdToSixthGlobal)
+	r7and8 := RegisterRegion(incrementSeventhAndEighthGlobal)
+	RegisterMetricInRegion(
+		"/firstGroup/first", &firstGlobal, r1and2, units.None, "")
+	RegisterMetricInRegion(
+		"/firstGroup/second", &secondGlobal, r1and2, units.None, "")
+	RegisterMetricInRegion(
+		"/firstGroup/third", &thirdGlobal, r3to6, units.None, "")
+	RegisterMetricInRegion(
+		"/firstGroup/fourth", &fourthGlobal, r3to6, units.None, "")
+	RegisterMetricInRegion(
+		"/secondGroup/fifth", &fifthGlobal, r3to6, units.None, "")
+	RegisterMetricInRegion(
+		"/secondGroup/sixth", &sixthGlobal, r3to6, units.None, "")
+	RegisterMetricInRegion(
+		"/secondGroup/seventh", &seventhGlobal, r7and8, units.None, "")
+	RegisterMetricInRegion(
+		"/secondGroup/eighth", &eighthGlobal, r7and8, units.None, "")
+}
+
+type intMetricsCollectorForTesting struct {
+	// Number of expected metrics
+	Count int
+	// Barrier to ensure that go routines collecting metrics run
+	// concurrently
+	Barrier *sync.WaitGroup
+	// The values collected by path
+	Values map[string]int64
+}
+
+func (c *intMetricsCollectorForTesting) Collect(m *metric, s *session) error {
+	c.Values[m.AbsPath()] = m.Value.AsInt(s)
+	c.Count--
+	if c.Count == 0 {
+		c.Barrier.Done()
+		c.Barrier.Wait()
+	}
+	return nil
+}
+
+func doGlobalsTest(t *testing.T) {
+	var barrier sync.WaitGroup
+	var wg sync.WaitGroup
+
+	// First be sure that fetching values regions work even when
+	// caller does not create a session. In this case, each fetch
+	// will invoke the region's update function.
+	assertValueEquals(
+		t,
+		int64(101),
+		root.GetMetric("/firstGroup/first").Value.AsInt(nil))
+
+	assertValueEquals(
+		t,
+		int64(202),
+		root.GetMetric("/firstGroup/second").Value.AsInt(nil))
+
+	assertValueEquals(
+		t,
+		int64(301),
+		root.GetMetric("/firstGroup/third").Value.AsInt(nil))
+
+	assertValueEquals(
+		t,
+		int64(602),
+		root.GetMetric("/secondGroup/sixth").Value.AsInt(nil))
+
+	assertValueEquals(
+		t,
+		int64(701),
+		root.GetMetric("/secondGroup/seventh").Value.AsInt(nil))
+
+	assertValueEquals(
+		t,
+		int64(802),
+		root.GetMetric("/secondGroup/eighth").Value.AsInt(nil))
+
+	// The test has invoked each region's update function twice.
+	// So all values should end in 02 at this point.
+
+	collectorFirstGroup := &intMetricsCollectorForTesting{
+		Count: 4, Barrier: &barrier, Values: make(map[string]int64)}
+	collectorSecondGroup := &intMetricsCollectorForTesting{
+		Count: 4, Barrier: &barrier, Values: make(map[string]int64)}
+	// Our barrier expects 2 goroutines
+	barrier.Add(2)
+
+	// Collect metric in two goroutines running concurrently.
+	// Because the collections run concurrently, each region's update
+	// function gets called only one time even though they both collect
+	// from region r3to6.
+
+	wg.Add(2)
+	go func() {
+		root.GetAllMetricsByPath(
+			"/firstGroup", collectorFirstGroup, nil)
+		wg.Done()
+	}()
+	go func() {
+		root.GetAllMetricsByPath(
+			"/secondGroup", collectorSecondGroup, nil)
+		wg.Done()
+	}()
+	wg.Wait()
+	expectedFirstGroup := map[string]int64{
+		"/firstGroup/first":  103,
+		"/firstGroup/second": 203,
+		"/firstGroup/third":  303,
+		"/firstGroup/fourth": 403,
+	}
+	expectedSecondGroup := map[string]int64{
+		"/secondGroup/fifth":   503,
+		"/secondGroup/sixth":   603,
+		"/secondGroup/seventh": 703,
+		"/secondGroup/eighth":  803,
+	}
+	assertValueDeepEquals(t, expectedFirstGroup, collectorFirstGroup.Values)
+	assertValueDeepEquals(t, expectedSecondGroup, collectorSecondGroup.Values)
+
+	// Now collect the same metrics only do it sequentially.
+	collectorFirstGroupSeq := &intMetricsCollectorForTesting{
+		Count: 4, Barrier: &barrier, Values: make(map[string]int64)}
+	collectorSecondGroupSeq := &intMetricsCollectorForTesting{
+		Count: 4, Barrier: &barrier, Values: make(map[string]int64)}
+
+	// This time our barrier expects only one goroutine
+	barrier.Add(1)
+
+	// Collect metric in two goroutines running one after the other.
+	// The session mechanism ensures that each region's update
+	// function is called once per collection even if multiple variables
+	// in that region get collected. However, since the collections
+	// run one after the other, the update function of r3to6 region gets
+	// called twice, once per collection because both collections
+	// collect metrics from that region.
+	wg.Add(1)
+	go func() {
+		root.GetAllMetricsByPath(
+			"/firstGroup", collectorFirstGroupSeq, nil)
+		wg.Done()
+	}()
+	wg.Wait()
+
+	// Barrier expects one goroutine
+	barrier.Add(1)
+
+	wg.Add(1)
+	go func() {
+		root.GetAllMetricsByPath(
+			"/secondGroup", collectorSecondGroupSeq, nil)
+		wg.Done()
+	}()
+	wg.Wait()
+	expectedFirstGroupSeq := map[string]int64{
+		"/firstGroup/first":  104,
+		"/firstGroup/second": 204,
+		"/firstGroup/third":  304,
+		"/firstGroup/fourth": 404,
+	}
+	expectedSecondGroupSeq := map[string]int64{
+		"/secondGroup/fifth":   505,
+		"/secondGroup/sixth":   605,
+		"/secondGroup/seventh": 704,
+		"/secondGroup/eighth":  804,
+	}
+	assertValueDeepEquals(t, expectedFirstGroupSeq, collectorFirstGroupSeq.Values)
+	assertValueDeepEquals(t, expectedSecondGroupSeq, collectorSecondGroupSeq.Values)
+
+}
+
 func TestAPI(t *testing.T) {
-	// /proc/rpc-latency: Distribution millis 5 buckets, start: 10, scale 2.5
-	// /proc/rpc-count: Callback to get RPC count, uint64
-	// /proc/start-time: An int64 showing start time as seconds since epoch
-	// /proc/temperature: A float64 showing tempurature in celsius
-	// /proc/foo/bar/baz: Callback to get a float64 that returns an error
-	// /testname - name of app
-	// /testargs - A string arguments to app
+	// Do concurrent globals test
+	registerMetricsForGlobalsTest()
+	doGlobalsTest(t)
 
 	var startTime int64
 	var temperature float64
@@ -135,8 +332,10 @@ func TestAPI(t *testing.T) {
 		t,
 		root.List(),
 		"args",
+		"firstGroup",
 		"name",
 		"proc",
+		"secondGroup",
 		"start-time",
 		"testargs",
 		"testname")
@@ -172,7 +371,7 @@ func TestAPI(t *testing.T) {
 		"/proc/some-time-ptr",
 		"/proc/start-time",
 		"/proc/temperature")
-	if err := root.GetAllMetricsByPath("/proc/foo", collectErrorType{E: kCallbackError}); err != kCallbackError {
+	if err := root.GetAllMetricsByPath("/proc/foo", collectErrorType{E: kCallbackError}, nil); err != kCallbackError {
 		t.Errorf("Expected kCallbackError, got %v", err)
 	}
 	verifyChildren(
@@ -209,8 +408,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:        types.String,
 			StringValue: stringPtr("--help")},
-		argsMetric.Value.AsRPCValue())
-	assertValueEquals(t, "\"--help\"", argsMetric.Value.AsHtmlString())
+		argsMetric.Value.AsRPCValue(nil))
+	assertValueEquals(t, "\"--help\"", argsMetric.Value.AsHtmlString(nil))
 
 	// Check /testname
 	nameMetric := root.GetMetric("/testname")
@@ -220,8 +419,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:        types.String,
 			StringValue: stringPtr("My application")},
-		nameMetric.Value.AsRPCValue())
-	assertValueEquals(t, "\"My application\"", nameMetric.Value.AsHtmlString())
+		nameMetric.Value.AsRPCValue(nil))
+	assertValueEquals(t, "\"My application\"", nameMetric.Value.AsHtmlString(nil))
 
 	// Check /proc/temperature
 	temperatureMetric := root.GetMetric("/proc/temperature")
@@ -231,8 +430,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:       types.Float,
 			FloatValue: floatPtr(22.5)},
-		temperatureMetric.Value.AsRPCValue())
-	assertValueEquals(t, "22.5", temperatureMetric.Value.AsHtmlString())
+		temperatureMetric.Value.AsRPCValue(nil))
+	assertValueEquals(t, "22.5", temperatureMetric.Value.AsHtmlString(nil))
 
 	// Check /proc/start-time
 	startTimeMetric := root.GetMetric("/proc/start-time")
@@ -242,8 +441,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:     types.Int,
 			IntValue: intPtr(-1234567)},
-		startTimeMetric.Value.AsRPCValue())
-	assertValueEquals(t, "-1234567", startTimeMetric.Value.AsHtmlString())
+		startTimeMetric.Value.AsRPCValue(nil))
+	assertValueEquals(t, "-1234567", startTimeMetric.Value.AsHtmlString(nil))
 
 	// Check /proc/some-time
 	someTimeMetric := root.GetMetric("/proc/some-time")
@@ -253,8 +452,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:        types.Time,
 			StringValue: stringPtr("1447594013.007265341")},
-		someTimeMetric.Value.AsRPCValue())
-	assertValueEquals(t, "2015-11-15T13:26:53.007265341Z", someTimeMetric.Value.AsHtmlString())
+		someTimeMetric.Value.AsRPCValue(nil))
+	assertValueEquals(t, "2015-11-15T13:26:53.007265341Z", someTimeMetric.Value.AsHtmlString(nil))
 
 	// Check /proc/some-time-ptr
 	someTimePtrMetric := root.GetMetric("/proc/some-time-ptr")
@@ -265,8 +464,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:        types.Time,
 			StringValue: stringPtr("0.000000000")},
-		someTimePtrMetric.Value.AsRPCValue())
-	assertValueEquals(t, "0001-01-01T00:00:00Z", someTimePtrMetric.Value.AsHtmlString())
+		someTimePtrMetric.Value.AsRPCValue(nil))
+	assertValueEquals(t, "0001-01-01T00:00:00Z", someTimePtrMetric.Value.AsHtmlString(nil))
 
 	newTime := time.Date(2015, time.September, 6, 5, 26, 35, 0, time.UTC)
 	someTimePtr = &newTime
@@ -275,11 +474,11 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:        types.Time,
 			StringValue: stringPtr("1441517195.000000000")},
-		someTimePtrMetric.Value.AsRPCValue())
+		someTimePtrMetric.Value.AsRPCValue(nil))
 	assertValueEquals(
 		t,
 		"2015-09-06T05:26:35Z",
-		someTimePtrMetric.Value.AsHtmlString())
+		someTimePtrMetric.Value.AsHtmlString(nil))
 
 	// Check /proc/rpc-count
 	rpcCountMetric := root.GetMetric("/proc/rpc-count")
@@ -289,8 +488,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:      types.Uint,
 			UintValue: uintPtr(500)},
-		rpcCountMetric.Value.AsRPCValue())
-	assertValueEquals(t, "500", rpcCountMetric.Value.AsHtmlString())
+		rpcCountMetric.Value.AsRPCValue(nil))
+	assertValueEquals(t, "500", rpcCountMetric.Value.AsHtmlString(nil))
 
 	// check /proc/foo/bar/baz
 	bazMetric := root.GetMetric("proc/foo/bar/baz")
@@ -300,8 +499,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:       types.Float,
 			FloatValue: floatPtr(12.375)},
-		bazMetric.Value.AsRPCValue())
-	assertValueEquals(t, "12.375", bazMetric.Value.AsHtmlString())
+		bazMetric.Value.AsRPCValue(nil))
+	assertValueEquals(t, "12.375", bazMetric.Value.AsHtmlString(nil))
 
 	// check /proc/foo/bar/abool
 	aboolMetric := root.GetMetric("proc/foo/bar/abool")
@@ -311,8 +510,8 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:      types.Bool,
 			BoolValue: boolPtr(true)},
-		aboolMetric.Value.AsRPCValue())
-	assertValueEquals(t, "true", aboolMetric.Value.AsHtmlString())
+		aboolMetric.Value.AsRPCValue(nil))
+	assertValueEquals(t, "true", aboolMetric.Value.AsHtmlString(nil))
 
 	// check /proc/foo/bar/anotherBool
 	anotherBoolMetric := root.GetMetric("proc/foo/bar/anotherBool")
@@ -322,14 +521,14 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:      types.Bool,
 			BoolValue: boolPtr(false)},
-		anotherBoolMetric.Value.AsRPCValue())
-	assertValueEquals(t, "false", anotherBoolMetric.Value.AsHtmlString())
+		anotherBoolMetric.Value.AsRPCValue(nil))
+	assertValueEquals(t, "false", anotherBoolMetric.Value.AsHtmlString(nil))
 
 	// Check /proc/rpc-latency
 	rpcLatency := root.GetMetric("/proc/rpc-latency")
 	verifyMetric(t, "RPC latency", units.Millisecond, rpcLatency)
 
-	actual := rpcLatency.Value.AsRPCValue()
+	actual := rpcLatency.Value.AsRPCValue(nil)
 
 	if actual.DistributionValue.Median < 249 || actual.DistributionValue.Median >= 250 {
 		t.Errorf("Median out of range: %f", actual.DistributionValue.Median)
@@ -634,7 +833,7 @@ func verifyChildren(
 
 type metricNamesListType []string
 
-func (l *metricNamesListType) Collect(m *metric) error {
+func (l *metricNamesListType) Collect(m *metric, s *session) error {
 	*l = append(*l, m.AbsPath())
 	return nil
 }
@@ -643,14 +842,14 @@ type collectErrorType struct {
 	E error
 }
 
-func (c collectErrorType) Collect(m *metric) error {
+func (c collectErrorType) Collect(m *metric, s *session) error {
 	return c.E
 }
 
 func verifyGetAllMetricsByPath(
 	t *testing.T, path string, d *directory, expectedPaths ...string) {
 	var actual metricNamesListType
-	if err := d.GetAllMetricsByPath(path, &actual); err != nil {
+	if err := d.GetAllMetricsByPath(path, &actual, nil); err != nil {
 		t.Errorf("Expected GetAllMetricsByPath to return nil, got %v", err)
 	}
 	if !reflect.DeepEqual(expectedPaths, ([]string)(actual)) {

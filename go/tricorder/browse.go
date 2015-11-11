@@ -25,8 +25,8 @@ const (
 	htmlTemplateStr = `
 	{{define "METRIC"}}
 	  {{with $top := .}}
-            {{if $top.IsDistribution .Metric.Value.Type}}
-	      {{.Metric.AbsPath}} <span class="parens">(distribution: {{.Metric.Description}}{{if $top.HasUnit .Metric.Unit}}; unit: {{.Metric.Unit}}{{end}})</span><br>
+            {{if .IsDistribution}}
+	      {{.Metric.AbsPath}} <span class="parens">(distribution: {{.Metric.Description}}{{if .HasUnit}}; unit: {{.Metric.Unit}}{{end}})</span><br>
 	      {{with .Metric.Value.AsDistribution.Snapshot}}
 	        <table>
 	        {{range .Breakdown}}
@@ -48,7 +48,7 @@ const (
 	        {{end}}
 	      {{end}}
 	    {{else}}
-	      {{.Metric.AbsPath}} {{.Metric.Value.AsHtmlString}} <span class="parens">({{.Metric.Value.Type}}: {{.Metric.Description}}{{if $top.HasUnit .Metric.Unit}}; unit: {{.Metric.Unit}}{{end}})</span><br>
+	      {{.Metric.AbsPath}} {{.AsHtmlString}} <span class="parens">({{.Metric.Value.Type}}: {{.Metric.Description}}{{if .HasUnit}}; unit: {{.Metric.Unit}}{{end}})</span><br>
 	    {{end}}
 	  {{end}}
 	{{end}}
@@ -89,38 +89,43 @@ var (
 type htmlView struct {
 	Directory *directory
 	Metric    *metric
+	Session   *session
 }
 
 func (v *htmlView) AsMetricView(m *metric) *htmlView {
-	return &htmlView{Metric: m}
+	return &htmlView{Metric: m, Session: v.Session}
+}
+
+func (v *htmlView) AsHtmlString() string {
+	return v.Metric.Value.AsHtmlString(v.Session)
+}
+
+func (v *htmlView) IsDistribution() bool {
+	return v.Metric.Value.Type() == types.Dist
+}
+
+func (v *htmlView) HasUnit() bool {
+	return v.Metric.Unit != units.None
 }
 
 func (v *htmlView) Link(d *directory) string {
 	return htmlUrl + d.AbsPath()
 }
 
-func (v *htmlView) IsDistribution(t types.Type) bool {
-	return t == types.Dist
-}
-
-func (v *htmlView) HasUnit(u units.Unit) bool {
-	return u != units.None
-}
-
 func (v *htmlView) ToFloat32(f float64) float32 {
 	return float32(f)
 }
 
-func htmlEmitMetric(m *metric, w io.Writer) error {
-	v := &htmlView{Metric: m}
+func htmlEmitMetric(m *metric, s *session, w io.Writer) error {
+	v := &htmlView{Metric: m, Session: s}
 	if err := htmlTemplate.Execute(w, v); err != nil {
 		return err
 	}
 	return nil
 }
 
-func htmlEmitDirectory(d *directory, w io.Writer) error {
-	v := &htmlView{Directory: d}
+func htmlEmitDirectory(d *directory, s *session, w io.Writer) error {
+	v := &htmlView{Directory: d, Session: s}
 	if err := htmlTemplate.Execute(w, v); err != nil {
 		return err
 	}
@@ -134,24 +139,26 @@ func htmlEmitDirectoryOrMetric(
 		fmt.Fprintf(w, "Path does not exist.")
 		return nil
 	}
+	s := newSession()
+	defer s.Close()
 	if m == nil {
-		return htmlEmitDirectory(d, w)
+		return htmlEmitDirectory(d, s, w)
 	}
-	return htmlEmitMetric(m, w)
+	return htmlEmitMetric(m, s, w)
 }
 
-func rpcAsMetric(m *metric) *messages.Metric {
+func rpcAsMetric(m *metric, s *session) *messages.Metric {
 	return &messages.Metric{
 		Path:        m.AbsPath(),
 		Description: m.Description,
 		Unit:        m.Unit,
-		Value:       m.Value.AsRPCValue()}
+		Value:       m.Value.AsRPCValue(s)}
 }
 
 type rpcMetricsCollector messages.MetricList
 
-func (c *rpcMetricsCollector) Collect(m *metric) (err error) {
-	*c = append(*c, rpcAsMetric(m))
+func (c *rpcMetricsCollector) Collect(m *metric, s *session) (err error) {
+	*c = append(*c, rpcAsMetric(m, s))
 	return nil
 }
 
@@ -159,11 +166,11 @@ type textCollector struct {
 	W io.Writer
 }
 
-func (c textCollector) Collect(m *metric) (err error) {
+func (c *textCollector) Collect(m *metric, s *session) (err error) {
 	if _, err = fmt.Fprintf(c.W, "%s ", m.AbsPath()); err != nil {
 		return
 	}
-	return textEmitMetric(m, c.W)
+	return textEmitMetric(m, s, c.W)
 }
 
 func textEmitDistribution(s *snapshot, w io.Writer) error {
@@ -216,11 +223,11 @@ func textEmitDistribution(s *snapshot, w io.Writer) error {
 	return err
 }
 
-func textEmitMetric(m *metric, w io.Writer) error {
+func textEmitMetric(m *metric, s *session, w io.Writer) error {
 	if m.Value.Type() == types.Dist {
 		return textEmitDistribution(m.Value.AsDistribution().Snapshot(), w)
 	}
-	_, err := fmt.Fprintf(w, "%s\n", m.Value.AsTextString())
+	_, err := fmt.Fprintf(w, "%s\n", m.Value.AsTextString(s))
 	return err
 }
 
@@ -232,9 +239,9 @@ func textEmitDirectoryOrMetric(
 		return nil
 	}
 	if m == nil {
-		return d.GetAllMetrics(textCollector{W: w})
+		return d.GetAllMetrics(&textCollector{W: w}, nil)
 	}
-	return textEmitMetric(m, w)
+	return textEmitMetric(m, nil, w)
 }
 
 func handleError(w http.ResponseWriter, err error) {
@@ -283,10 +290,10 @@ func jsonHandlerFunc(w http.ResponseWriter, r *http.Request) {
 			httpError(w, http.StatusNotFound)
 			return
 		}
-		content, err = json.Marshal(rpcAsMetric(m))
+		content, err = json.Marshal(rpcAsMetric(m, nil))
 	} else {
 		var collector rpcMetricsCollector
-		root.GetAllMetricsByPath(path, &collector)
+		root.GetAllMetricsByPath(path, &collector, nil)
 		content, err = json.Marshal(collector)
 	}
 	if err != nil {
@@ -301,7 +308,8 @@ func jsonHandlerFunc(w http.ResponseWriter, r *http.Request) {
 type rpcType int
 
 func (t *rpcType) ListMetrics(path string, response *messages.MetricList) error {
-	return root.GetAllMetricsByPath(path, (*rpcMetricsCollector)(response))
+	return root.GetAllMetricsByPath(
+		path, (*rpcMetricsCollector)(response), nil)
 }
 
 func (t *rpcType) GetMetric(path string, response *messages.Metric) error {
@@ -309,7 +317,7 @@ func (t *rpcType) GetMetric(path string, response *messages.Metric) error {
 	if m == nil {
 		return messages.ErrMetricNotFound
 	}
-	*response = *rpcAsMetric(m)
+	*response = *rpcAsMetric(m, nil)
 	return nil
 }
 
