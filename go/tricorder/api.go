@@ -105,6 +105,16 @@ func NewArbitraryBucketer(endpoints []float64) *Bucketer {
 		newArbitraryBucketerStream(endpoints))
 }
 
+// NewGeometricBucketer returns a Bucketer representing endpoints
+// of the form 10^k, 2*10^k, 5*10^k. lower is the lower bound of
+// the endpoints; upper is the upper bound of the endpoints.
+// NewGeometricBucker(0.5, 50) ==>
+// <0.5; 0.5-1; 1-2; 2-5; 5-10; 10-20; 20-50; >50
+func NewGeometricBucketer(lower, upper float64) *Bucketer {
+	return newBucketerFromStream(
+		newGeometricBucketerStream(lower, upper))
+}
+
 // NewDistribution creates a new Distribution that uses this bucketer
 // to distribute values.
 func (b *Bucketer) NewDistribution() *Distribution {
