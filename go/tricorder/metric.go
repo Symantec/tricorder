@@ -111,7 +111,7 @@ type bucketPiece struct {
 }
 
 func newExponentialBucketerStream(
-	count int, start, scale float64) (int, <-chan float64) {
+	count int, start, scale float64) <-chan float64 {
 	if count < 2 || start <= 0.0 || scale <= 1.0 {
 		panic("count >= 2 && start > 0.0 && scale > 1")
 	}
@@ -124,11 +124,11 @@ func newExponentialBucketerStream(
 		}
 		close(stream)
 	}()
-	return count - 1, stream
+	return stream
 }
 
 func newLinearBucketerStream(
-	count int, start, increment float64) (int, <-chan float64) {
+	count int, start, increment float64) <-chan float64 {
 	if count < 2 || increment <= 0.0 {
 		panic("count >= 2 && increment > 0")
 	}
@@ -141,10 +141,10 @@ func newLinearBucketerStream(
 		}
 		close(stream)
 	}()
-	return count - 1, stream
+	return stream
 }
 
-func newArbitraryBucketerStream(endpoints []float64) (int, <-chan float64) {
+func newArbitraryBucketerStream(endpoints []float64) <-chan float64 {
 	if len(endpoints) == 0 {
 		panic("endpoints must have at least one element.")
 	}
@@ -155,26 +155,67 @@ func newArbitraryBucketerStream(endpoints []float64) (int, <-chan float64) {
 		}
 		close(stream)
 	}()
-	return len(endpoints), stream
+	return stream
 }
 
-func newBucketerFromStream(
-	streamSize int, stream <-chan float64) *Bucketer {
-	if streamSize < 1 {
-		panic("streamSize must be at least 1")
+var (
+	coefficientsForGeometricBucketer = []float64{1.0, 2.0, 5.0}
+)
+
+func findGeometricBaseAndOffset(x float64) (base float64, offset int) {
+	base = 1.0
+	for x >= 10.0 {
+		x /= 10.0
+		base *= 10.0
 	}
-	pieces := make([]*bucketPiece, streamSize+1)
+	for x < 1.0 {
+		x *= 10.0
+		base /= 10.0
+	}
+	coeffLen := len(coefficientsForGeometricBucketer)
+	for i := coeffLen - 1; i >= 0; i-- {
+		if x >= coefficientsForGeometricBucketer[i] {
+			return base, i
+		}
+	}
+	return base / 10.0, coeffLen - 1
+}
+
+func newGeometricBucketerStream(lower, upper float64) <-chan float64 {
+	if lower <= 0 || upper < lower {
+		panic("lower must > 0 and upper >= lower")
+	}
+	base, offset := findGeometricBaseAndOffset(lower)
+	stream := make(chan float64)
+	coeffLen := len(coefficientsForGeometricBucketer)
+	go func(base float64, offset int) {
+		emitValue := base * coefficientsForGeometricBucketer[offset]
+		for emitValue < upper {
+			stream <- emitValue
+			offset++
+			if offset == coeffLen {
+				base *= 10
+				offset = 0
+			}
+			emitValue = base * coefficientsForGeometricBucketer[offset]
+		}
+		stream <- emitValue
+		close(stream)
+	}(base, offset)
+	return stream
+}
+
+func newBucketerFromStream(stream <-chan float64) *Bucketer {
+	var pieces []*bucketPiece
 	lower := <-stream
-	pieces[0] = &bucketPiece{First: true, End: lower}
-	idx := 1
+	pieces = append(pieces, &bucketPiece{First: true, End: lower})
 	for upper := range stream {
-		pieces[idx] = &bucketPiece{
-			Start: lower, End: upper}
+		pieces = append(
+			pieces, &bucketPiece{Start: lower, End: upper})
 		lower = upper
-		idx++
 	}
-	pieces[idx] = &bucketPiece{
-		Last: true, Start: lower}
+	pieces = append(
+		pieces, &bucketPiece{Last: true, Start: lower})
 	return &Bucketer{pieces: pieces}
 }
 
@@ -190,12 +231,11 @@ type breakdown []breakdownPiece
 
 // snapshot represents a snapshot of a distribution
 type snapshot struct {
-	Min     float64
-	Max     float64
-	Average float64
-
-	// TODO: Have to discuss how to implement this
+	Min       float64
+	Max       float64
+	Average   float64
 	Median    float64
+	Sum       float64
 	Count     uint64
 	Breakdown breakdown
 }
@@ -301,6 +341,7 @@ func (d *distribution) Snapshot() *snapshot {
 		Max:       d.max,
 		Average:   d.total / float64(d.count),
 		Median:    d.calculateMedian(),
+		Sum:       d.total,
 		Count:     d.count,
 		Breakdown: bdn,
 	}
@@ -502,6 +543,7 @@ func (v *value) AsRPCValue(s *session) *messages.Value {
 				Max:     snapshot.Max,
 				Average: snapshot.Average,
 				Median:  snapshot.Median,
+				Sum:     snapshot.Sum,
 				Count:   snapshot.Count,
 				Ranges:  asRPCRanges(snapshot.Breakdown)}}
 	default:
