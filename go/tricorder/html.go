@@ -23,18 +23,18 @@ const (
 	          {{if .Count}}
 	            <tr>
   	            {{if .First}}
-	              <td align="right">&lt;{{.End}}:</td><td align="right">{{.Count}}</td>
+	              <td align="right">&lt;{{$top.ToFloat32 .End}}:</td><td align="right">{{.Count}}</td>
 	            {{else if .Last}}
-	              <td align="right">&gt;={{.Start}}:</td><td align="right"> {{.Count}}</td>
+	              <td align="right">&gt;={{$top.ToFloat32 .Start}}:</td><td align="right"> {{.Count}}</td>
 	            {{else}}
-	              <td align="right">{{.Start}}-{{.End}}:</td> <td align="right">{{.Count}}</td>
+	              <td align="right">{{$top.ToFloat32 .Start}}-{{$top.ToFloat32 .End}}:</td> <td align="right">{{.Count}}</td>
 	            {{end}}
 		    </tr>
 		  {{end}}
 		{{end}}
 		</table>
 	        {{if .Count}}
-		  <span class="summary"> min: {{.Min}} max: {{.Max}} avg: {{$top.ToFloat32 .Average}} &#126;median: {{$top.ToFloat32 .Median}} count: {{.Count}}</span><br><br>
+		<span class="summary"> min: {{$top.ToFloat32 .Min}} max: {{$top.ToFloat32 .Max}} avg: {{$top.ToFloat32 .Average}} &#126;median: {{$top.ToFloat32 .Median}} sum: {{$top.ToFloat32 .Sum}} count: {{.Count}}</span><br><br>
 	        {{end}}
 	      {{end}}
 	    {{else}}
@@ -149,11 +149,12 @@ func (c *textCollector) Collect(m *metric, s *session) (err error) {
 func textEmitDistribution(s *snapshot, w io.Writer) error {
 	_, err := fmt.Fprintf(
 		w,
-		"{min:%s;max:%s;avg:%s;median:%s;count:%d",
+		"{min:%s;max:%s;avg:%s;median:%s;sum:%s;count:%d",
 		strconv.FormatFloat(s.Min, 'f', -1, 32),
 		strconv.FormatFloat(s.Max, 'f', -1, 32),
 		strconv.FormatFloat(s.Average, 'f', -1, 32),
 		strconv.FormatFloat(s.Median, 'f', -1, 32),
+		strconv.FormatFloat(s.Sum, 'f', -1, 32),
 		s.Count)
 	if err != nil {
 		return err
