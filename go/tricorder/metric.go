@@ -112,51 +112,31 @@ type bucketPiece struct {
 }
 
 func newExponentialBucketerStream(
-	count int, start, scale float64) <-chan float64 {
+	count int, start, scale float64) []float64 {
 	if count < 2 || start <= 0.0 || scale <= 1.0 {
 		panic("count >= 2 && start > 0.0 && scale > 1")
 	}
-	stream := make(chan float64)
-	go func() {
-		current := start
-		for i := 0; i < count-1; i++ {
-			stream <- current
-			current *= scale
-		}
-		close(stream)
-	}()
-	return stream
+	result := make([]float64, count-1)
+	current := start
+	for i := 0; i < count-1; i++ {
+		result[i] = current
+		current *= scale
+	}
+	return result
 }
 
 func newLinearBucketerStream(
-	count int, start, increment float64) <-chan float64 {
+	count int, start, increment float64) []float64 {
 	if count < 2 || increment <= 0.0 {
 		panic("count >= 2 && increment > 0")
 	}
-	stream := make(chan float64)
-	go func() {
-		current := start
-		for i := 0; i < count-1; i++ {
-			stream <- current
-			current += increment
-		}
-		close(stream)
-	}()
-	return stream
-}
-
-func newArbitraryBucketerStream(endpoints []float64) <-chan float64 {
-	if len(endpoints) == 0 {
-		panic("endpoints must have at least one element.")
+	result := make([]float64, count-1)
+	current := start
+	for i := 0; i < count-1; i++ {
+		result[i] = current
+		current += increment
 	}
-	stream := make(chan float64)
-	go func() {
-		for _, endpoint := range endpoints {
-			stream <- endpoint
-		}
-		close(stream)
-	}()
-	return stream
+	return result
 }
 
 var (
@@ -182,35 +162,31 @@ func findGeometricBaseAndOffset(x float64) (base float64, offset int) {
 	return base / 10.0, coeffLen - 1
 }
 
-func newGeometricBucketerStream(lower, upper float64) <-chan float64 {
+func newGeometricBucketerStream(lower, upper float64) (result []float64) {
 	if lower <= 0 || upper < lower {
 		panic("lower must > 0 and upper >= lower")
 	}
 	base, offset := findGeometricBaseAndOffset(lower)
-	stream := make(chan float64)
 	coeffLen := len(coefficientsForGeometricBucketer)
-	go func(base float64, offset int) {
-		emitValue := base * coefficientsForGeometricBucketer[offset]
-		for emitValue < upper {
-			stream <- emitValue
-			offset++
-			if offset == coeffLen {
-				base *= 10
-				offset = 0
-			}
-			emitValue = base * coefficientsForGeometricBucketer[offset]
+	emitValue := base * coefficientsForGeometricBucketer[offset]
+	for emitValue < upper {
+		result = append(result, emitValue)
+		offset++
+		if offset == coeffLen {
+			base *= 10
+			offset = 0
 		}
-		stream <- emitValue
-		close(stream)
-	}(base, offset)
-	return stream
+		emitValue = base * coefficientsForGeometricBucketer[offset]
+	}
+	result = append(result, emitValue)
+	return
 }
 
-func newBucketerFromStream(stream <-chan float64) *Bucketer {
+func newBucketerFromEndpoints(endpoints []float64) *Bucketer {
 	var pieces []*bucketPiece
-	lower := <-stream
+	lower := endpoints[0]
 	pieces = append(pieces, &bucketPiece{First: true, End: lower})
-	for upper := range stream {
+	for _, upper := range endpoints[1:] {
 		pieces = append(
 			pieces, &bucketPiece{Start: lower, End: upper})
 		lower = upper
