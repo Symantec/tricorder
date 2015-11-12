@@ -7,9 +7,12 @@ Use the tricorder package in your application like so:
 
 	import "github.com/Symantec/tricorder/go/tricorder"
 	import "net/http"
+	import "net/rpc"
 	func main() {
 		doYourInitialization();
 		registerYourOwnHttpHandlers();
+		// Needed to support Go RPC. Client must call.
+		rpc.HandleHTTP()
 		if err := http.ListenAndServe(":8080", http.DefaultServeMux); err != nil {
 			fmt.Println(err)
 		}
