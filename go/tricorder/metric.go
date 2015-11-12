@@ -1,7 +1,6 @@
 package tricorder
 
 import (
-	"fmt"
 	"github.com/Symantec/tricorder/go/tricorder/messages"
 	"github.com/Symantec/tricorder/go/tricorder/types"
 	"github.com/Symantec/tricorder/go/tricorder/units"
@@ -25,7 +24,9 @@ var (
 )
 
 // session represents one request to retrieve various metrics.
-// session instances handle the calling of region update functions
+// session instances handle the calling of region update functions.
+// Callers may pass nil for *session parameter in which case
+// it is up to the function to create its own session if necessary.
 type session struct {
 	visitedRegions map[*region]bool
 }
@@ -456,7 +457,18 @@ func (v *value) AsTime(s *session) (result time.Time) {
 	return val.Interface().(time.Time)
 }
 
-func asRPCRanges(ranges breakdown) []*messages.RangeWithCount {
+func (v *value) AsDuration(s *session) (result messages.Duration) {
+	if v.valType != types.Time {
+		panic(panicIncompatibleTypes)
+	}
+	t := v.AsTime(s)
+	if t.IsZero() {
+		return
+	}
+	return messages.SinceEpoch(t)
+}
+
+func asJSONRanges(ranges breakdown) []*messages.RangeWithCount {
 	result := make([]*messages.RangeWithCount, len(ranges))
 	for i := range ranges {
 		result[i] = &messages.RangeWithCount{Count: ranges[i].Count}
@@ -470,9 +482,19 @@ func asRPCRanges(ranges breakdown) []*messages.RangeWithCount {
 	return result
 }
 
-// AsRPCValue returns this value as a messages.Value.
-// If caller passes a nil session, AsRPCValue creates its own internally.
-func (v *value) AsRPCValue(s *session) *messages.Value {
+func asRPCRanges(ranges breakdown) []*messages.RpcRangeWithCount {
+	result := make([]*messages.RpcRangeWithCount, len(ranges))
+	for i := range ranges {
+		result[i] = &messages.RpcRangeWithCount{
+			Count: ranges[i].Count,
+			Lower: ranges[i].Start,
+			Upper: ranges[i].End}
+	}
+	return result
+}
+
+// AsJsonValue returns this value as a messages.Value.
+func (v *value) AsJsonValue(s *session) *messages.Value {
 	t := v.Type()
 	switch t {
 	case types.Bool:
@@ -498,6 +520,38 @@ func (v *value) AsRPCValue(s *session) *messages.Value {
 		return &messages.Value{
 			Kind: t,
 			DistributionValue: &messages.Distribution{
+				Min:     snapshot.Min,
+				Max:     snapshot.Max,
+				Average: snapshot.Average,
+				Median:  snapshot.Median,
+				Count:   snapshot.Count,
+				Ranges:  asJSONRanges(snapshot.Breakdown)}}
+	default:
+		panic(panicIncompatibleTypes)
+	}
+}
+
+// AsRpcValue returns this value as a messages.RpcValue.
+func (v *value) AsRpcValue(s *session) *messages.RpcValue {
+	t := v.Type()
+	switch t {
+	case types.Bool:
+		return &messages.RpcValue{Kind: t, BoolValue: v.AsBool(s)}
+	case types.Int:
+		return &messages.RpcValue{Kind: t, IntValue: v.AsInt(s)}
+	case types.Uint:
+		return &messages.RpcValue{Kind: t, UintValue: v.AsUint(s)}
+	case types.Float:
+		return &messages.RpcValue{Kind: t, FloatValue: v.AsFloat(s)}
+	case types.String:
+		return &messages.RpcValue{Kind: t, StringValue: v.AsString(s)}
+	case types.Time:
+		return &messages.RpcValue{Kind: t, DurationValue: v.AsDuration(s)}
+	case types.Dist:
+		snapshot := v.AsDistribution().Snapshot()
+		return &messages.RpcValue{
+			Kind: t,
+			DistributionValue: &messages.RpcDistribution{
 				Min:     snapshot.Min,
 				Max:     snapshot.Max,
 				Average: snapshot.Average,
@@ -529,11 +583,7 @@ func (v *value) AsTextString(s *session) string {
 	case types.String:
 		return "\"" + v.AsString(s) + "\""
 	case types.Time:
-		t := v.AsTime(s)
-		if t.IsZero() {
-			return "0.000000000"
-		}
-		return fmt.Sprintf("%d.%09d", t.Unix(), t.Nanosecond())
+		return v.AsDuration(s).String()
 	default:
 		panic(panicIncompatibleTypes)
 	}

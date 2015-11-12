@@ -408,7 +408,7 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:        types.String,
 			StringValue: stringPtr("--help")},
-		argsMetric.AsRPCValue(nil))
+		argsMetric.AsJsonValue(nil))
 	assertValueEquals(t, "\"--help\"", argsMetric.AsHtmlString(nil))
 
 	// Check /testname
@@ -419,7 +419,7 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:        types.String,
 			StringValue: stringPtr("My application")},
-		nameMetric.AsRPCValue(nil))
+		nameMetric.AsJsonValue(nil))
 	assertValueEquals(t, "\"My application\"", nameMetric.AsHtmlString(nil))
 
 	// Check /proc/temperature
@@ -430,7 +430,7 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:       types.Float,
 			FloatValue: floatPtr(22.5)},
-		temperatureMetric.AsRPCValue(nil))
+		temperatureMetric.AsJsonValue(nil))
 	assertValueEquals(t, "22.5", temperatureMetric.AsHtmlString(nil))
 
 	// Check /proc/start-time
@@ -441,7 +441,7 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:     types.Int,
 			IntValue: intPtr(-1234567)},
-		startTimeMetric.AsRPCValue(nil))
+		startTimeMetric.AsJsonValue(nil))
 	assertValueEquals(t, "-1234567", startTimeMetric.AsHtmlString(nil))
 
 	// Check /proc/some-time
@@ -452,7 +452,7 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:        types.Time,
 			StringValue: stringPtr("1447594013.007265341")},
-		someTimeMetric.AsRPCValue(nil))
+		someTimeMetric.AsJsonValue(nil))
 	assertValueEquals(t, "2015-11-15T13:26:53.007265341Z", someTimeMetric.AsHtmlString(nil))
 
 	// Check /proc/some-time-ptr
@@ -464,7 +464,7 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:        types.Time,
 			StringValue: stringPtr("0.000000000")},
-		someTimePtrMetric.AsRPCValue(nil))
+		someTimePtrMetric.AsJsonValue(nil))
 	assertValueEquals(t, "0001-01-01T00:00:00Z", someTimePtrMetric.AsHtmlString(nil))
 
 	newTime := time.Date(2015, time.September, 6, 5, 26, 35, 0, time.UTC)
@@ -474,7 +474,7 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:        types.Time,
 			StringValue: stringPtr("1441517195.000000000")},
-		someTimePtrMetric.AsRPCValue(nil))
+		someTimePtrMetric.AsJsonValue(nil))
 	assertValueEquals(
 		t,
 		"2015-09-06T05:26:35Z",
@@ -488,7 +488,7 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:      types.Uint,
 			UintValue: uintPtr(500)},
-		rpcCountMetric.AsRPCValue(nil))
+		rpcCountMetric.AsJsonValue(nil))
 	assertValueEquals(t, "500", rpcCountMetric.AsHtmlString(nil))
 
 	// check /proc/foo/bar/baz
@@ -499,7 +499,7 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:       types.Float,
 			FloatValue: floatPtr(12.375)},
-		bazMetric.AsRPCValue(nil))
+		bazMetric.AsJsonValue(nil))
 	assertValueEquals(t, "12.375", bazMetric.AsHtmlString(nil))
 
 	// check /proc/foo/bar/abool
@@ -510,7 +510,7 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:      types.Bool,
 			BoolValue: boolPtr(true)},
-		aboolMetric.AsRPCValue(nil))
+		aboolMetric.AsJsonValue(nil))
 	assertValueEquals(t, "true", aboolMetric.AsHtmlString(nil))
 
 	// check /proc/foo/bar/anotherBool
@@ -521,14 +521,14 @@ func TestAPI(t *testing.T) {
 		&messages.Value{
 			Kind:      types.Bool,
 			BoolValue: boolPtr(false)},
-		anotherBoolMetric.AsRPCValue(nil))
+		anotherBoolMetric.AsJsonValue(nil))
 	assertValueEquals(t, "false", anotherBoolMetric.AsHtmlString(nil))
 
 	// Check /proc/rpc-latency
 	rpcLatency := root.GetMetric("/proc/rpc-latency")
 	verifyMetric(t, "RPC latency", units.Millisecond, rpcLatency)
 
-	actual := rpcLatency.AsRPCValue(nil)
+	actual := rpcLatency.AsJsonValue(nil)
 
 	if actual.DistributionValue.Median < 249 || actual.DistributionValue.Median >= 250 {
 		t.Errorf("Median out of range: %f", actual.DistributionValue.Median)
