@@ -81,7 +81,7 @@ var (
 // starting with <3.0; 3.0 - 5.1; 5.1 - 8.67; 8.67 - 14.739 etc.
 // NewExponentialBucketer panics if count < 2 or if start <= 0 or if scale <= 1.
 func NewExponentialBucketer(count int, start, scale float64) *Bucketer {
-	return newBucketerFromStream(
+	return newBucketerFromEndpoints(
 		newExponentialBucketerStream(count, start, scale))
 }
 
@@ -90,7 +90,7 @@ func NewExponentialBucketer(count int, start, scale float64) *Bucketer {
 // starting with <0; 0-10; 10-20; 20-30; >=30.
 // NewLinearBucketer panics if count < 2 or if increment <= 0.
 func NewLinearBucketer(count int, start, increment float64) *Bucketer {
-	return newBucketerFromStream(
+	return newBucketerFromEndpoints(
 		newLinearBucketerStream(count, start, increment))
 }
 
@@ -101,8 +101,7 @@ func NewLinearBucketer(count int, start, increment float64) *Bucketer {
 // It is the caller's responsibility to ensure that the values in the
 // endpoints slice are in ascending order.
 func NewArbitraryBucketer(endpoints []float64) *Bucketer {
-	return newBucketerFromStream(
-		newArbitraryBucketerStream(endpoints))
+	return newBucketerFromEndpoints(endpoints)
 }
 
 // NewGeometricBucketer returns a Bucketer representing endpoints
@@ -111,7 +110,7 @@ func NewArbitraryBucketer(endpoints []float64) *Bucketer {
 // NewGeometricBucker(0.5, 50) ==>
 // <0.5; 0.5-1; 1-2; 2-5; 5-10; 10-20; 20-50; >50
 func NewGeometricBucketer(lower, upper float64) *Bucketer {
-	return newBucketerFromStream(
+	return newBucketerFromEndpoints(
 		newGeometricBucketerStream(lower, upper))
 }
 
