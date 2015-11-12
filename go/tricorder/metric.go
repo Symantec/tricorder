@@ -319,8 +319,9 @@ type value struct {
 }
 
 var (
-	timePtrType = reflect.TypeOf((*time.Time)(nil))
-	timeType    = timePtrType.Elem()
+	timePtrType  = reflect.TypeOf((*time.Time)(nil))
+	timeType     = timePtrType.Elem()
+	durationType = reflect.TypeOf(time.Duration(0))
 )
 
 // Given a type t from the reflect package, return the corresponding
@@ -331,6 +332,8 @@ func getPrimitiveType(t reflect.Type) (types.Type, bool) {
 		return types.Time, true
 	case timeType:
 		return types.Time, false
+	case durationType:
+		return types.Duration, false
 	default:
 		switch t.Kind() {
 		case reflect.Bool:
@@ -415,7 +418,7 @@ func (v *value) AsBool(s *session) bool {
 }
 
 func (v *value) AsInt(s *session) int64 {
-	if v.valType != types.Int {
+	if v.valType != types.Int && v.valType != types.Duration {
 		panic(panicIncompatibleTypes)
 	}
 	return v.evaluate(s).Int()
@@ -457,15 +460,22 @@ func (v *value) AsTime(s *session) (result time.Time) {
 	return val.Interface().(time.Time)
 }
 
+func (v *value) AsGoDuration(s *session) time.Duration {
+	return time.Duration(v.AsInt(s))
+}
+
 func (v *value) AsDuration(s *session) (result messages.Duration) {
-	if v.valType != types.Time {
-		panic(panicIncompatibleTypes)
+	if v.valType == types.Time {
+		t := v.AsTime(s)
+		if t.IsZero() {
+			return
+		}
+		return messages.SinceEpoch(t)
 	}
-	t := v.AsTime(s)
-	if t.IsZero() {
-		return
+	if v.valType == types.Duration {
+		return messages.NewDuration(v.AsGoDuration(s))
 	}
-	return messages.SinceEpoch(t)
+	panic(panicIncompatibleTypes)
 }
 
 func asJSONRanges(ranges breakdown) []*messages.RangeWithCount {
@@ -512,7 +522,7 @@ func (v *value) AsJsonValue(s *session) *messages.Value {
 	case types.String:
 		s := v.AsString(s)
 		return &messages.Value{Kind: t, StringValue: &s}
-	case types.Time:
+	case types.Time, types.Duration:
 		s := v.AsTextString(s)
 		return &messages.Value{Kind: t, StringValue: &s}
 	case types.Dist:
@@ -545,7 +555,7 @@ func (v *value) AsRpcValue(s *session) *messages.RpcValue {
 		return &messages.RpcValue{Kind: t, FloatValue: v.AsFloat(s)}
 	case types.String:
 		return &messages.RpcValue{Kind: t, StringValue: v.AsString(s)}
-	case types.Time:
+	case types.Time, types.Duration:
 		return &messages.RpcValue{Kind: t, DurationValue: v.AsDuration(s)}
 	case types.Dist:
 		snapshot := v.AsDistribution().Snapshot()
@@ -582,7 +592,7 @@ func (v *value) AsTextString(s *session) string {
 		return strconv.FormatFloat(v.AsFloat(s), 'f', -1, 64)
 	case types.String:
 		return "\"" + v.AsString(s) + "\""
-	case types.Time:
+	case types.Time, types.Duration:
 		return v.AsDuration(s).String()
 	default:
 		panic(panicIncompatibleTypes)
@@ -595,6 +605,10 @@ func (v *value) AsTextString(s *session) string {
 // If caller passes a nil session, AsHtmlString creates its own internally.
 func (v *value) AsHtmlString(s *session) string {
 	switch v.Type() {
+	//TODO: ISO-8601 for duration?
+	// The most we can include is hours because of daylight
+	// savings. May not be worh it?
+	// github.com/ChannelMeter/iso8601duration can do ISO-8601 for us.
 	case types.Time:
 		t := v.AsTime(s).UTC()
 		return t.Format("2006-01-02T15:04:05.999999999Z")
