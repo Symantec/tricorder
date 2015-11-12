@@ -466,6 +466,12 @@ func TestAPI(t *testing.T) {
 			Kind:        types.String,
 			StringValue: stringPtr("--help")},
 		argsMetric.AsJsonValue(nil))
+	assertValueDeepEquals(
+		t,
+		&messages.RpcValue{
+			Kind:        types.String,
+			StringValue: "--help"},
+		argsMetric.AsRpcValue(nil))
 	assertValueEquals(t, "\"--help\"", argsMetric.AsHtmlString(nil))
 
 	// Check /testname
@@ -477,6 +483,12 @@ func TestAPI(t *testing.T) {
 			Kind:        types.String,
 			StringValue: stringPtr("My application")},
 		nameMetric.AsJsonValue(nil))
+	assertValueDeepEquals(
+		t,
+		&messages.RpcValue{
+			Kind:        types.String,
+			StringValue: "My application"},
+		nameMetric.AsRpcValue(nil))
 	assertValueEquals(t, "\"My application\"", nameMetric.AsHtmlString(nil))
 
 	// Check /proc/temperature
@@ -488,6 +500,12 @@ func TestAPI(t *testing.T) {
 			Kind:       types.Float,
 			FloatValue: floatPtr(22.5)},
 		temperatureMetric.AsJsonValue(nil))
+	assertValueDeepEquals(
+		t,
+		&messages.RpcValue{
+			Kind:       types.Float,
+			FloatValue: 22.5},
+		temperatureMetric.AsRpcValue(nil))
 	assertValueEquals(t, "22.5", temperatureMetric.AsHtmlString(nil))
 
 	// Check /proc/start-time
@@ -499,6 +517,12 @@ func TestAPI(t *testing.T) {
 			Kind:     types.Int,
 			IntValue: intPtr(-1234567)},
 		startTimeMetric.AsJsonValue(nil))
+	assertValueDeepEquals(
+		t,
+		&messages.RpcValue{
+			Kind:     types.Int,
+			IntValue: -1234567},
+		startTimeMetric.AsRpcValue(nil))
 	assertValueEquals(t, "-1234567", startTimeMetric.AsHtmlString(nil))
 
 	// Check /proc/some-time
@@ -510,6 +534,15 @@ func TestAPI(t *testing.T) {
 			Kind:        types.Time,
 			StringValue: stringPtr("1447594013.007265341")},
 		someTimeMetric.AsJsonValue(nil))
+	assertValueDeepEquals(
+		t,
+		&messages.RpcValue{
+			Kind: types.Time,
+			DurationValue: messages.Duration{
+				Seconds:     1447594013,
+				Nanoseconds: 7265341},
+		},
+		someTimeMetric.AsRpcValue(nil))
 	assertValueEquals(t, "2015-11-15T13:26:53.007265341Z", someTimeMetric.AsHtmlString(nil))
 
 	// Check /proc/some-time-ptr
@@ -522,6 +555,12 @@ func TestAPI(t *testing.T) {
 			Kind:        types.Time,
 			StringValue: stringPtr("0.000000000")},
 		someTimePtrMetric.AsJsonValue(nil))
+	assertValueDeepEquals(
+		t,
+		&messages.RpcValue{
+			Kind: types.Time,
+		},
+		someTimePtrMetric.AsRpcValue(nil))
 	assertValueEquals(t, "0001-01-01T00:00:00Z", someTimePtrMetric.AsHtmlString(nil))
 
 	newTime := time.Date(2015, time.September, 6, 5, 26, 35, 0, time.UTC)
@@ -532,6 +571,15 @@ func TestAPI(t *testing.T) {
 			Kind:        types.Time,
 			StringValue: stringPtr("1441517195.000000000")},
 		someTimePtrMetric.AsJsonValue(nil))
+	assertValueDeepEquals(
+		t,
+		&messages.RpcValue{
+			Kind: types.Time,
+			DurationValue: messages.Duration{
+				Seconds: 1441517195,
+			},
+		},
+		someTimePtrMetric.AsRpcValue(nil))
 	assertValueEquals(
 		t,
 		"2015-09-06T05:26:35Z",
@@ -546,6 +594,12 @@ func TestAPI(t *testing.T) {
 			Kind:      types.Uint,
 			UintValue: uintPtr(500)},
 		rpcCountMetric.AsJsonValue(nil))
+	assertValueDeepEquals(
+		t,
+		&messages.RpcValue{
+			Kind:      types.Uint,
+			UintValue: 500},
+		rpcCountMetric.AsRpcValue(nil))
 	assertValueEquals(t, "500", rpcCountMetric.AsHtmlString(nil))
 
 	// check /proc/foo/bar/baz
@@ -557,6 +611,12 @@ func TestAPI(t *testing.T) {
 			Kind:       types.Float,
 			FloatValue: floatPtr(12.375)},
 		bazMetric.AsJsonValue(nil))
+	assertValueDeepEquals(
+		t,
+		&messages.RpcValue{
+			Kind:       types.Float,
+			FloatValue: 12.375},
+		bazMetric.AsRpcValue(nil))
 	assertValueEquals(t, "12.375", bazMetric.AsHtmlString(nil))
 
 	// check /proc/foo/bar/abool
@@ -568,6 +628,12 @@ func TestAPI(t *testing.T) {
 			Kind:      types.Bool,
 			BoolValue: boolPtr(true)},
 		aboolMetric.AsJsonValue(nil))
+	assertValueDeepEquals(
+		t,
+		&messages.RpcValue{
+			Kind:      types.Bool,
+			BoolValue: true},
+		aboolMetric.AsRpcValue(nil))
 	assertValueEquals(t, "true", aboolMetric.AsHtmlString(nil))
 
 	// check /proc/foo/bar/anotherBool
@@ -579,6 +645,12 @@ func TestAPI(t *testing.T) {
 			Kind:      types.Bool,
 			BoolValue: boolPtr(false)},
 		anotherBoolMetric.AsJsonValue(nil))
+	assertValueDeepEquals(
+		t,
+		&messages.RpcValue{
+			Kind: types.Bool,
+		},
+		anotherBoolMetric.AsRpcValue(nil))
 	assertValueEquals(t, "false", anotherBoolMetric.AsHtmlString(nil))
 
 	// Check /proc/rpc-latency
@@ -632,6 +704,54 @@ func TestAPI(t *testing.T) {
 		},
 	}
 	assertValueDeepEquals(t, expected, actual)
+
+	actualRpc := rpcLatency.AsRpcValue(nil)
+
+	if actualRpc.DistributionValue.Median < 249 || actualRpc.DistributionValue.Median >= 250 {
+		t.Errorf("Median out of range in rpc: %f", actualRpc.DistributionValue.Median)
+	}
+
+	expectedRpc := &messages.RpcValue{
+		Kind: types.Dist,
+		DistributionValue: &messages.RpcDistribution{
+			Min:     0.0,
+			Max:     499.0,
+			Average: 249.5,
+			Median:  actualRpc.DistributionValue.Median,
+			Count:   500,
+			Ranges: []*messages.RpcRangeWithCount{
+				{
+					Upper: 10.0,
+					Count: 10,
+				},
+				{
+					Lower: 10.0,
+					Upper: 25.0,
+					Count: 15,
+				},
+				{
+					Lower: 25.0,
+					Upper: 62.5,
+					Count: 38,
+				},
+				{
+					Lower: 62.5,
+					Upper: 156.25,
+					Count: 94,
+				},
+				{
+					Lower: 156.25,
+					Upper: 390.625,
+					Count: 234,
+				},
+				{
+					Lower: 390.625,
+					Count: 109,
+				},
+			},
+		},
+	}
+	assertValueDeepEquals(t, expectedRpc, actualRpc)
 
 	// test PathFrom
 	assertValueEquals(
