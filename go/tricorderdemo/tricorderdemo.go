@@ -8,6 +8,7 @@ import (
 	"github.com/keep94/weblogs"
 	"log"
 	"net/http"
+	"net/rpc"
 )
 
 func registerMetrics() {
@@ -77,6 +78,7 @@ func rpcCountCallback() uint64 {
 
 func main() {
 	registerMetrics()
+	rpc.HandleHTTP()
 	defaultHandler := context.ClearHandler(
 		weblogs.HandlerWithOptions(
 			http.DefaultServeMux,

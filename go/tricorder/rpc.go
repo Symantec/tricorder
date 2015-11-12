@@ -38,5 +38,4 @@ func (t *rpcType) GetMetric(path string, response *messages.RpcMetric) error {
 
 func initRpcHandlers() {
 	rpc.RegisterName("MetricsServer", new(rpcType))
-	rpc.HandleHTTP()
 }
