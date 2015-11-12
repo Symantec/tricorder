@@ -29,7 +29,7 @@ func main() {
 		log.Fatal("dialing:", err)
 	}
 	defer client.Close()
-	var metrics messages.MetricList
+	var metrics messages.RpcMetricList
 	err = client.Call("MetricsServer.ListMetrics", "", &metrics)
 	if err != nil {
 		log.Fatal("Calling:", err)
@@ -42,7 +42,7 @@ func main() {
 	}
 	printAsJson("aaa/bbb metrics", metrics)
 
-	var single messages.Metric
+	var single messages.RpcMetric
 	err = client.Call("MetricsServer.GetMetric", "/proc/foo/bar/baz", &single)
 	if err != nil {
 		log.Fatal("Calling:", err)
