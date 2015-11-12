@@ -54,23 +54,23 @@ MetricsServer.ListMetrics:
 
 Recursively lists all metrics under a particular path.
 Request is the absolute path as a string.
-Response is a messages.MetricList type.
+Response is a messages.RpcMetricList type.
 
 MetricsServer.GetMetric
 
 Gets a single metric with a particular path or returns
 messages.ErrMetricNotFound if there is no such metric.
 Request is the absolute path as a string.
-Response is a messages.Metric type.
+Response is a messages.RpcMetric type.
 
 Example:
 
 	import "github.com/Symantec/tricorder/go/tricorder/messages"
 	client, _ := rpc.DialHTTP("tcp", ":8080")
 	defer client.Close()
-	var metrics messages.MetricList
+	var metrics messages.RpcMetricList
 	client.Call("MetricsServer.ListMetrics", "/a/directory", &metrics)
-	var metric messages.Metric
+	var metric messages.RpcMetric
 	err := client.Call("MetricsServer.GetMetric", "/a/metric", &metric)
 	if err == nil {
 		// we found /a/metric
@@ -167,6 +167,12 @@ Metric types:
 			&pointerToAnotherTimeValue,
 			tricorder.None,
 			"another time description")
+	time.Duration
+		tricorder.RegisterMetric(
+			"a/path/to/duration",
+			&durationValue,
+			tricorder.None,
+			"duration value description")
 
 If code generates a metric's value, register the callback function like so
 
