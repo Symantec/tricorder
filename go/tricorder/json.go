@@ -3,12 +3,28 @@ package tricorder
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/Symantec/tricorder/go/tricorder/messages"
 	"net/http"
 )
 
 var (
 	jsonUrl = "/metricsapi"
 )
+
+func jsonAsMetric(m *metric, s *session) *messages.Metric {
+	return &messages.Metric{
+		Path:        m.AbsPath(),
+		Description: m.Description,
+		Unit:        m.Unit,
+		Value:       m.AsJsonValue(s)}
+}
+
+type jsonMetricsCollector messages.MetricList
+
+func (c *jsonMetricsCollector) Collect(m *metric, s *session) (err error) {
+	*c = append(*c, jsonAsMetric(m, s))
+	return nil
+}
 
 func jsonSetUpHeaders(h http.Header) {
 	h.Set("Content-Type", "text/plain")
@@ -27,9 +43,9 @@ func jsonHandlerFunc(w http.ResponseWriter, r *http.Request) {
 			httpError(w, http.StatusNotFound)
 			return
 		}
-		content, err = json.Marshal(rpcAsMetric(m, nil))
+		content, err = json.Marshal(jsonAsMetric(m, nil))
 	} else {
-		var collector rpcMetricsCollector
+		var collector jsonMetricsCollector
 		root.GetAllMetricsByPath(path, &collector, nil)
 		content, err = json.Marshal(collector)
 	}
