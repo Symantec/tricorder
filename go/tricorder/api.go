@@ -101,8 +101,7 @@ func NewLinearBucketer(count int, start, increment float64) *Bucketer {
 // It is the caller's responsibility to ensure that the values in the
 // endpoints slice are in ascending order.
 func NewArbitraryBucketer(endpoints []float64) *Bucketer {
-	return newBucketerFromStream(
-		newArbitraryBucketerStream(endpoints))
+	return newBucketerFromStream(endpoints)
 }
 
 // NewGeometricBucketer returns a Bucketer representing endpoints
