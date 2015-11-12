@@ -11,7 +11,7 @@ var (
 )
 
 // A region represents a collection of variables for metrics that are all
-// updated by a common function. When a client sends a request for one or
+// updated by a common function. Each time a client sends a request for one or
 // more metrics backed by variables within a particular region, tricorder
 // calls that region’s update function one time before reading any of the
 // variables in that region to to respond to the client. However, to provide
