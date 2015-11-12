@@ -381,8 +381,10 @@ func TestAPI(t *testing.T) {
 	// 25 - 62.5: 38
 	// 62.5 - 156.25: 94
 	// 156.25 - 390.625: 234
+	var dur time.Duration
 	for i := 0; i < 500; i++ {
-		rpcDistribution.Add(float64(i))
+		rpcDistribution.Add(dur)
+		dur += time.Second
 	}
 
 	verifyChildren(
