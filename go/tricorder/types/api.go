@@ -5,11 +5,12 @@ package types
 type Type string
 
 const (
-	Bool   Type = "bool"
-	Int    Type = "int"
-	Uint   Type = "uint"
-	Float  Type = "float"
-	String Type = "string"
-	Dist   Type = "distribution"
-	Time   Type = "time"
+	Bool     Type = "bool"
+	Int      Type = "int"
+	Uint     Type = "uint"
+	Float    Type = "float"
+	String   Type = "string"
+	Dist     Type = "distribution"
+	Time     Type = "time"
+	Duration Type = "duration"
 )
