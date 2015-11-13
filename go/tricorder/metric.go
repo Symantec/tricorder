@@ -221,8 +221,10 @@ type snapshot struct {
 // distribution represents a distribution of values same as Distribution
 type distribution struct {
 	// Protects all fields except pieces whose contents never changes
+	// and unit which never changes after RegisterMetric sets it.
 	lock   sync.RWMutex
 	pieces []*bucketPiece
+	unit   units.Unit
 	counts []uint64
 	total  float64
 	min    float64
@@ -233,6 +235,7 @@ type distribution struct {
 func newDistribution(bucketer *Bucketer) *distribution {
 	return &distribution{
 		pieces: bucketer.pieces,
+		unit:   units.None,
 		counts: make([]uint64, len(bucketer.pieces)),
 	}
 }
@@ -240,7 +243,7 @@ func newDistribution(bucketer *Bucketer) *distribution {
 func (d *distribution) Add(value interface{}) {
 	switch v := value.(type) {
 	case time.Duration:
-		(*distribution)(d).add(messages.NewDuration(v).AsSeconds())
+		(*distribution)(d).add(d.goDurationToFloat(v))
 	case float32:
 		(*distribution)(d).add(float64(v))
 	case float64:
@@ -266,6 +269,17 @@ func (d *distribution) add(value float64) {
 		d.max = value
 	}
 	d.count++
+}
+
+func (d *distribution) goDurationToFloat(dur time.Duration) float64 {
+	switch d.unit {
+	case units.Second:
+		return float64(dur) * 1e-9
+	case units.Millisecond:
+		return float64(dur) * 1e-6
+	default:
+		panic("Durations can't be added to non time based metrics.")
+	}
 }
 
 func findDistributionIndex(pieces []*bucketPiece, value float64) int {
@@ -383,13 +397,18 @@ func getPrimitiveType(t reflect.Type) (types.Type, bool) {
 	}
 }
 
-func newValue(spec interface{}, region *region) *value {
+// unit parameter only used if spec is a *Distribution
+// In that case, it sets the unit of the *Distribution in place.
+func newValue(spec interface{}, region *region, unit units.Unit) *value {
 	capDist, ok := spec.(*Distribution)
 	if ok {
-		return &value{dist: (*distribution)(capDist), valType: types.Dist}
+		dist := (*distribution)(capDist)
+		dist.unit = unit
+		return &value{dist: dist, valType: types.Dist}
 	}
 	dist, ok := spec.(*distribution)
 	if ok {
+		dist.unit = unit
 		return &value{dist: dist, valType: types.Dist}
 	}
 	v := reflect.ValueOf(spec)
@@ -909,7 +928,7 @@ func (d *directory) registerMetric(
 	metric := &metric{
 		Description: description,
 		Unit:        unit,
-		value:       newValue(value, region)}
+		value:       newValue(value, region, unit)}
 	return current.storeMetric(path.Base(), metric)
 }
 
