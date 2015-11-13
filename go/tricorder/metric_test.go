@@ -384,7 +384,7 @@ func TestAPI(t *testing.T) {
 	var dur time.Duration
 	for i := 0; i < 500; i++ {
 		rpcDistribution.Add(dur)
-		dur += time.Second
+		dur += time.Millisecond
 	}
 
 	verifyChildren(
