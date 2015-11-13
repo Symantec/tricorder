@@ -129,7 +129,7 @@ func initDefaultMetrics() {
 		"Voluntary context switches")
 	RegisterMetricInRegion(
 		"/proc/scheduler/involuntary-switches",
-		&resourceUsage.Nvcsw,
+		&resourceUsage.Nivcsw,
 		resourceUsageRegion,
 		units.None,
 		"Involuntary context switches")
