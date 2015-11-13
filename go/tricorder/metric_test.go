@@ -227,9 +227,27 @@ func TestAPI(t *testing.T) {
 	var someTime time.Time
 	var someTimePtr *time.Time
 	var someBool bool
+	var inSeconds time.Duration
+	var inMilliseconds time.Duration
 
 	rpcBucketer := NewExponentialBucketer(6, 10, 2.5)
 	rpcDistribution := rpcBucketer.NewDistribution()
+
+	if err := RegisterMetric(
+		"/times/milliseconds",
+		&inMilliseconds,
+		units.Millisecond,
+		"In milliseconds"); err != nil {
+		t.Fatalf("Got error %v registering metric", err)
+	}
+
+	if err := RegisterMetric(
+		"/times/seconds",
+		&inSeconds,
+		units.Second,
+		"In seconds"); err != nil {
+		t.Fatalf("Got error %v registering metric", err)
+	}
 
 	if err := RegisterMetric(
 		"/proc/rpc-latency",
@@ -371,6 +389,8 @@ func TestAPI(t *testing.T) {
 	startTime = -1234567
 	temperature = 22.5
 	someBool = true
+	inSeconds = -21*time.Second - 53*time.Millisecond
+	inMilliseconds = 7*time.Second + 8*time.Millisecond
 
 	someTime = time.Date(
 		2015, time.November, 15, 13, 26, 53, 7265341, time.UTC)
@@ -394,7 +414,8 @@ func TestAPI(t *testing.T) {
 		"proc",
 		"secondGroup",
 		"testargs",
-		"testname")
+		"testname",
+		"times")
 	verifyChildren(
 		t,
 		root.GetDirectory("proc").List(),
@@ -492,6 +513,46 @@ func TestAPI(t *testing.T) {
 			StringValue: "My application"},
 		nameMetric.AsRpcValue(nil))
 	assertValueEquals(t, "\"My application\"", nameMetric.AsHtmlString(nil))
+
+	// Check /times/seconds
+	inSecondMetric := root.GetMetric("/times/seconds")
+	verifyMetric(t, "In seconds", units.Second, inSecondMetric)
+	assertValueDeepEquals(
+		t,
+		&messages.Value{
+			Kind:        types.Duration,
+			StringValue: stringPtr("-21.053000000")},
+		inSecondMetric.AsJsonValue(nil))
+	assertValueDeepEquals(
+		t,
+		&messages.RpcValue{
+			Kind: types.Duration,
+			DurationValue: messages.Duration{
+				Seconds:     -21,
+				Nanoseconds: -53000000,
+			},
+		},
+		inSecondMetric.AsRpcValue(nil))
+
+	// Check /times/milliseconds
+	inMillisecondMetric := root.GetMetric("/times/milliseconds")
+	verifyMetric(t, "In milliseconds", units.Millisecond, inMillisecondMetric)
+	assertValueDeepEquals(
+		t,
+		&messages.Value{
+			Kind:        types.Duration,
+			StringValue: stringPtr("7008.000000")},
+		inMillisecondMetric.AsJsonValue(nil))
+	assertValueDeepEquals(
+		t,
+		&messages.RpcValue{
+			Kind: types.Duration,
+			DurationValue: messages.Duration{
+				Seconds:     7,
+				Nanoseconds: 8000000,
+			},
+		},
+		inMillisecondMetric.AsRpcValue(nil))
 
 	// Check /proc/temperature
 	temperatureMetric := root.GetMetric("/proc/temperature")
