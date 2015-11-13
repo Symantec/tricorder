@@ -31,10 +31,6 @@ func (d Duration) asGoDuration() time.Duration {
 	return time.Second*time.Duration(d.Seconds) + time.Duration(d.Nanoseconds)*time.Nanosecond
 }
 
-func (d Duration) AsSeconds() float64 {
-	return float64(d.Seconds) + float64(d.Nanoseconds)*1e-9
-}
-
 func (d Duration) asGoTime() time.Time {
 	return time.Unix(d.Seconds, int64(d.Nanoseconds))
 }
