@@ -17,6 +17,7 @@ const (
 	panicBadFunctionReturnTypes = "Functions must return either T or (T, error) where T is a primitive numeric type or a string."
 	panicInvalidMetric          = "Invalid metric type."
 	panicIncompatibleTypes      = "Wrong AsXXX function called on value."
+	panicTypeMismatch           = "Wrong type passed to method."
 )
 
 var (
@@ -236,8 +237,21 @@ func newDistribution(bucketer *Bucketer) *distribution {
 	}
 }
 
+func (d *distribution) Add(value interface{}) {
+	switch v := value.(type) {
+	case time.Duration:
+		(*distribution)(d).add(messages.NewDuration(v).AsSeconds())
+	case float32:
+		(*distribution)(d).add(float64(v))
+	case float64:
+		(*distribution)(d).add(v)
+	default:
+		panic(panicTypeMismatch)
+	}
+}
+
 // Add adds a value to this distribution
-func (d *distribution) Add(value float64) {
+func (d *distribution) add(value float64) {
 	idx := findDistributionIndex(d.pieces, value)
 	d.lock.Lock()
 	defer d.lock.Unlock()
