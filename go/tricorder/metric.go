@@ -361,6 +361,7 @@ type value struct {
 	valType       types.Type
 	isValAPointer bool
 	isfunc        bool
+	unit          units.Unit
 }
 
 var (
@@ -404,12 +405,12 @@ func newValue(spec interface{}, region *region, unit units.Unit) *value {
 	if ok {
 		dist := (*distribution)(capDist)
 		dist.unit = unit
-		return &value{dist: dist, valType: types.Dist}
+		return &value{dist: dist, unit: unit, valType: types.Dist}
 	}
 	dist, ok := spec.(*distribution)
 	if ok {
 		dist.unit = unit
-		return &value{dist: dist, valType: types.Dist}
+		return &value{dist: dist, unit: unit, valType: types.Dist}
 	}
 	v := reflect.ValueOf(spec)
 	t := v.Type()
@@ -423,6 +424,7 @@ func newValue(spec interface{}, region *region, unit units.Unit) *value {
 		valType, isValAPointer := getPrimitiveType(t.Out(0))
 		return &value{
 			val:           v,
+			unit:          unit,
 			valType:       valType,
 			isfunc:        true,
 			isValAPointer: isValAPointer}
@@ -431,6 +433,7 @@ func newValue(spec interface{}, region *region, unit units.Unit) *value {
 	valType, isValAPointer := getPrimitiveType(v.Type())
 	return &value{
 		val:           v,
+		unit:          unit,
 		region:        region,
 		valType:       valType,
 		isValAPointer: isValAPointer}
@@ -468,7 +471,7 @@ func (v *value) AsBool(s *session) bool {
 }
 
 func (v *value) AsInt(s *session) int64 {
-	if v.valType != types.Int && v.valType != types.Duration {
+	if v.valType != types.Int {
 		panic(panicIncompatibleTypes)
 	}
 	return v.evaluate(s).Int()
@@ -511,7 +514,7 @@ func (v *value) AsTime(s *session) (result time.Time) {
 }
 
 func (v *value) AsGoDuration(s *session) time.Duration {
-	return time.Duration(v.AsInt(s))
+	return time.Duration(v.evaluate(s).Int())
 }
 
 func (v *value) AsDuration(s *session) (result messages.Duration) {
@@ -645,7 +648,7 @@ func (v *value) AsTextString(s *session) string {
 	case types.String:
 		return "\"" + v.AsString(s) + "\""
 	case types.Time, types.Duration:
-		return v.AsDuration(s).String()
+		return v.AsDuration(s).StringUsingUnits(v.unit)
 	default:
 		panic(panicIncompatibleTypes)
 	}
