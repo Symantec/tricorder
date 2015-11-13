@@ -2,7 +2,12 @@ package messages
 
 import (
 	"fmt"
+	"github.com/Symantec/tricorder/go/tricorder/units"
 	"time"
+)
+
+const (
+	oneMillion = 1000000
 )
 
 func newDuration(d time.Duration) (result Duration) {
@@ -34,10 +39,20 @@ func (d Duration) asGoTime() time.Time {
 	return time.Unix(d.Seconds, int64(d.Nanoseconds))
 }
 
-func (d Duration) _string() string {
+func (d Duration) stringUsingUnits(unit units.Unit) string {
 	formattedNs := d.Nanoseconds
 	if formattedNs < 0 {
 		formattedNs = -formattedNs
 	}
-	return fmt.Sprintf("%d.%09d", d.Seconds, formattedNs)
+	switch unit {
+	case units.Millisecond:
+		return fmt.Sprintf(
+			"%d%03d.%06d",
+			d.Seconds,
+			formattedNs/oneMillion,
+			formattedNs%oneMillion)
+	default: // second
+		return fmt.Sprintf("%d.%09d", d.Seconds, formattedNs)
+	}
+
 }

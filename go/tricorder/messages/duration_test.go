@@ -2,6 +2,7 @@ package messages_test
 
 import (
 	"github.com/Symantec/tricorder/go/tricorder/messages"
+	"github.com/Symantec/tricorder/go/tricorder/units"
 	"testing"
 	"time"
 )
@@ -136,5 +137,23 @@ func TestTime(t *testing.T) {
 	}
 	if out := expected.AsGoTime().UTC(); out != tm {
 		t.Errorf("Expected %d, got %d", tm, out)
+	}
+}
+
+func TestString(t *testing.T) {
+	dur := messages.Duration{Seconds: 57}
+	if out := dur.String(); out != "57.000000000" {
+		t.Errorf("Expected 57.000000000, got %s", out)
+	}
+	dur = messages.Duration{Seconds: -53, Nanoseconds: -200000000}
+	if out := dur.String(); out != "-53.200000000" {
+		t.Errorf("Expected -53.200000000, got %s", out)
+	}
+	if out := dur.StringUsingUnits(units.Millisecond); out != "-53200.000000" {
+		t.Errorf("Expected -53200.000000, got %s", out)
+	}
+	dur = messages.Duration{Seconds: 53, Nanoseconds: 123456789}
+	if out := dur.StringUsingUnits(units.Millisecond); out != "53123.456789" {
+		t.Errorf("Expected 53123.456789, got %s", out)
 	}
 }

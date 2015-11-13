@@ -103,8 +103,15 @@ func (d Duration) AsGoTime() time.Time {
 	return d.asGoTime()
 }
 
+// String shows in seconds
 func (d Duration) String() string {
-	return d._string()
+	return d.stringUsingUnits(units.Second)
+}
+
+// StringUsingUnits shows in specified time unit.
+// If unit not a time, shows in seconds.
+func (d Duration) StringUsingUnits(unit units.Unit) string {
+	return d.stringUsingUnits(unit)
 }
 
 // RpcValue represents the value of a metric for go rpc.
