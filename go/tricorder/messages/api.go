@@ -50,6 +50,8 @@ type RpcDistribution struct {
 	Average float64
 	// The approximate median value
 	Median float64
+	// The sum
+	Sum float64
 	// The total number of values
 	Count uint64
 	// The number of values within each range
@@ -66,6 +68,8 @@ type Distribution struct {
 	Average float64 `json:"average"`
 	// The approximate median value
 	Median float64 `json:"median"`
+	// The sum
+	Sum float64 `json:"sum"`
 	// The total number of values
 	Count uint64 `json:"count"`
 	// The number of values within each range
