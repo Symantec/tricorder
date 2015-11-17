@@ -8,58 +8,59 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 const (
 	htmlUrl         = "/metrics"
 	htmlTemplateStr = `
-	{{define "METRIC"}}
-	  {{with $top := .}}
-            {{if .IsDistribution}}
+	{{define "METRIC"}} \
+	  {{with $top := .}} \
+            {{if .IsDistribution}} \
 	      {{.Metric.AbsPath}} <span class="parens">(distribution: {{.Metric.Description}}{{if .HasUnit}}; unit: {{.Metric.Unit}}{{end}})</span><br>
 	      {{with .Metric.AsDistribution.Snapshot}}
 	        <table>
-	        {{range .Breakdown}}
-	          {{if .Count}}
+	        {{range .Breakdown}} \
+	          {{if .Count}} \
 	            <tr>
-  	            {{if .First}}
+  	            {{if .First}} \
 	              <td align="right">&lt;{{$top.ToFloat32 .End}}:</td><td align="right">{{.Count}}</td>
-	            {{else if .Last}}
+	            {{else if .Last}} \
 	              <td align="right">&gt;={{$top.ToFloat32 .Start}}:</td><td align="right"> {{.Count}}</td>
-	            {{else}}
+	            {{else}} \
 	              <td align="right">{{$top.ToFloat32 .Start}}-{{$top.ToFloat32 .End}}:</td> <td align="right">{{.Count}}</td>
-	            {{end}}
+	            {{end}} \
 		    </tr>
-		  {{end}}
-		{{end}}
+		  {{end}} \
+		{{end}} \
 		</table>
-	        {{if .Count}}
+	        {{if .Count}} \
 		<span class="summary"> min: {{$top.ToFloat32 .Min}} max: {{$top.ToFloat32 .Max}} avg: {{$top.ToFloat32 .Average}} &#126;median: {{$top.ToFloat32 .Median}} sum: {{$top.ToFloat32 .Sum}} count: {{.Count}}</span><br><br>
-	        {{end}}
-	      {{end}}
-	    {{else}}
+	        {{end}} \
+	      {{end}} \
+	    {{else}} \
 	      {{.Metric.AbsPath}} {{.AsHtmlString}} <span class="parens">({{.Metric.Type}}{{if .Metric.Bits}}{{.Metric.Bits}}{{end}}: {{.Metric.Description}}{{if .HasUnit}}; unit: {{.Metric.Unit}}{{end}})</span><br>
-	    {{end}}
-	  {{end}}
-	{{end}}
+	    {{end}} \
+	  {{end}} \
+	{{end}} \
 	<html>
 	<head>
 	  <link rel="stylesheet" type="text/css" href="/metricsstatic/theme.css">
 	</head>
 	<body>
-	{{with $top := .}}
-	  {{if .Directory}}
-	    {{range .Directory.List}}
-	      {{if .Directory}}
+	{{with $top := .}} \
+	  {{if .Directory}} \
+	    {{range .Directory.List}} \
+	      {{if .Directory}} \
 	        <a href="{{$top.Link .Directory}}">{{.Directory.AbsPath}}</a><br>
-              {{else}}
-	        {{template "METRIC" $top.AsMetricView .Metric}}
-	      {{end}}
-	    {{end}}
-	  {{else}}
-	    {{template "METRIC" .}}
-	  {{end}}
-	{{end}}
+              {{else}} \
+	        {{template "METRIC" $top.AsMetricView .Metric}} \
+	      {{end}} \
+	    {{end}} \
+	  {{else}} \
+	    {{template "METRIC" .}} \
+	  {{end}} \
+	{{end}} \
 	</body>
 	</html>
 	  `
@@ -71,7 +72,7 @@ const (
 )
 
 var (
-	htmlTemplate = template.Must(template.New("browser").Parse(htmlTemplateStr))
+	htmlTemplate = template.Must(template.New("browser").Parse(strings.Replace(htmlTemplateStr, " \\\n", "", -1)))
 )
 
 type htmlView struct {
