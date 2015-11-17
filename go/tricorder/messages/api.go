@@ -118,6 +118,8 @@ func (d Duration) StringUsingUnits(unit units.Unit) string {
 type RpcValue struct {
 	// The value's type
 	Kind types.Type
+	// The value's size in bits if Int, Uint, or float
+	Bits int
 	// bool values stored here
 	BoolValue bool
 	// int values stored here
@@ -139,6 +141,8 @@ type RpcValue struct {
 type Value struct {
 	// The value's type
 	Kind types.Type `json:"kind"`
+	// The value's size in bits if Int, Uint, or float
+	Bits int `json:"bits,omitempty"`
 	// bool values stored here
 	BoolValue *bool `json:"boolValue,omitempty"`
 	// int values stored here

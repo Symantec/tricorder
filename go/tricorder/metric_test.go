@@ -561,12 +561,14 @@ func TestAPI(t *testing.T) {
 		t,
 		&messages.Value{
 			Kind:       types.Float,
+			Bits:       64,
 			FloatValue: floatPtr(22.5)},
 		temperatureMetric.AsJsonValue(nil))
 	assertValueDeepEquals(
 		t,
 		&messages.RpcValue{
 			Kind:       types.Float,
+			Bits:       64,
 			FloatValue: 22.5},
 		temperatureMetric.AsRpcValue(nil))
 	assertValueEquals(t, "22.5", temperatureMetric.AsHtmlString(nil))
@@ -578,12 +580,14 @@ func TestAPI(t *testing.T) {
 		t,
 		&messages.Value{
 			Kind:     types.Int,
+			Bits:     64,
 			IntValue: intPtr(-1234567)},
 		startTimeMetric.AsJsonValue(nil))
 	assertValueDeepEquals(
 		t,
 		&messages.RpcValue{
 			Kind:     types.Int,
+			Bits:     64,
 			IntValue: -1234567},
 		startTimeMetric.AsRpcValue(nil))
 	assertValueEquals(t, "-1234567", startTimeMetric.AsHtmlString(nil))
@@ -655,12 +659,14 @@ func TestAPI(t *testing.T) {
 		t,
 		&messages.Value{
 			Kind:      types.Uint,
+			Bits:      64,
 			UintValue: uintPtr(500)},
 		rpcCountMetric.AsJsonValue(nil))
 	assertValueDeepEquals(
 		t,
 		&messages.RpcValue{
 			Kind:      types.Uint,
+			Bits:      64,
 			UintValue: 500},
 		rpcCountMetric.AsRpcValue(nil))
 	assertValueEquals(t, "500", rpcCountMetric.AsHtmlString(nil))
@@ -672,12 +678,14 @@ func TestAPI(t *testing.T) {
 		t,
 		&messages.Value{
 			Kind:       types.Float,
+			Bits:       32,
 			FloatValue: floatPtr(12.375)},
 		bazMetric.AsJsonValue(nil))
 	assertValueDeepEquals(
 		t,
 		&messages.RpcValue{
 			Kind:       types.Float,
+			Bits:       32,
 			FloatValue: 12.375},
 		bazMetric.AsRpcValue(nil))
 	assertValueEquals(t, "12.375", bazMetric.AsHtmlString(nil))

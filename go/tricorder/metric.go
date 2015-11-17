@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unsafe"
 )
 
 const (
@@ -21,7 +22,8 @@ const (
 )
 
 var (
-	root = newDirectory()
+	root          = newDirectory()
+	intSizeInBits = int(unsafe.Sizeof(0)) * 8
 )
 
 // session represents one request to retrieve various metrics.
@@ -359,6 +361,7 @@ type value struct {
 	region        *region
 	dist          *distribution
 	valType       types.Type
+	bits          int
 	isValAPointer bool
 	isfunc        bool
 	unit          units.Unit
@@ -372,26 +375,45 @@ var (
 
 // Given a type t from the reflect package, return the corresponding
 // types.Type and true if t is a pointer to that type or false otherwise.
-func getPrimitiveType(t reflect.Type) (types.Type, bool) {
+func getPrimitiveType(t reflect.Type) (
+	outType types.Type, bits int, isPtr bool) {
 	switch t {
 	case timePtrType:
-		return types.Time, true
+		return types.Time, 0, true
 	case timeType:
-		return types.Time, false
+		return types.Time, 0, false
 	case durationType:
-		return types.Duration, false
+		return types.Duration, 0, false
 	default:
 		switch t.Kind() {
 		case reflect.Bool:
-			return types.Bool, false
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			return types.Int, false
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			return types.Uint, false
-		case reflect.Float32, reflect.Float64:
-			return types.Float, false
+			return types.Bool, 0, false
+		case reflect.Int:
+			return types.Int, intSizeInBits, false
+		case reflect.Int8:
+			return types.Int, 8, false
+		case reflect.Int16:
+			return types.Int, 16, false
+		case reflect.Int32:
+			return types.Int, 32, false
+		case reflect.Int64:
+			return types.Int, 64, false
+		case reflect.Uint:
+			return types.Uint, intSizeInBits, false
+		case reflect.Uint8:
+			return types.Uint, 8, false
+		case reflect.Uint16:
+			return types.Uint, 16, false
+		case reflect.Uint32:
+			return types.Uint, 32, false
+		case reflect.Uint64:
+			return types.Uint, 64, false
+		case reflect.Float32:
+			return types.Float, 32, false
+		case reflect.Float64:
+			return types.Float, 64, false
 		case reflect.String:
-			return types.String, false
+			return types.String, 0, false
 		default:
 			panic(panicInvalidMetric)
 		}
@@ -421,27 +443,35 @@ func newValue(spec interface{}, region *region, unit units.Unit) *value {
 		if funcArgCount != 1 {
 			panic(panicBadFunctionReturnTypes)
 		}
-		valType, isValAPointer := getPrimitiveType(t.Out(0))
+		valType, bits, isValAPointer := getPrimitiveType(t.Out(0))
 		return &value{
 			val:           v,
 			unit:          unit,
 			valType:       valType,
+			bits:          bits,
 			isfunc:        true,
 			isValAPointer: isValAPointer}
 	}
 	v = v.Elem()
-	valType, isValAPointer := getPrimitiveType(v.Type())
+	valType, bits, isValAPointer := getPrimitiveType(v.Type())
 	return &value{
 		val:           v,
 		unit:          unit,
 		region:        region,
 		valType:       valType,
+		bits:          bits,
 		isValAPointer: isValAPointer}
 }
 
 // Type returns the type of this value: Int, Float, Uint, String, or Dist
 func (v *value) Type() types.Type {
 	return v.valType
+}
+
+// Bits returns the size in bits if the type is an Int, Uint, for Float.
+// Otherwise Bits returns 0.
+func (v *value) Bits() int {
+	return v.bits
 }
 
 func (v *value) evaluate(s *session) reflect.Value {
@@ -565,13 +595,16 @@ func (v *value) AsJsonValue(s *session) *messages.Value {
 		return &messages.Value{Kind: t, BoolValue: &b}
 	case types.Int:
 		i := v.AsInt(s)
-		return &messages.Value{Kind: t, IntValue: &i}
+		return &messages.Value{
+			Kind: t, Bits: v.Bits(), IntValue: &i}
 	case types.Uint:
 		u := v.AsUint(s)
-		return &messages.Value{Kind: t, UintValue: &u}
+		return &messages.Value{
+			Kind: t, Bits: v.Bits(), UintValue: &u}
 	case types.Float:
 		f := v.AsFloat(s)
-		return &messages.Value{Kind: t, FloatValue: &f}
+		return &messages.Value{
+			Kind: t, Bits: v.Bits(), FloatValue: &f}
 	case types.String:
 		s := v.AsString(s)
 		return &messages.Value{Kind: t, StringValue: &s}
@@ -602,15 +635,20 @@ func (v *value) AsRpcValue(s *session) *messages.RpcValue {
 	case types.Bool:
 		return &messages.RpcValue{Kind: t, BoolValue: v.AsBool(s)}
 	case types.Int:
-		return &messages.RpcValue{Kind: t, IntValue: v.AsInt(s)}
+		return &messages.RpcValue{
+			Kind: t, Bits: v.Bits(), IntValue: v.AsInt(s)}
 	case types.Uint:
-		return &messages.RpcValue{Kind: t, UintValue: v.AsUint(s)}
+		return &messages.RpcValue{
+			Kind: t, Bits: v.Bits(), UintValue: v.AsUint(s)}
 	case types.Float:
-		return &messages.RpcValue{Kind: t, FloatValue: v.AsFloat(s)}
+		return &messages.RpcValue{
+			Kind: t, Bits: v.Bits(), FloatValue: v.AsFloat(s)}
 	case types.String:
-		return &messages.RpcValue{Kind: t, StringValue: v.AsString(s)}
+		return &messages.RpcValue{
+			Kind: t, StringValue: v.AsString(s)}
 	case types.Time, types.Duration:
-		return &messages.RpcValue{Kind: t, DurationValue: v.AsDuration(s)}
+		return &messages.RpcValue{
+			Kind: t, DurationValue: v.AsDuration(s)}
 	case types.Dist:
 		snapshot := v.AsDistribution().Snapshot()
 		return &messages.RpcValue{

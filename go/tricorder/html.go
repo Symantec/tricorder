@@ -38,7 +38,7 @@ const (
 	        {{end}}
 	      {{end}}
 	    {{else}}
-	      {{.Metric.AbsPath}} {{.AsHtmlString}} <span class="parens">({{.Metric.Type}}: {{.Metric.Description}}{{if .HasUnit}}; unit: {{.Metric.Unit}}{{end}})</span><br>
+	      {{.Metric.AbsPath}} {{.AsHtmlString}} <span class="parens">({{.Metric.Type}}{{if .Metric.Bits}}{{.Metric.Bits}}{{end}}: {{.Metric.Description}}{{if .HasUnit}}; unit: {{.Metric.Unit}}{{end}})</span><br>
 	    {{end}}
 	  {{end}}
 	{{end}}
