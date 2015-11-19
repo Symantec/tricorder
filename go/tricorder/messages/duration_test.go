@@ -9,6 +9,9 @@ import (
 
 func TestDuration(t *testing.T) {
 	var expected messages.Duration
+	if expected.IsNegative() {
+		t.Error("Expected duration to be positive.")
+	}
 	var duration time.Duration
 	actual := messages.NewDuration(duration)
 	if expected != actual {
@@ -27,6 +30,9 @@ func TestDuration(t *testing.T) {
 		t.Errorf("Expected %d, got %d", duration, out)
 	}
 	expected = messages.Duration{Seconds: 1, Nanoseconds: 0}
+	if expected.IsNegative() {
+		t.Error("Expected duration to be positive.")
+	}
 	duration = time.Second
 	actual = messages.NewDuration(duration)
 	if expected != actual {
@@ -45,6 +51,9 @@ func TestDuration(t *testing.T) {
 		t.Errorf("Expected %d, got %d", duration, out)
 	}
 	expected = messages.Duration{Seconds: 0, Nanoseconds: -1}
+	if !expected.IsNegative() {
+		t.Error("Expected duration to be negative.")
+	}
 	duration = -time.Nanosecond
 	actual = messages.NewDuration(duration)
 	if expected != actual {
@@ -54,6 +63,9 @@ func TestDuration(t *testing.T) {
 		t.Errorf("Expected %d, got %d", duration, out)
 	}
 	expected = messages.Duration{Seconds: -1, Nanoseconds: 0}
+	if !expected.IsNegative() {
+		t.Error("Expected duration to be negative.")
+	}
 	duration = -time.Second
 	actual = messages.NewDuration(duration)
 	if expected != actual {
@@ -155,5 +167,50 @@ func TestString(t *testing.T) {
 	dur = messages.Duration{Seconds: 53, Nanoseconds: 123456789}
 	if out := dur.StringUsingUnits(units.Millisecond); out != "53123.456789" {
 		t.Errorf("Expected 53123.456789, got %s", out)
+	}
+}
+
+func TestPrettyFormat(t *testing.T) {
+	var dur messages.Duration
+	assertStringEquals(t, "0ns", dur.PrettyFormat())
+	dur = messages.Duration{Nanoseconds: 7}
+	assertStringEquals(t, "7ns", dur.PrettyFormat())
+	dur = messages.Duration{Nanoseconds: 9999}
+	assertStringEquals(t, "9999ns", dur.PrettyFormat())
+	dur = messages.Duration{Nanoseconds: 10000}
+	assertStringEquals(t, "10μs", dur.PrettyFormat())
+	dur = messages.Duration{Nanoseconds: 13789}
+	assertStringEquals(t, "13μs", dur.PrettyFormat())
+	dur = messages.Duration{Nanoseconds: 9999999}
+	assertStringEquals(t, "9999μs", dur.PrettyFormat())
+	dur = messages.Duration{Nanoseconds: 10000000}
+	assertStringEquals(t, "10ms", dur.PrettyFormat())
+	dur = messages.Duration{Nanoseconds: 678000000}
+	assertStringEquals(t, "678ms", dur.PrettyFormat())
+	dur = messages.Duration{Nanoseconds: 999000000}
+	assertStringEquals(t, "999ms", dur.PrettyFormat())
+	dur = messages.Duration{Seconds: 1}
+	assertStringEquals(t, "1.000s", dur.PrettyFormat())
+	dur = messages.Duration{Seconds: 35, Nanoseconds: 871000000}
+	assertStringEquals(t, "35.871s", dur.PrettyFormat())
+	dur = messages.Duration{Seconds: 59, Nanoseconds: 999000000}
+	assertStringEquals(t, "59.999s", dur.PrettyFormat())
+	dur = messages.Duration{Seconds: 60}
+	assertStringEquals(t, "1m 0.000s", dur.PrettyFormat())
+	dur = messages.Duration{Seconds: 3541, Nanoseconds: 10000000}
+	assertStringEquals(t, "59m 1.010s", dur.PrettyFormat())
+	dur = messages.Duration{Seconds: 3600}
+	assertStringEquals(t, "1h 0m 0s", dur.PrettyFormat())
+	dur = messages.Duration{Seconds: 83000}
+	assertStringEquals(t, "23h 3m 20s", dur.PrettyFormat())
+	dur = messages.Duration{Seconds: 86400}
+	assertStringEquals(t, "1d 0h 0m 0s", dur.PrettyFormat())
+	dur = messages.Duration{Seconds: 200000}
+	assertStringEquals(t, "2d 7h 33m 20s", dur.PrettyFormat())
+}
+
+func assertStringEquals(t *testing.T, expected, actual string) {
+	if expected != actual {
+		t.Errorf("Expected %s, got %s", expected, actual)
 	}
 }

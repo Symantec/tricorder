@@ -1,6 +1,7 @@
 package tricorder
 
 import (
+	"fmt"
 	"github.com/Symantec/tricorder/go/tricorder/messages"
 	"github.com/Symantec/tricorder/go/tricorder/types"
 	"github.com/Symantec/tricorder/go/tricorder/units"
@@ -24,6 +25,14 @@ const (
 var (
 	root          = newDirectory()
 	intSizeInBits = int(unsafe.Sizeof(0)) * 8
+)
+
+var (
+	suffixes = []string{
+		" thousand", " million", " billion", " trillion",
+		"K trillion", "M trillion"}
+	byteSuffixes = []string{
+		" Kb", " Mb", " Gb", " Tb", " Pb", " Eb"}
 )
 
 // session represents one request to retrieve various metrics.
@@ -692,16 +701,74 @@ func (v *value) AsTextString(s *session) string {
 	}
 }
 
+func iCompactForm(x int64, radix uint, suffixes []string) string {
+	if x > -1*int64(radix) && x < int64(radix) {
+		return strconv.FormatInt(x, 10)
+	}
+	idx := -1
+	fx := float64(x)
+	fradix := float64(radix)
+	for fx >= fradix || fx <= -fradix {
+		fx /= fradix
+		idx++
+	}
+	switch {
+	case fx > -9.995 && fx < 9.995:
+		return fmt.Sprintf("%.2f%s", fx, suffixes[idx])
+	case fx > -99.95 && fx < 99.95:
+		return fmt.Sprintf("%.1f%s", fx, suffixes[idx])
+	default:
+		return fmt.Sprintf("%.0f%s", fx, suffixes[idx])
+	}
+}
+
+func uCompactForm(x uint64, radix uint, suffixes []string) string {
+	if x < uint64(radix) {
+		return strconv.FormatUint(x, 10)
+	}
+	idx := -1
+	fx := float64(x)
+	fradix := float64(radix)
+	for fx >= fradix {
+		fx /= fradix
+		idx++
+	}
+	switch {
+	case fx < 9.995:
+		return fmt.Sprintf("%.2f%s", fx, suffixes[idx])
+	case fx < 99.95:
+		return fmt.Sprintf("%.1f%s", fx, suffixes[idx])
+	default:
+		return fmt.Sprintf("%.0f%s", fx, suffixes[idx])
+	}
+}
+
 // AsHtmlString returns this value as an html friendly string.
 // AsHtmlString panics if this value does not represent a single value.
 // For example, AsHtmlString panics if this value represents a distribution.
 // If caller passes a nil session, AsHtmlString creates its own internally.
 func (v *value) AsHtmlString(s *session) string {
 	switch v.Type() {
-	//TODO: ISO-8601 for duration?
-	// The most we can include is hours because of daylight
-	// savings. May not be worh it?
-	// github.com/ChannelMeter/iso8601duration can do ISO-8601 for us.
+	case types.Int:
+		if v.unit == units.Byte {
+			return iCompactForm(v.AsInt(s), 1024, byteSuffixes)
+		}
+		return iCompactForm(v.AsInt(s), 1000, suffixes)
+	case types.Uint:
+		if v.unit == units.Byte {
+			return uCompactForm(v.AsUint(s), 1024, byteSuffixes)
+		}
+		return uCompactForm(v.AsUint(s), 1000, suffixes)
+	case types.Duration:
+		if s == nil {
+			s = newSession()
+			defer s.Close()
+		}
+		d := v.AsDuration(s)
+		if d.IsNegative() {
+			return v.AsTextString(s)
+		}
+		return d.PrettyFormat()
 	case types.Time:
 		t := v.AsTime(s).UTC()
 		return t.Format("2006-01-02T15:04:05.999999999Z")

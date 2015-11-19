@@ -533,6 +533,8 @@ func TestAPI(t *testing.T) {
 			},
 		},
 		inSecondMetric.AsRpcValue(nil))
+	assertValueEquals(t, "-21.053000000", inSecondMetric.AsHtmlString(nil))
+	assertValueEquals(t, "-21.053000000", inSecondMetric.AsTextString(nil))
 
 	// Check /times/milliseconds
 	inMillisecondMetric := root.GetMetric("/times/milliseconds")
@@ -553,6 +555,8 @@ func TestAPI(t *testing.T) {
 			},
 		},
 		inMillisecondMetric.AsRpcValue(nil))
+	assertValueEquals(t, "7.008s", inMillisecondMetric.AsHtmlString(nil))
+	assertValueEquals(t, "7008.000000", inMillisecondMetric.AsTextString(nil))
 
 	// Check /proc/temperature
 	temperatureMetric := root.GetMetric("/proc/temperature")
@@ -590,7 +594,8 @@ func TestAPI(t *testing.T) {
 			Bits:     64,
 			IntValue: -1234567},
 		startTimeMetric.AsRpcValue(nil))
-	assertValueEquals(t, "-1234567", startTimeMetric.AsHtmlString(nil))
+	assertValueEquals(t, "-1234567", startTimeMetric.AsTextString(nil))
+	assertValueEquals(t, "-1.23 million", startTimeMetric.AsHtmlString(nil))
 
 	// Check /proc/some-time
 	someTimeMetric := root.GetMetric("/proc/some-time")
@@ -1004,6 +1009,49 @@ func TestMedianDataSkewedHigh(t *testing.T) {
 	if median-750.0 > 1.0 || median-750.0 < -1.0 {
 		t.Errorf("Median out of range: %f", median)
 	}
+}
+
+func TestCompactDecimalSigned(t *testing.T) {
+	suffixes := []string{" thou", " mil", " bil"}
+	assertValueEquals(t, "0", iCompactForm(0, 900, suffixes))
+	assertValueEquals(t, "93", iCompactForm(93, 900, suffixes))
+	assertValueEquals(t, "-93", iCompactForm(-93, 900, suffixes))
+	assertValueEquals(t, "899", iCompactForm(899, 900, suffixes))
+	assertValueEquals(t, "-899", iCompactForm(-899, 900, suffixes))
+	assertValueEquals(t, "1.00 thou", iCompactForm(900, 900, suffixes))
+	assertValueEquals(t, "-1.00 thou", iCompactForm(-900, 900, suffixes))
+	assertValueEquals(t, "1.01 thou", iCompactForm(905, 900, suffixes))
+	assertValueEquals(t, "-1.01 thou", iCompactForm(-905, 900, suffixes))
+	assertValueEquals(t, "9.99 thou", iCompactForm(8995, 900, suffixes))
+	assertValueEquals(t, "-9.99 thou", iCompactForm(-8995, 900, suffixes))
+	assertValueEquals(t, "10.0 thou", iCompactForm(8996, 900, suffixes))
+	assertValueEquals(t, "-10.0 thou", iCompactForm(-8996, 900, suffixes))
+	assertValueEquals(t, "11.1 thou", iCompactForm(10000, 900, suffixes))
+	assertValueEquals(t, "-11.1 thou", iCompactForm(-10000, 900, suffixes))
+	assertValueEquals(t, "99.9 thou", iCompactForm(89954, 900, suffixes))
+	assertValueEquals(t, "-99.9 thou", iCompactForm(-89954, 900, suffixes))
+	assertValueEquals(t, "100 thou", iCompactForm(89955, 900, suffixes))
+	assertValueEquals(t, "-100 thou", iCompactForm(-89955, 900, suffixes))
+	assertValueEquals(t, "900 thou", iCompactForm(809999, 900, suffixes))
+	assertValueEquals(t, "-900 thou", iCompactForm(-809999, 900, suffixes))
+	assertValueEquals(t, "1.00 mil", iCompactForm(810000, 900, suffixes))
+	assertValueEquals(t, "-1.00 mil", iCompactForm(-810000, 900, suffixes))
+}
+
+func TestCompactDecimalUnsigned(t *testing.T) {
+	suffixes := []string{" thou", " mil", " bil"}
+	assertValueEquals(t, "0", uCompactForm(0, 900, suffixes))
+	assertValueEquals(t, "93", uCompactForm(93, 900, suffixes))
+	assertValueEquals(t, "899", uCompactForm(899, 900, suffixes))
+	assertValueEquals(t, "1.00 thou", uCompactForm(900, 900, suffixes))
+	assertValueEquals(t, "1.01 thou", uCompactForm(905, 900, suffixes))
+	assertValueEquals(t, "9.99 thou", uCompactForm(8995, 900, suffixes))
+	assertValueEquals(t, "10.0 thou", uCompactForm(8996, 900, suffixes))
+	assertValueEquals(t, "11.1 thou", uCompactForm(10000, 900, suffixes))
+	assertValueEquals(t, "99.9 thou", uCompactForm(89954, 900, suffixes))
+	assertValueEquals(t, "100 thou", uCompactForm(89955, 900, suffixes))
+	assertValueEquals(t, "900 thou", uCompactForm(809999, 900, suffixes))
+	assertValueEquals(t, "1.00 mil", uCompactForm(810000, 900, suffixes))
 }
 
 func rpcCountCallback() uint {
