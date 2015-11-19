@@ -14,7 +14,7 @@ import (
 
 const (
 	htmlUrl         = "/metrics"
-	htmlTemplateStr = `
+	htmlTemplateStr = ` \
 	\ {{define "METRIC"}} \
 	  \ {{with $top := .}} \
             \ {{if .IsDistribution}} \
@@ -78,7 +78,12 @@ var (
 		template.New("browser").Parse(
 			strings.Replace(
 				leadingWhitespace.ReplaceAllString(
-					htmlTemplateStr, "\n"),
+					strings.Replace(
+						htmlTemplateStr,
+						"\n\t",
+						"\n",
+						-1),
+					"\n"),
 				" \\\n",
 				"",
 				-1)))
