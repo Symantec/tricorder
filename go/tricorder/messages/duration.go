@@ -52,3 +52,43 @@ func (d Duration) stringUsingUnits(unit units.Unit) string {
 	}
 
 }
+
+func (d Duration) isNegative() bool {
+	return d.Nanoseconds < 0 || d.Seconds < 0
+}
+
+func (d Duration) prettyFormat() string {
+	if d.isNegative() {
+		panic("Cannot pretty format negative durations")
+	}
+	switch {
+	case d.Seconds == 0 && d.Nanoseconds < 10000:
+		return fmt.Sprintf("%dns", d.Nanoseconds)
+	case d.Seconds == 0 && d.Nanoseconds < 10000000:
+		return fmt.Sprintf("%dμs", d.Nanoseconds/1000)
+	case d.Seconds == 0:
+		return fmt.Sprintf("%dms", d.Nanoseconds/1000000)
+	case d.Seconds < 60:
+		return fmt.Sprintf("%d.%03ds", d.Seconds, d.Nanoseconds/1000000)
+	case d.Seconds < 60*60:
+		return fmt.Sprintf(
+			"%dm %d.%03ds",
+			d.Seconds/60,
+			d.Seconds%60,
+			d.Nanoseconds/1000000)
+	case d.Seconds < 24*60*60:
+		return fmt.Sprintf(
+			"%dh %dm %ds",
+			d.Seconds/(60*60),
+			(d.Seconds%(60*60))/60,
+			d.Seconds%60)
+	default:
+		return fmt.Sprintf(
+			"%dd %dh %dm %ds",
+			d.Seconds/(24*60*60),
+			(d.Seconds%(24*60*60))/(60*60),
+			(d.Seconds%(60*60))/60,
+			d.Seconds%60)
+
+	}
+}

@@ -114,6 +114,17 @@ func (d Duration) StringUsingUnits(unit units.Unit) string {
 	return d.stringUsingUnits(unit)
 }
 
+// IsNegative returns true if this duration is negative.
+func (d Duration) IsNegative() bool {
+	return d.isNegative()
+}
+
+// PrettyFormat pretty formats this duration.
+// PrettyFormat panics if this duration is negative.
+func (d Duration) PrettyFormat() string {
+	return d.prettyFormat()
+}
+
 // RpcValue represents the value of a metric for go rpc.
 type RpcValue struct {
 	// The value's type
