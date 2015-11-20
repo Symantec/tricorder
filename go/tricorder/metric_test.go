@@ -229,9 +229,27 @@ func TestAPI(t *testing.T) {
 	var someBool bool
 	var inSeconds time.Duration
 	var inMilliseconds time.Duration
+	var sizeInBytes int32
+	var speedInBytesPerSecond uint32
 
 	rpcBucketer := NewExponentialBucketer(6, 10, 2.5)
 	rpcDistribution := rpcBucketer.NewDistribution()
+
+	if err := RegisterMetric(
+		"/bytes/bytes",
+		&sizeInBytes,
+		units.Byte,
+		"Size in Bytes"); err != nil {
+		t.Fatalf("Got error %v registering metric", err)
+	}
+
+	if err := RegisterMetric(
+		"/bytes/bytesPerSecond",
+		&speedInBytesPerSecond,
+		units.BytePerSecond,
+		"Speed in Bytes per Second"); err != nil {
+		t.Fatalf("Got error %v registering metric", err)
+	}
 
 	if err := RegisterMetric(
 		"/times/milliseconds",
@@ -391,6 +409,8 @@ func TestAPI(t *testing.T) {
 	someBool = true
 	inSeconds = -21*time.Second - 53*time.Millisecond
 	inMilliseconds = 7*time.Second + 8*time.Millisecond
+	sizeInBytes = 934912
+	speedInBytesPerSecond = 3538944
 
 	someTime = time.Date(
 		2015, time.November, 15, 13, 26, 53, 7265341, time.UTC)
@@ -410,6 +430,7 @@ func TestAPI(t *testing.T) {
 	verifyChildren(
 		t,
 		root.List(),
+		"bytes",
 		"firstGroup",
 		"proc",
 		"secondGroup",
@@ -513,6 +534,59 @@ func TestAPI(t *testing.T) {
 			StringValue: "My application"},
 		nameMetric.AsRpcValue(nil))
 	assertValueEquals(t, "\"My application\"", nameMetric.AsHtmlString(nil))
+
+	// Check /bytes/bytes
+	sizeInBytesMetric := root.GetMetric("/bytes/bytes")
+	verifyMetric(t, "Size in Bytes", units.Byte, sizeInBytesMetric)
+	assertValueDeepEquals(
+		t,
+		&messages.Value{
+			Kind:     types.Int,
+			Bits:     32,
+			IntValue: intPtr(934912)},
+		sizeInBytesMetric.AsJsonValue(nil))
+	assertValueDeepEquals(
+		t,
+		&messages.RpcValue{
+			Kind:     types.Int,
+			Bits:     32,
+			IntValue: 934912},
+		sizeInBytesMetric.AsRpcValue(nil))
+	assertValueEquals(
+		t, "913 KiB", sizeInBytesMetric.AsHtmlString(nil))
+	assertValueEquals(
+		t, "934912", sizeInBytesMetric.AsTextString(nil))
+
+	// Check /bytes/bytesPerSecond
+	speedInBytesPerSecondMetric := root.GetMetric(
+		"/bytes/bytesPerSecond")
+	verifyMetric(
+		t,
+		"Speed in Bytes per Second",
+		units.BytePerSecond,
+		speedInBytesPerSecondMetric)
+	assertValueDeepEquals(
+		t,
+		&messages.Value{
+			Kind:      types.Uint,
+			Bits:      32,
+			UintValue: uintPtr(3538944)},
+		speedInBytesPerSecondMetric.AsJsonValue(nil))
+	assertValueDeepEquals(
+		t,
+		&messages.RpcValue{
+			Kind:      types.Uint,
+			Bits:      32,
+			UintValue: 3538944},
+		speedInBytesPerSecondMetric.AsRpcValue(nil))
+	assertValueEquals(
+		t,
+		"3.38 MiB/s",
+		speedInBytesPerSecondMetric.AsHtmlString(nil))
+	assertValueEquals(
+		t,
+		"3538944",
+		speedInBytesPerSecondMetric.AsTextString(nil))
 
 	// Check /times/seconds
 	inSecondMetric := root.GetMetric("/times/seconds")

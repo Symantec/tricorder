@@ -32,7 +32,9 @@ var (
 		" thousand", " million", " billion", " trillion",
 		"K trillion", "M trillion"}
 	byteSuffixes = []string{
-		" Kb", " Mb", " Gb", " Tb", " Pb", " Eb"}
+		" KiB", " MiB", " GiB", " TiB", " PiB", " EiB"}
+	bytePerSecondSuffixes = []string{
+		" KiB/s", " MiB/s", " GiB/s", " TiB/s", " PiB/s", " EiB/s"}
 )
 
 // session represents one request to retrieve various metrics.
@@ -755,15 +757,25 @@ func uCompactForm(x uint64, radix uint, suffixes []string) string {
 func (v *value) AsHtmlString(s *session) string {
 	switch v.Type() {
 	case types.Int:
-		if v.unit == units.Byte {
+		switch v.unit {
+		case units.Byte:
 			return iCompactForm(v.AsInt(s), 1024, byteSuffixes)
+		case units.BytePerSecond:
+			return iCompactForm(
+				v.AsInt(s), 1024, bytePerSecondSuffixes)
+		default:
+			return iCompactForm(v.AsInt(s), 1000, suffixes)
 		}
-		return iCompactForm(v.AsInt(s), 1000, suffixes)
 	case types.Uint:
-		if v.unit == units.Byte {
+		switch v.unit {
+		case units.Byte:
 			return uCompactForm(v.AsUint(s), 1024, byteSuffixes)
+		case units.BytePerSecond:
+			return uCompactForm(
+				v.AsUint(s), 1024, bytePerSecondSuffixes)
+		default:
+			return uCompactForm(v.AsUint(s), 1000, suffixes)
 		}
-		return uCompactForm(v.AsUint(s), 1000, suffixes)
 	case types.Duration:
 		if s == nil {
 			s = newSession()

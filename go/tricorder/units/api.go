@@ -5,9 +5,10 @@ package units
 type Unit string
 
 const (
-	None        Unit = "None"
-	Millisecond Unit = "Milliseconds"
-	Second      Unit = "Seconds"
-	Celsius     Unit = "Celsius"
-	Byte        Unit = "Bytes"
+	None          Unit = "None"
+	Millisecond   Unit = "Milliseconds"
+	Second        Unit = "Seconds"
+	Celsius       Unit = "Celsius"
+	Byte          Unit = "Bytes"
+	BytePerSecond Unit = "BytesPerSecond"
 )
