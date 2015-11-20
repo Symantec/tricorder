@@ -477,6 +477,11 @@ func (v *value) Type() types.Type {
 	return v.valType
 }
 
+// Unit returns the unit of this value.
+func (v *value) Unit() units.Unit {
+	return v.unit
+}
+
 // Bits returns the size in bits if the type is an Int, Uint, for Float.
 // Otherwise Bits returns 0.
 func (v *value) Bits() int {
@@ -790,8 +795,6 @@ func (v *value) AsDistribution() *distribution {
 type metric struct {
 	// The description of the metric
 	Description string
-	// The unit of measurement
-	Unit units.Unit
 	// The value of the metric
 	*value
 	enclosingListEntry *listEntry
@@ -1035,7 +1038,6 @@ func (d *directory) registerMetric(
 	}
 	metric := &metric{
 		Description: description,
-		Unit:        unit,
 		value:       newValue(value, region, unit)}
 	return current.storeMetric(path.Base(), metric)
 }

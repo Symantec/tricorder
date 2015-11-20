@@ -9,7 +9,7 @@ func rpcAsMetric(m *metric, s *session) *messages.RpcMetric {
 	return &messages.RpcMetric{
 		Path:        m.AbsPath(),
 		Description: m.Description,
-		Unit:        m.Unit,
+		Unit:        m.Unit(),
 		Value:       m.AsRpcValue(s)}
 }
 

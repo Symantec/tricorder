@@ -108,7 +108,7 @@ func (v *htmlView) IsDistribution() bool {
 }
 
 func (v *htmlView) HasUnit() bool {
-	return v.Metric.Unit != units.None
+	return v.Metric.Unit() != units.None
 }
 
 func (v *htmlView) Link(d *directory) string {

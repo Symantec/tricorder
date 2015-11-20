@@ -15,7 +15,7 @@ func jsonAsMetric(m *metric, s *session) *messages.Metric {
 	return &messages.Metric{
 		Path:        m.AbsPath(),
 		Description: m.Description,
-		Unit:        m.Unit,
+		Unit:        m.Unit(),
 		Value:       m.AsJsonValue(s)}
 }
 
