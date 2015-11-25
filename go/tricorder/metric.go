@@ -620,7 +620,7 @@ func (v *value) asJsonOrRpcValue(
 		case goRpcEncoding:
 			return &messages.Value{
 				Kind:  types.TimeStruct,
-				Value: v.AsDuration(s)}
+				Value: v.AsTime(s)}
 		default:
 			panic(panicIncompatibleTypes)
 		}
@@ -632,7 +632,7 @@ func (v *value) asJsonOrRpcValue(
 		case goRpcEncoding:
 			return &messages.Value{
 				Kind:  types.DurationStruct,
-				Value: v.AsDuration(s)}
+				Value: v.AsGoDuration(s)}
 		default:
 			panic(panicIncompatibleTypes)
 		}

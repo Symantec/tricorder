@@ -122,8 +122,10 @@ type Metric struct {
 type MetricList []*Metric
 
 func init() {
-	var dur Duration
+	var tm time.Time
+	var dur time.Duration
 	var dist *Distribution
+	gob.Register(tm)
 	gob.Register(dur)
 	gob.Register(dist)
 }
