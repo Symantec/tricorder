@@ -5,15 +5,15 @@ import (
 	"net/rpc"
 )
 
-func rpcAsMetric(m *metric, s *session) *messages.RpcMetric {
-	return &messages.RpcMetric{
+func rpcAsMetric(m *metric, s *session) *messages.Metric {
+	return &messages.Metric{
 		Path:        m.AbsPath(),
 		Description: m.Description,
 		Unit:        m.Unit(),
 		Value:       m.AsRpcValue(s)}
 }
 
-type rpcMetricsCollector messages.RpcMetricList
+type rpcMetricsCollector messages.MetricList
 
 func (c *rpcMetricsCollector) Collect(m *metric, s *session) (err error) {
 	*c = append(*c, rpcAsMetric(m, s))
@@ -22,12 +22,12 @@ func (c *rpcMetricsCollector) Collect(m *metric, s *session) (err error) {
 
 type rpcType int
 
-func (t *rpcType) ListMetrics(path string, response *messages.RpcMetricList) error {
+func (t *rpcType) ListMetrics(path string, response *messages.MetricList) error {
 	return root.GetAllMetricsByPath(
 		path, (*rpcMetricsCollector)(response), nil)
 }
 
-func (t *rpcType) GetMetric(path string, response *messages.RpcMetric) error {
+func (t *rpcType) GetMetric(path string, response *messages.Metric) error {
 	m := root.GetMetric(path)
 	if m == nil {
 		return messages.ErrMetricNotFound
