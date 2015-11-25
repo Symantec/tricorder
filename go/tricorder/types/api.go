@@ -15,7 +15,7 @@ const (
 	Duration Type = "duration"
 
 	// Used only in GoRPC
-	TimeStruct Type = "timeStruct"
+	GoTime Type = "goTime"
 	// Used only in GoRPC
-	DurationStruct Type = "durationStruct"
+	GoDuration Type = "goDuration"
 )

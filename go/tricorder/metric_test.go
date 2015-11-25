@@ -600,11 +600,8 @@ func TestAPI(t *testing.T) {
 	assertValueDeepEquals(
 		t,
 		&messages.Value{
-			Kind: types.DurationStruct,
-			Value: messages.Duration{
-				Seconds:     -21,
-				Nanoseconds: -53000000,
-			},
+			Kind:  types.GoDuration,
+			Value: -21*time.Second - 53*time.Millisecond,
 		},
 		inSecondMetric.AsRpcValue(nil))
 	assertValueEquals(t, "-21.053000000", inSecondMetric.AsHtmlString(nil))
@@ -622,11 +619,8 @@ func TestAPI(t *testing.T) {
 	assertValueDeepEquals(
 		t,
 		&messages.Value{
-			Kind: types.DurationStruct,
-			Value: messages.Duration{
-				Seconds:     7,
-				Nanoseconds: 8000000,
-			},
+			Kind:  types.GoDuration,
+			Value: 7*time.Second + 8*time.Millisecond,
 		},
 		inMillisecondMetric.AsRpcValue(nil))
 	assertValueEquals(t, "7.008s", inMillisecondMetric.AsHtmlString(nil))
@@ -683,10 +677,8 @@ func TestAPI(t *testing.T) {
 	assertValueDeepEquals(
 		t,
 		&messages.Value{
-			Kind: types.TimeStruct,
-			Value: messages.Duration{
-				Seconds:     1447594013,
-				Nanoseconds: 7265341},
+			Kind:  types.GoTime,
+			Value: someTime,
 		},
 		someTimeMetric.AsRpcValue(nil))
 	assertValueEquals(t, "2015-11-15T13:26:53.007265341Z", someTimeMetric.AsHtmlString(nil))
@@ -704,8 +696,8 @@ func TestAPI(t *testing.T) {
 	assertValueDeepEquals(
 		t,
 		&messages.Value{
-			Kind:  types.TimeStruct,
-			Value: messages.Duration{},
+			Kind:  types.GoTime,
+			Value: time.Time{},
 		},
 		someTimePtrMetric.AsRpcValue(nil))
 	assertValueEquals(t, "0001-01-01T00:00:00Z", someTimePtrMetric.AsHtmlString(nil))
@@ -721,10 +713,8 @@ func TestAPI(t *testing.T) {
 	assertValueDeepEquals(
 		t,
 		&messages.Value{
-			Kind: types.TimeStruct,
-			Value: messages.Duration{
-				Seconds: 1441517195,
-			},
+			Kind:  types.GoTime,
+			Value: newTime,
 		},
 		someTimePtrMetric.AsRpcValue(nil))
 	assertValueEquals(
