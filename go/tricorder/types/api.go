@@ -13,4 +13,9 @@ const (
 	Dist     Type = "distribution"
 	Time     Type = "time"
 	Duration Type = "duration"
+
+	// Used only in GoRPC
+	TimeStruct Type = "timeStruct"
+	// Used only in GoRPC
+	DurationStruct Type = "durationStruct"
 )
