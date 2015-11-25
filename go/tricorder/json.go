@@ -27,7 +27,7 @@ func (c *jsonMetricsCollector) Collect(m *metric, s *session) (err error) {
 }
 
 func jsonSetUpHeaders(h http.Header) {
-	h.Set("Content-Type", "text/plain")
+	h.Set("Content-Type", "application/json")
 	h.Set("X-Tricorder-Media-Type", "tricorder.v1")
 }
 
