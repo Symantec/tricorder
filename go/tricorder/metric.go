@@ -27,6 +27,13 @@ var (
 	intSizeInBits = int(unsafe.Sizeof(0)) * 8
 )
 
+type rpcEncoding int
+
+const (
+	jsonEncoding rpcEncoding = iota
+	goRpcEncoding
+)
+
 var (
 	suffixes = []string{
 		" thousand", " million", " billion", " trillion",
@@ -577,24 +584,10 @@ func (v *value) AsDuration(s *session) (result messages.Duration) {
 	panic(panicIncompatibleTypes)
 }
 
-func asJSONRanges(ranges breakdown) []*messages.RangeWithCount {
+func asRanges(ranges breakdown) []*messages.RangeWithCount {
 	result := make([]*messages.RangeWithCount, len(ranges))
 	for i := range ranges {
-		result[i] = &messages.RangeWithCount{Count: ranges[i].Count}
-		if !ranges[i].First {
-			result[i].Lower = &ranges[i].Start
-		}
-		if !ranges[i].Last {
-			result[i].Upper = &ranges[i].End
-		}
-	}
-	return result
-}
-
-func asRPCRanges(ranges breakdown) []*messages.RpcRangeWithCount {
-	result := make([]*messages.RpcRangeWithCount, len(ranges))
-	for i := range ranges {
-		result[i] = &messages.RpcRangeWithCount{
+		result[i] = &messages.RangeWithCount{
 			Count: ranges[i].Count,
 			Lower: ranges[i].Start,
 			Upper: ranges[i].End}
@@ -602,84 +595,72 @@ func asRPCRanges(ranges breakdown) []*messages.RpcRangeWithCount {
 	return result
 }
 
-// AsJsonValue returns this value as a messages.Value.
-func (v *value) AsJsonValue(s *session) *messages.Value {
+func (v *value) asJsonOrRpcValue(
+	s *session, encoding rpcEncoding) *messages.Value {
 	t := v.Type()
 	switch t {
 	case types.Bool:
-		b := v.AsBool(s)
-		return &messages.Value{Kind: t, BoolValue: &b}
+		return &messages.Value{Kind: t, Value: v.AsBool(s)}
 	case types.Int:
-		i := v.AsInt(s)
 		return &messages.Value{
-			Kind: t, Bits: v.Bits(), IntValue: &i}
+			Kind: t, Bits: v.Bits(), Value: v.AsInt(s)}
 	case types.Uint:
-		u := v.AsUint(s)
 		return &messages.Value{
-			Kind: t, Bits: v.Bits(), UintValue: &u}
+			Kind: t, Bits: v.Bits(), Value: v.AsUint(s)}
 	case types.Float:
-		f := v.AsFloat(s)
 		return &messages.Value{
-			Kind: t, Bits: v.Bits(), FloatValue: &f}
+			Kind: t, Bits: v.Bits(), Value: v.AsFloat(s)}
 	case types.String:
-		s := v.AsString(s)
-		return &messages.Value{Kind: t, StringValue: &s}
-	case types.Time, types.Duration:
-		s := v.AsTextString(s)
-		return &messages.Value{Kind: t, StringValue: &s}
+		return &messages.Value{Kind: t, Value: v.AsString(s)}
+	case types.Time:
+		switch encoding {
+		case jsonEncoding:
+			return &messages.Value{
+				Kind: t, Value: v.AsTextString(s)}
+		case goRpcEncoding:
+			return &messages.Value{
+				Kind:  types.GoTime,
+				Value: v.AsTime(s)}
+		default:
+			panic(panicIncompatibleTypes)
+		}
+	case types.Duration:
+		switch encoding {
+		case jsonEncoding:
+			return &messages.Value{
+				Kind: t, Value: v.AsTextString(s)}
+		case goRpcEncoding:
+			return &messages.Value{
+				Kind:  types.GoDuration,
+				Value: v.AsGoDuration(s)}
+		default:
+			panic(panicIncompatibleTypes)
+		}
 	case types.Dist:
 		snapshot := v.AsDistribution().Snapshot()
 		return &messages.Value{
 			Kind: t,
-			DistributionValue: &messages.Distribution{
+			Value: &messages.Distribution{
 				Min:     snapshot.Min,
 				Max:     snapshot.Max,
 				Average: snapshot.Average,
 				Median:  snapshot.Median,
 				Sum:     snapshot.Sum,
 				Count:   snapshot.Count,
-				Ranges:  asJSONRanges(snapshot.Breakdown)}}
+				Ranges:  asRanges(snapshot.Breakdown)}}
 	default:
 		panic(panicIncompatibleTypes)
 	}
 }
 
-// AsRpcValue returns this value as a messages.RpcValue.
-func (v *value) AsRpcValue(s *session) *messages.RpcValue {
-	t := v.Type()
-	switch t {
-	case types.Bool:
-		return &messages.RpcValue{Kind: t, BoolValue: v.AsBool(s)}
-	case types.Int:
-		return &messages.RpcValue{
-			Kind: t, Bits: v.Bits(), IntValue: v.AsInt(s)}
-	case types.Uint:
-		return &messages.RpcValue{
-			Kind: t, Bits: v.Bits(), UintValue: v.AsUint(s)}
-	case types.Float:
-		return &messages.RpcValue{
-			Kind: t, Bits: v.Bits(), FloatValue: v.AsFloat(s)}
-	case types.String:
-		return &messages.RpcValue{
-			Kind: t, StringValue: v.AsString(s)}
-	case types.Time, types.Duration:
-		return &messages.RpcValue{
-			Kind: t, DurationValue: v.AsDuration(s)}
-	case types.Dist:
-		snapshot := v.AsDistribution().Snapshot()
-		return &messages.RpcValue{
-			Kind: t,
-			DistributionValue: &messages.RpcDistribution{
-				Min:     snapshot.Min,
-				Max:     snapshot.Max,
-				Average: snapshot.Average,
-				Median:  snapshot.Median,
-				Sum:     snapshot.Sum,
-				Count:   snapshot.Count,
-				Ranges:  asRPCRanges(snapshot.Breakdown)}}
-	default:
-		panic(panicIncompatibleTypes)
-	}
+// AsJsonValue returns this value as a messages.Value for JSON.
+func (v *value) AsJsonValue(s *session) *messages.Value {
+	return v.asJsonOrRpcValue(s, jsonEncoding)
+}
+
+// AsRpcValue returns this value as a messages.Value for go RPC.
+func (v *value) AsRpcValue(s *session) *messages.Value {
+	return v.asJsonOrRpcValue(s, goRpcEncoding)
 }
 
 // AsTextString returns this value as a text friendly string.
