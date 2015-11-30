@@ -1,4 +1,4 @@
-package messages
+package tricorder
 
 import (
 	"fmt"
@@ -10,14 +10,21 @@ const (
 	oneMillion = 1000000
 )
 
-func newDuration(d time.Duration) (result Duration) {
+// duration represents a duration of time
+// For negative durations, both Seconds and Nanoseconds are negative.
+type duration struct {
+	Seconds     int64
+	Nanoseconds int32
+}
+
+func newDuration(d time.Duration) (result duration) {
 	result.Seconds = int64(d / time.Second)
 	result.Nanoseconds = int32((d % time.Second) / time.Nanosecond)
 	return
 }
 
-// SinceEpoch returns the amount of time since unix epoch
-func sinceEpoch(t time.Time) (result Duration) {
+// sinceEpoch returns the amount of time since unix epoch
+func durationSinceEpoch(t time.Time) (result duration) {
 	result.Seconds = t.Unix()
 	result.Nanoseconds = int32(t.Nanosecond())
 	if result.Seconds < 0 && result.Nanoseconds > 0 {
@@ -27,15 +34,25 @@ func sinceEpoch(t time.Time) (result Duration) {
 	return
 }
 
-func (d Duration) asGoDuration() time.Duration {
+// AsGoDuration converts this duration to a go duration
+func (d duration) AsGoDuration() time.Duration {
 	return time.Second*time.Duration(d.Seconds) + time.Duration(d.Nanoseconds)*time.Nanosecond
 }
 
-func (d Duration) asGoTime() time.Time {
+// AsGoTime Converts this duration to a go time.
+// This is the inverse of SinceEpoch.
+func (d duration) AsGoTime() time.Time {
 	return time.Unix(d.Seconds, int64(d.Nanoseconds))
 }
 
-func (d Duration) stringUsingUnits(unit units.Unit) string {
+// String shows in seconds
+func (d duration) String() string {
+	return d.StringUsingUnits(units.Second)
+}
+
+// StringUsingUnits shows in specified time unit.
+// If unit not a time, shows in seconds.
+func (d duration) StringUsingUnits(unit units.Unit) string {
 	formattedNs := d.Nanoseconds
 	if formattedNs < 0 {
 		formattedNs = -formattedNs
@@ -53,12 +70,15 @@ func (d Duration) stringUsingUnits(unit units.Unit) string {
 
 }
 
-func (d Duration) isNegative() bool {
+// IsNegative returns true if this duration is negative.
+func (d duration) IsNegative() bool {
 	return d.Nanoseconds < 0 || d.Seconds < 0
 }
 
-func (d Duration) prettyFormat() string {
-	if d.isNegative() {
+// PrettyFormat pretty formats this duration.
+// PrettyFormat panics if this duration is negative.
+func (d duration) PrettyFormat() string {
+	if d.IsNegative() {
 		panic("Cannot pretty format negative durations")
 	}
 	switch {
