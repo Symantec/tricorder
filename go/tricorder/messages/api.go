@@ -47,16 +47,6 @@ type Distribution struct {
 	Ranges []*RangeWithCount `json:"ranges,omitempty"`
 }
 
-// Value represents the value of a metric.
-type Value struct {
-	// The value's type
-	Kind types.Type `json:"kind"`
-	// The value's size in bits if Int, Uint, or float
-	Bits int `json:"bits,omitempty"`
-	// value stored here
-	Value interface{} `json:"value"`
-}
-
 // Metric represents a single metric
 type Metric struct {
 	// The absolute path to this metric
@@ -65,8 +55,12 @@ type Metric struct {
 	Description string `json:"description"`
 	// The unit of measurement this metric represents
 	Unit units.Unit `json:"unit"`
-	// The value of this metric
-	Value *Value `json:"value"`
+	// The metric's type
+	Kind types.Type `json:"kind"`
+	// The size in bits of metric's value if Int, Uint, or float
+	Bits int `json:"bits,omitempty"`
+	// value stored here
+	Value interface{} `json:"value"`
 }
 
 // MetricList represents a list of metrics.

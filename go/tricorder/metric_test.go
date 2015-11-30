@@ -504,54 +504,40 @@ func TestAPI(t *testing.T) {
 	// Check /testargs
 	argsMetric := root.GetMetric("/testargs")
 	verifyMetric(t, "Args passed to app", units.None, argsMetric)
-	assertValueDeepEquals(
-		t,
-		&messages.Value{
-			Kind:  types.String,
-			Value: "--help"},
-		argsMetric.AsJsonValue(nil))
-	assertValueDeepEquals(
-		t,
-		&messages.Value{
-			Kind:  types.String,
-			Value: "--help"},
-		argsMetric.AsRpcValue(nil))
+	verifyJsonValue(t, argsMetric, types.String, 0, "--help")
+	verifyRpcValue(t, argsMetric, types.String, 0, "--help")
 	assertValueEquals(t, "\"--help\"", argsMetric.AsHtmlString(nil))
 
 	// Check /testname
 	nameMetric := root.GetMetric("/testname")
 	verifyMetric(t, "Name of app", units.None, nameMetric)
-	assertValueDeepEquals(
+	verifyJsonValue(
 		t,
-		&messages.Value{
-			Kind:  types.String,
-			Value: "My application"},
-		nameMetric.AsJsonValue(nil))
-	assertValueDeepEquals(
+		nameMetric, types.String, 0,
+		"My application")
+
+	verifyRpcValue(
 		t,
-		&messages.Value{
-			Kind:  types.String,
-			Value: "My application"},
-		nameMetric.AsRpcValue(nil))
+		nameMetric, types.String, 0,
+		"My application")
+
 	assertValueEquals(t, "\"My application\"", nameMetric.AsHtmlString(nil))
 
 	// Check /bytes/bytes
 	sizeInBytesMetric := root.GetMetric("/bytes/bytes")
 	verifyMetric(t, "Size in Bytes", units.Byte, sizeInBytesMetric)
-	assertValueDeepEquals(
+	verifyJsonValue(
 		t,
-		&messages.Value{
-			Kind:  types.Int,
-			Bits:  32,
-			Value: int64(934912)},
-		sizeInBytesMetric.AsJsonValue(nil))
-	assertValueDeepEquals(
+		sizeInBytesMetric, types.Int,
+		32,
+		int64(934912))
+
+	verifyRpcValue(
 		t,
-		&messages.Value{
-			Kind:  types.Int,
-			Bits:  32,
-			Value: int64(934912)},
-		sizeInBytesMetric.AsRpcValue(nil))
+		sizeInBytesMetric, types.Int,
+		32,
+		int64(934912))
+
 	assertValueEquals(
 		t, "913 KiB", sizeInBytesMetric.AsHtmlString(nil))
 	assertValueEquals(
@@ -565,20 +551,18 @@ func TestAPI(t *testing.T) {
 		"Speed in Bytes per Second",
 		units.BytePerSecond,
 		speedInBytesPerSecondMetric)
-	assertValueDeepEquals(
+	verifyJsonValue(
 		t,
-		&messages.Value{
-			Kind:  types.Uint,
-			Bits:  32,
-			Value: uint64(3538944)},
-		speedInBytesPerSecondMetric.AsJsonValue(nil))
-	assertValueDeepEquals(
+		speedInBytesPerSecondMetric, types.Uint,
+		32,
+		uint64(3538944))
+
+	verifyRpcValue(
 		t,
-		&messages.Value{
-			Kind:  types.Uint,
-			Bits:  32,
-			Value: uint64(3538944)},
-		speedInBytesPerSecondMetric.AsRpcValue(nil))
+		speedInBytesPerSecondMetric, types.Uint,
+		32,
+		uint64(3538944))
+
 	assertValueEquals(
 		t,
 		"3.38 MiB/s",
@@ -591,132 +575,113 @@ func TestAPI(t *testing.T) {
 	// Check /times/seconds
 	inSecondMetric := root.GetMetric("/times/seconds")
 	verifyMetric(t, "In seconds", units.Second, inSecondMetric)
-	assertValueDeepEquals(
+	verifyJsonValue(
 		t,
-		&messages.Value{
-			Kind:  types.Duration,
-			Value: "-21.053000000"},
-		inSecondMetric.AsJsonValue(nil))
-	assertValueDeepEquals(
+		inSecondMetric, types.Duration, 0,
+		"-21.053000000")
+
+	verifyRpcValue(
 		t,
-		&messages.Value{
-			Kind:  types.GoDuration,
-			Value: -21*time.Second - 53*time.Millisecond,
-		},
-		inSecondMetric.AsRpcValue(nil))
+		inSecondMetric, types.GoDuration, 0,
+		-21*time.Second-53*time.Millisecond)
+
 	assertValueEquals(t, "-21.053000000", inSecondMetric.AsHtmlString(nil))
 	assertValueEquals(t, "-21.053000000", inSecondMetric.AsTextString(nil))
 
 	// Check /times/milliseconds
 	inMillisecondMetric := root.GetMetric("/times/milliseconds")
 	verifyMetric(t, "In milliseconds", units.Millisecond, inMillisecondMetric)
-	assertValueDeepEquals(
+	verifyJsonValue(
 		t,
-		&messages.Value{
-			Kind:  types.Duration,
-			Value: "7008.000000"},
-		inMillisecondMetric.AsJsonValue(nil))
-	assertValueDeepEquals(
+		inMillisecondMetric, types.Duration, 0,
+		"7008.000000")
+
+	verifyRpcValue(
 		t,
-		&messages.Value{
-			Kind:  types.GoDuration,
-			Value: 7*time.Second + 8*time.Millisecond,
-		},
-		inMillisecondMetric.AsRpcValue(nil))
+		inMillisecondMetric, types.GoDuration, 0,
+		7*time.Second+8*time.Millisecond)
+
 	assertValueEquals(t, "7.008s", inMillisecondMetric.AsHtmlString(nil))
 	assertValueEquals(t, "7008.000000", inMillisecondMetric.AsTextString(nil))
 
 	// Check /proc/temperature
 	temperatureMetric := root.GetMetric("/proc/temperature")
 	verifyMetric(t, "Temperature", units.Celsius, temperatureMetric)
-	assertValueDeepEquals(
+	verifyJsonValue(
 		t,
-		&messages.Value{
-			Kind:  types.Float,
-			Bits:  64,
-			Value: 22.5},
-		temperatureMetric.AsJsonValue(nil))
-	assertValueDeepEquals(
+		temperatureMetric, types.Float,
+		64,
+		22.5)
+
+	verifyRpcValue(
 		t,
-		&messages.Value{
-			Kind:  types.Float,
-			Bits:  64,
-			Value: 22.5},
-		temperatureMetric.AsRpcValue(nil))
+		temperatureMetric, types.Float,
+		64,
+		22.5)
+
 	assertValueEquals(t, "22.5", temperatureMetric.AsHtmlString(nil))
 
 	// Check /proc/start-time
 	startTimeMetric := root.GetMetric("/proc/test-start-time")
 	verifyMetric(t, "Start Time", units.Second, startTimeMetric)
-	assertValueDeepEquals(
+	verifyJsonValue(
 		t,
-		&messages.Value{
-			Kind:  types.Int,
-			Bits:  64,
-			Value: int64(-1234567)},
-		startTimeMetric.AsJsonValue(nil))
-	assertValueDeepEquals(
+		startTimeMetric, types.Int,
+		64,
+		int64(-1234567))
+
+	verifyRpcValue(
 		t,
-		&messages.Value{
-			Kind:  types.Int,
-			Bits:  64,
-			Value: int64(-1234567)},
-		startTimeMetric.AsRpcValue(nil))
+		startTimeMetric, types.Int,
+		64,
+		int64(-1234567))
+
 	assertValueEquals(t, "-1234567", startTimeMetric.AsTextString(nil))
 	assertValueEquals(t, "-1.23 million", startTimeMetric.AsHtmlString(nil))
 
 	// Check /proc/some-time
 	someTimeMetric := root.GetMetric("/proc/some-time")
 	verifyMetric(t, "Some time", units.None, someTimeMetric)
-	assertValueDeepEquals(
+	verifyJsonValue(
 		t,
-		&messages.Value{
-			Kind:  types.Time,
-			Value: "1447594013.007265341"},
-		someTimeMetric.AsJsonValue(nil))
-	assertValueDeepEquals(
+		someTimeMetric, types.Time, 0,
+		"1447594013.007265341")
+
+	verifyRpcValue(
 		t,
-		&messages.Value{
-			Kind:  types.GoTime,
-			Value: someTime,
-		},
-		someTimeMetric.AsRpcValue(nil))
+		someTimeMetric, types.GoTime, 0,
+		someTime)
+
 	assertValueEquals(t, "2015-11-15T13:26:53.007265341Z", someTimeMetric.AsHtmlString(nil))
 
 	// Check /proc/some-time-ptr
 	someTimePtrMetric := root.GetMetric("/proc/some-time-ptr")
 	verifyMetric(t, "Some time pointer", units.None, someTimePtrMetric)
 	// a nil time pointer should result in 0 time.
-	assertValueDeepEquals(
+	verifyJsonValue(
 		t,
-		&messages.Value{
-			Kind:  types.Time,
-			Value: "0.000000000"},
-		someTimePtrMetric.AsJsonValue(nil))
-	assertValueDeepEquals(
+		someTimePtrMetric, types.Time, 0,
+		"0.000000000")
+
+	verifyRpcValue(
 		t,
-		&messages.Value{
-			Kind:  types.GoTime,
-			Value: time.Time{},
-		},
-		someTimePtrMetric.AsRpcValue(nil))
+		someTimePtrMetric, types.GoTime, 0,
+		time.Time{})
+
 	assertValueEquals(t, "0001-01-01T00:00:00Z", someTimePtrMetric.AsHtmlString(nil))
 
 	newTime := time.Date(2015, time.September, 6, 5, 26, 35, 0, time.UTC)
 	someTimePtr = &newTime
-	assertValueDeepEquals(
+	verifyJsonValue(
 		t,
-		&messages.Value{
-			Kind:  types.Time,
-			Value: "1441517195.000000000"},
-		someTimePtrMetric.AsJsonValue(nil))
-	assertValueDeepEquals(
+		someTimePtrMetric, types.Time, 0,
+		"1441517195.000000000")
+
+	verifyRpcValue(
 		t,
-		&messages.Value{
-			Kind:  types.GoTime,
-			Value: newTime,
-		},
-		someTimePtrMetric.AsRpcValue(nil))
+		someTimePtrMetric, types.GoTime, 0,
+		newTime)
+
 	assertValueEquals(
 		t,
 		"2015-09-06T05:26:35Z",
@@ -725,86 +690,79 @@ func TestAPI(t *testing.T) {
 	// Check /proc/rpc-count
 	rpcCountMetric := root.GetMetric("/proc/rpc-count")
 	verifyMetric(t, "RPC count", units.None, rpcCountMetric)
-	assertValueDeepEquals(
+	verifyJsonValue(
 		t,
-		&messages.Value{
-			Kind:  types.Uint,
-			Bits:  64,
-			Value: uint64(500)},
-		rpcCountMetric.AsJsonValue(nil))
-	assertValueDeepEquals(
+		rpcCountMetric, types.Uint,
+		64,
+		uint64(500))
+
+	verifyRpcValue(
 		t,
-		&messages.Value{
-			Kind:  types.Uint,
-			Bits:  64,
-			Value: uint64(500)},
-		rpcCountMetric.AsRpcValue(nil))
+		rpcCountMetric, types.Uint,
+		64,
+		uint64(500))
+
 	assertValueEquals(t, "500", rpcCountMetric.AsHtmlString(nil))
 
 	// check /proc/foo/bar/baz
 	bazMetric := root.GetMetric("proc/foo/bar/baz")
 	verifyMetric(t, "An error", units.None, bazMetric)
-	assertValueDeepEquals(
+	verifyJsonValue(
 		t,
-		&messages.Value{
-			Kind:  types.Float,
-			Bits:  32,
-			Value: 12.375},
-		bazMetric.AsJsonValue(nil))
-	assertValueDeepEquals(
+		bazMetric, types.Float,
+		32,
+		12.375)
+
+	verifyRpcValue(
 		t,
-		&messages.Value{
-			Kind:  types.Float,
-			Bits:  32,
-			Value: 12.375},
-		bazMetric.AsRpcValue(nil))
+		bazMetric, types.Float,
+		32,
+		12.375)
+
 	assertValueEquals(t, "12.375", bazMetric.AsHtmlString(nil))
 
 	// check /proc/foo/bar/abool
 	aboolMetric := root.GetMetric("proc/foo/bar/abool")
 	verifyMetric(t, "A boolean value", units.None, aboolMetric)
-	assertValueDeepEquals(
+	verifyJsonValue(
 		t,
-		&messages.Value{
-			Kind:  types.Bool,
-			Value: true},
-		aboolMetric.AsJsonValue(nil))
-	assertValueDeepEquals(
+		aboolMetric, types.Bool, 0,
+		true)
+
+	verifyRpcValue(
 		t,
-		&messages.Value{
-			Kind:  types.Bool,
-			Value: true},
-		aboolMetric.AsRpcValue(nil))
+		aboolMetric, types.Bool, 0,
+		true)
+
 	assertValueEquals(t, "true", aboolMetric.AsHtmlString(nil))
 
 	// check /proc/foo/bar/anotherBool
 	anotherBoolMetric := root.GetMetric("proc/foo/bar/anotherBool")
 	verifyMetric(t, "A boolean callback value", units.None, anotherBoolMetric)
-	assertValueDeepEquals(
+	verifyJsonValue(
 		t,
-		&messages.Value{
-			Kind:  types.Bool,
-			Value: false},
-		anotherBoolMetric.AsJsonValue(nil))
-	assertValueDeepEquals(
+		anotherBoolMetric, types.Bool, 0,
+		false)
+
+	verifyRpcValue(
 		t,
-		&messages.Value{
-			Kind:  types.Bool,
-			Value: false},
-		anotherBoolMetric.AsRpcValue(nil))
+		anotherBoolMetric, types.Bool, 0,
+		false)
+
 	assertValueEquals(t, "false", anotherBoolMetric.AsHtmlString(nil))
 
 	// Check /proc/rpc-latency
 	rpcLatency := root.GetMetric("/proc/rpc-latency")
 	verifyMetric(t, "RPC latency", units.Millisecond, rpcLatency)
 
-	actual := rpcLatency.AsJsonValue(nil)
+	var actual messages.Metric
+	rpcLatency.UpdateJsonMetric(nil, &actual)
 
 	if actual.Value.(*messages.Distribution).Median < 249 || actual.Value.(*messages.Distribution).Median >= 250 {
 		t.Errorf("Median out of range: %f", actual.Value.(*messages.Distribution).Median)
 	}
 
-	expected := &messages.Value{
+	expected := &messages.Metric{
 		Kind: types.Dist,
 		Value: &messages.Distribution{
 			Min:     0.0,
@@ -845,15 +803,16 @@ func TestAPI(t *testing.T) {
 			},
 		},
 	}
-	assertValueDeepEquals(t, expected, actual)
+	assertValueDeepEquals(t, expected, &actual)
 
-	actualRpc := rpcLatency.AsRpcValue(nil)
+	var actualRpc messages.Metric
+	rpcLatency.UpdateRpcMetric(nil, &actualRpc)
 
 	if actualRpc.Value.(*messages.Distribution).Median < 249 || actualRpc.Value.(*messages.Distribution).Median >= 250 {
 		t.Errorf("Median out of range in rpc: %f", actualRpc.Value.(*messages.Distribution).Median)
 	}
 
-	expectedRpc := &messages.Value{
+	expectedRpc := &messages.Metric{
 		Kind: types.Dist,
 		Value: &messages.Distribution{
 			Min:     0.0,
@@ -894,7 +853,7 @@ func TestAPI(t *testing.T) {
 			},
 		},
 	}
-	assertValueDeepEquals(t, expectedRpc, actualRpc)
+	assertValueDeepEquals(t, expectedRpc, &actualRpc)
 
 	// test PathFrom
 	assertValueEquals(
@@ -1153,6 +1112,24 @@ func assertValueDeepEquals(
 	if !reflect.DeepEqual(expected, actual) {
 		t.Errorf("Expected %v, got %v", expected, actual)
 	}
+}
+
+func verifyJsonValue(
+	t *testing.T, m *metric, tp types.Type, bits int, value interface{}) {
+	var ametric messages.Metric
+	m.UpdateJsonMetric(nil, &ametric)
+	assertValueEquals(t, tp, ametric.Kind)
+	assertValueEquals(t, bits, ametric.Bits)
+	assertValueEquals(t, value, ametric.Value)
+}
+
+func verifyRpcValue(
+	t *testing.T, m *metric, tp types.Type, bits int, value interface{}) {
+	var ametric messages.Metric
+	m.UpdateRpcMetric(nil, &ametric)
+	assertValueEquals(t, tp, ametric.Kind)
+	assertValueEquals(t, bits, ametric.Bits)
+	assertValueEquals(t, value, ametric.Value)
 }
 
 func verifyChildren(
