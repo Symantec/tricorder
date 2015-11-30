@@ -12,11 +12,12 @@ var (
 )
 
 func jsonAsMetric(m *metric, s *session) *messages.Metric {
-	return &messages.Metric{
+	result := messages.Metric{
 		Path:        m.AbsPath(),
 		Description: m.Description,
-		Unit:        m.Unit(),
-		Value:       m.AsJsonValue(s)}
+		Unit:        m.Unit()}
+	m.UpdateJsonMetric(s, &result)
+	return &result
 }
 
 type jsonMetricsCollector messages.MetricList

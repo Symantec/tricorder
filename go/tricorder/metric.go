@@ -570,16 +570,16 @@ func (v *value) AsGoDuration(s *session) time.Duration {
 	return time.Duration(v.evaluate(s).Int())
 }
 
-func (v *value) AsDuration(s *session) (result messages.Duration) {
+func (v *value) AsDuration(s *session) (result duration) {
 	if v.valType == types.Time {
 		t := v.AsTime(s)
 		if t.IsZero() {
 			return
 		}
-		return messages.SinceEpoch(t)
+		return durationSinceEpoch(t)
 	}
 	if v.valType == types.Duration {
-		return messages.NewDuration(v.AsGoDuration(s))
+		return newDuration(v.AsGoDuration(s))
 	}
 	panic(panicIncompatibleTypes)
 }
@@ -595,72 +595,72 @@ func asRanges(ranges breakdown) []*messages.RangeWithCount {
 	return result
 }
 
-func (v *value) asJsonOrRpcValue(
-	s *session, encoding rpcEncoding) *messages.Value {
+func (v *value) updateJsonOrRpcMetric(
+	s *session, metric *messages.Metric, encoding rpcEncoding) {
 	t := v.Type()
+	metric.Bits = v.Bits()
 	switch t {
 	case types.Bool:
-		return &messages.Value{Kind: t, Value: v.AsBool(s)}
+		metric.Kind = t
+		metric.Value = v.AsBool(s)
 	case types.Int:
-		return &messages.Value{
-			Kind: t, Bits: v.Bits(), Value: v.AsInt(s)}
+		metric.Kind = t
+		metric.Value = v.AsInt(s)
 	case types.Uint:
-		return &messages.Value{
-			Kind: t, Bits: v.Bits(), Value: v.AsUint(s)}
+		metric.Kind = t
+		metric.Value = v.AsUint(s)
 	case types.Float:
-		return &messages.Value{
-			Kind: t, Bits: v.Bits(), Value: v.AsFloat(s)}
+		metric.Kind = t
+		metric.Value = v.AsFloat(s)
 	case types.String:
-		return &messages.Value{Kind: t, Value: v.AsString(s)}
+		metric.Kind = t
+		metric.Value = v.AsString(s)
 	case types.Time:
 		switch encoding {
 		case jsonEncoding:
-			return &messages.Value{
-				Kind: t, Value: v.AsTextString(s)}
+			metric.Kind = t
+			metric.Value = v.AsTextString(s)
 		case goRpcEncoding:
-			return &messages.Value{
-				Kind:  types.GoTime,
-				Value: v.AsTime(s)}
+			metric.Kind = types.GoTime
+			metric.Value = v.AsTime(s)
 		default:
 			panic(panicIncompatibleTypes)
 		}
 	case types.Duration:
 		switch encoding {
 		case jsonEncoding:
-			return &messages.Value{
-				Kind: t, Value: v.AsTextString(s)}
+			metric.Kind = t
+			metric.Value = v.AsTextString(s)
 		case goRpcEncoding:
-			return &messages.Value{
-				Kind:  types.GoDuration,
-				Value: v.AsGoDuration(s)}
+			metric.Kind = types.GoDuration
+			metric.Value = v.AsGoDuration(s)
 		default:
 			panic(panicIncompatibleTypes)
 		}
 	case types.Dist:
 		snapshot := v.AsDistribution().Snapshot()
-		return &messages.Value{
-			Kind: t,
-			Value: &messages.Distribution{
-				Min:     snapshot.Min,
-				Max:     snapshot.Max,
-				Average: snapshot.Average,
-				Median:  snapshot.Median,
-				Sum:     snapshot.Sum,
-				Count:   snapshot.Count,
-				Ranges:  asRanges(snapshot.Breakdown)}}
+		metric.Kind = t
+		metric.Value = &messages.Distribution{
+			Min:     snapshot.Min,
+			Max:     snapshot.Max,
+			Average: snapshot.Average,
+			Median:  snapshot.Median,
+			Sum:     snapshot.Sum,
+			Count:   snapshot.Count,
+			Ranges:  asRanges(snapshot.Breakdown)}
 	default:
 		panic(panicIncompatibleTypes)
 	}
 }
 
-// AsJsonValue returns this value as a messages.Value for JSON.
-func (v *value) AsJsonValue(s *session) *messages.Value {
-	return v.asJsonOrRpcValue(s, jsonEncoding)
+// UpdateJsonMetric updates fields in metric for JSON.
+func (v *value) UpdateJsonMetric(s *session, metric *messages.Metric) {
+	v.updateJsonOrRpcMetric(s, metric, jsonEncoding)
 }
 
-// AsRpcValue returns this value as a messages.Value for go RPC.
-func (v *value) AsRpcValue(s *session) *messages.Value {
-	return v.asJsonOrRpcValue(s, goRpcEncoding)
+// UpdateRpcMetric updates fields in this metric for go RPC.
+func (v *value) UpdateRpcMetric(s *session, metric *messages.Metric) {
+	v.updateJsonOrRpcMetric(s, metric, goRpcEncoding)
 }
 
 // AsTextString returns this value as a text friendly string.
