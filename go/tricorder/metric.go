@@ -616,27 +616,11 @@ func (v *value) updateJsonOrRpcMetric(
 		metric.Kind = t
 		metric.Value = v.AsString(s)
 	case types.Time:
-		switch encoding {
-		case jsonEncoding:
-			metric.Kind = t
-			metric.Value = v.AsTextString(s)
-		case goRpcEncoding:
-			metric.Kind = types.GoTime
-			metric.Value = v.AsTime(s)
-		default:
-			panic(panicIncompatibleTypes)
-		}
+		metric.Kind = types.GoTime
+		metric.Value = v.AsTime(s)
 	case types.Duration:
-		switch encoding {
-		case jsonEncoding:
-			metric.Kind = t
-			metric.Value = v.AsTextString(s)
-		case goRpcEncoding:
-			metric.Kind = types.GoDuration
-			metric.Value = v.AsGoDuration(s)
-		default:
-			panic(panicIncompatibleTypes)
-		}
+		metric.Kind = types.GoDuration
+		metric.Value = v.AsGoDuration(s)
 	case types.Dist:
 		snapshot := v.AsDistribution().Snapshot()
 		metric.Kind = t
@@ -650,6 +634,9 @@ func (v *value) updateJsonOrRpcMetric(
 			Ranges:  asRanges(snapshot.Breakdown)}
 	default:
 		panic(panicIncompatibleTypes)
+	}
+	if encoding == jsonEncoding {
+		metric.ConvertToJson()
 	}
 }
 

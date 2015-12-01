@@ -1117,6 +1117,7 @@ func assertValueDeepEquals(
 func verifyJsonValue(
 	t *testing.T, m *metric, tp types.Type, bits int, value interface{}) {
 	var ametric messages.Metric
+	ametric.Unit = m.Unit()
 	m.UpdateJsonMetric(nil, &ametric)
 	assertValueEquals(t, tp, ametric.Kind)
 	assertValueEquals(t, bits, ametric.Bits)

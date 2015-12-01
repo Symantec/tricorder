@@ -49,6 +49,7 @@ type Distribution struct {
 
 // Duration represents a duration of time
 // For negative durations, both Seconds and Nanoseconds are negative.
+// Internal use only for now.
 type Duration struct {
 	Seconds     int64
 	Nanoseconds int32
@@ -122,8 +123,25 @@ type Metric struct {
 	Value interface{} `json:"value"`
 }
 
-// MetricList represents a list of metrics.
+// IsJson returns true if this metric is json compatible
+func (m *Metric) IsJson() bool {
+	return m.isJson(false)
+}
+
+// ConvertToJson changes this metric in place to be json compatible.
+func (m *Metric) ConvertToJson() {
+	m.isJson(true)
+}
+
+// MetricList represents a list of metrics. Clients should treat MetricList
+// instances as immutable. In particular, clients should not modify contained
+// Metric instances in place.
 type MetricList []*Metric
+
+// AsJson returns a MetricList like this one that is Json compatible.
+func (m MetricList) AsJson() MetricList {
+	return m.asJson()
+}
 
 func init() {
 	var tm time.Time
