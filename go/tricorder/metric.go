@@ -570,16 +570,16 @@ func (v *value) AsGoDuration(s *session) time.Duration {
 	return time.Duration(v.evaluate(s).Int())
 }
 
-func (v *value) AsDuration(s *session) (result duration) {
+func (v *value) AsDuration(s *session) (result messages.Duration) {
 	if v.valType == types.Time {
 		t := v.AsTime(s)
 		if t.IsZero() {
 			return
 		}
-		return durationSinceEpoch(t)
+		return messages.SinceEpoch(t)
 	}
 	if v.valType == types.Duration {
-		return newDuration(v.AsGoDuration(s))
+		return messages.NewDuration(v.AsGoDuration(s))
 	}
 	panic(panicIncompatibleTypes)
 }
