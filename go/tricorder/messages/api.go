@@ -47,6 +47,66 @@ type Distribution struct {
 	Ranges []*RangeWithCount `json:"ranges,omitempty"`
 }
 
+// Duration represents a duration of time
+// For negative durations, both Seconds and Nanoseconds are negative.
+// Internal use only for now.
+type Duration struct {
+	Seconds     int64
+	Nanoseconds int32
+}
+
+func NewDuration(d time.Duration) Duration {
+	return newDuration(d)
+}
+
+// SinceEpoch returns the amount of time since unix epoch
+func SinceEpoch(t time.Time) Duration {
+	return sinceEpoch(t)
+}
+
+// AsGoDuration converts this duration to a go duration
+func (d Duration) AsGoDuration() time.Duration {
+	return d.asGoDuration()
+}
+
+// AsGoTime Converts this duration to a go time.
+// This is the inverse of SinceEpoch.
+func (d Duration) AsGoTime() time.Time {
+	return d.asGoTime()
+}
+
+// String shows in seconds
+func (d Duration) String() string {
+	return d.stringUsingUnits(units.Second)
+}
+
+// StringUsingUnits shows in specified time unit.
+// If unit not a time, shows in seconds.
+func (d Duration) StringUsingUnits(unit units.Unit) string {
+	return d.stringUsingUnits(unit)
+}
+
+// IsNegative returns true if this duration is negative.
+func (d Duration) IsNegative() bool {
+	return d.isNegative()
+}
+
+// PrettyFormat pretty formats this duration.
+// PrettyFormat panics if this duration is negative.
+func (d Duration) PrettyFormat() string {
+	return d.prettyFormat()
+}
+
+// Value represents the value of a metric.
+type Value struct {
+	// The value's type
+	Kind types.Type `json:"kind"`
+	// The value's size in bits if Int, Uint, or float
+	Bits int `json:"bits,omitempty"`
+	// value stored here
+	Value interface{} `json:"value"`
+}
+
 // Metric represents a single metric
 type Metric struct {
 	// The absolute path to this metric
@@ -63,8 +123,25 @@ type Metric struct {
 	Value interface{} `json:"value"`
 }
 
-// MetricList represents a list of metrics.
+// IsJson returns true if this metric is json compatible
+func (m *Metric) IsJson() bool {
+	return m.isJson(false)
+}
+
+// ConvertToJson changes this metric in place to be json compatible.
+func (m *Metric) ConvertToJson() {
+	m.isJson(true)
+}
+
+// MetricList represents a list of metrics. Clients should treat MetricList
+// instances as immutable. In particular, clients should not modify contained
+// Metric instances in place.
 type MetricList []*Metric
+
+// AsJson returns a MetricList like this one that is Json compatible.
+func (m MetricList) AsJson() MetricList {
+	return m.asJson()
+}
 
 func init() {
 	var tm time.Time
