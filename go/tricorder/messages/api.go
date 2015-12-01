@@ -49,6 +49,7 @@ type Distribution struct {
 
 // Duration represents a duration of time
 // For negative durations, both Seconds and Nanoseconds are negative.
+// Internal use only for now.
 type Duration struct {
 	Seconds     int64
 	Nanoseconds int32
@@ -120,6 +121,11 @@ type Metric struct {
 	Bits int `json:"bits,omitempty"`
 	// value stored here
 	Value interface{} `json:"value"`
+}
+
+// ToJson converts this instance for Json.
+func (m *Metric) ToJson() {
+	m.toJson()
 }
 
 // MetricList represents a list of metrics.
