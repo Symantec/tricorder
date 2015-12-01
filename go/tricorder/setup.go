@@ -32,10 +32,12 @@ func initDefaultMetrics() {
 	var resourceUsage syscall.Rusage
 	var userTime time.Duration
 	var sysTime time.Duration
+	var maxResidentSetSize int64
 	resourceUsageRegion := RegisterRegion(func() {
 		syscall.Getrusage(syscall.RUSAGE_SELF, &resourceUsage)
 		userTime = timeValToDuration(&resourceUsage.Utime)
 		sysTime = timeValToDuration(&resourceUsage.Stime)
+		maxResidentSetSize = resourceUsage.Maxrss * 1024
 	})
 	RegisterMetricInRegion(
 		"/proc/cpu/user",
@@ -51,7 +53,7 @@ func initDefaultMetrics() {
 		"User CPU time used")
 	RegisterMetricInRegion(
 		"/proc/memory/max-resident-set-size",
-		&resourceUsage.Maxrss,
+		&maxResidentSetSize,
 		resourceUsageRegion,
 		units.Byte,
 		"Maximum resident set size")
