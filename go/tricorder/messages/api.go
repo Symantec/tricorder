@@ -97,17 +97,23 @@ func (d Duration) PrettyFormat() string {
 	return d.prettyFormat()
 }
 
-// Value represents the value of a metric.
-type Value struct {
-	// The value's type
-	Kind types.Type `json:"kind"`
-	// The value's size in bits if Int, Uint, or float
-	Bits int `json:"bits,omitempty"`
-	// value stored here
-	Value interface{} `json:"value"`
-}
-
 // Metric represents a single metric
+// The type of the actual value stored in the Value field depends on the
+// value of the Kind field.
+//
+// The chart below lists what type Value contains for each value of the
+// Kind field:
+//
+// 	types.Bool	bool
+//	types.Int	int64
+//	types.Uint	uint64
+//	types.Float	float64
+//	types.String	string
+//	types.Dist	*messages.Distribution
+//	types.Time	string: Seconds since Jan 1, 1970 GMT. 9 digits after the decimal point.
+//	types.Duration	string: Seconds with 9 digits after the decimal point.
+//	types.GoTime	time.Time (Go RPC only)
+//	types.GoDuration	time.Duration (Go RPC only)
 type Metric struct {
 	// The absolute path to this metric
 	Path string `json:"path"`
@@ -117,7 +123,10 @@ type Metric struct {
 	Unit units.Unit `json:"unit"`
 	// The metric's type
 	Kind types.Type `json:"kind"`
-	// The size in bits of metric's value if Int, Uint, or float
+	// The size in bits of metric's value if Kind is
+	// types.Int, types.Uint, or types.Float. This is size in bits used
+	// on the process serving the metrics and may be smaller than the
+	// number of bits used in the Value field of this struct.
 	Bits int `json:"bits,omitempty"`
 	// value stored here
 	Value interface{} `json:"value"`
