@@ -54,23 +54,23 @@ MetricsServer.ListMetrics:
 
 Recursively lists all metrics under a particular path.
 Request is the absolute path as a string.
-Response is a messages.RpcMetricList type.
+Response is a messages.MetricList type.
 
 MetricsServer.GetMetric
 
 Gets a single metric with a particular path or returns
 messages.ErrMetricNotFound if there is no such metric.
 Request is the absolute path as a string.
-Response is a messages.RpcMetric type.
+Response is a messages.Metric type.
 
 Example:
 
 	import "github.com/Symantec/tricorder/go/tricorder/messages"
 	client, _ := rpc.DialHTTP("tcp", ":8080")
 	defer client.Close()
-	var metrics messages.RpcMetricList
+	var metrics messages.MetricList
 	client.Call("MetricsServer.ListMetrics", "/a/directory", &metrics)
-	var metric messages.RpcMetric
+	var metric messages.Metric
 	err := client.Call("MetricsServer.GetMetric", "/a/metric", &metric)
 	if err == nil {
 		// we found /a/metric
@@ -98,10 +98,8 @@ Sample metric json object:
 		"path": "/proc/foo/bar/baz",
 		"description": "Another float value",
 		"unit": "None",
-		"value": {
-			"kind": "float",
-			"floatValue": 12.375
-		}
+		"kind": "float",
+		"value": 12.375
 	}
 
 For more information on the json schema, see the messages.Metric type.
