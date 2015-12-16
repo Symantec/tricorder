@@ -910,7 +910,7 @@ func TestGeometricDistribution(t *testing.T) {
 }
 
 func TestArbitraryDistribution(t *testing.T) {
-	bucketer := NewArbitraryBucketer([]float64{10, 22, 50})
+	bucketer := NewArbitraryBucketer(10, 22, 50)
 	verifyBucketer(t, bucketer, 10.0, 22.0, 50.0)
 	dist := newDistribution(bucketer)
 	for i := 100; i >= 1; i-- {
@@ -965,7 +965,7 @@ func TestArbitraryDistribution(t *testing.T) {
 }
 
 func TestMedianDataAllLow(t *testing.T) {
-	bucketer := NewArbitraryBucketer([]float64{1000.0})
+	bucketer := NewArbitraryBucketer(1000.0)
 	dist := newDistribution(bucketer)
 	dist.Add(200.0)
 	dist.Add(300.0)
@@ -975,7 +975,7 @@ func TestMedianDataAllLow(t *testing.T) {
 }
 
 func TestMedianDataAllHigh(t *testing.T) {
-	bucketer := NewArbitraryBucketer([]float64{1000.0})
+	bucketer := NewArbitraryBucketer(1000.0)
 	dist := newDistribution(bucketer)
 	dist.Add(3000.0)
 	dist.Add(3000.0)
@@ -987,7 +987,7 @@ func TestMedianDataAllHigh(t *testing.T) {
 }
 
 func TestMedianSingleData(t *testing.T) {
-	bucketer := NewArbitraryBucketer([]float64{1000.0, 3000.0})
+	bucketer := NewArbitraryBucketer(1000.0, 3000.0)
 	dist := newDistribution(bucketer)
 	dist.Add(7000.0)
 	assertValueEquals(t, 7000.0, dist.Snapshot().Median)
@@ -1002,7 +1002,7 @@ func TestMedianSingleData(t *testing.T) {
 }
 
 func TestMedianAllDataInBetween(t *testing.T) {
-	bucketer := NewArbitraryBucketer([]float64{500.0, 700.0, 1000.0, 3000.0})
+	bucketer := NewArbitraryBucketer(500.0, 700.0, 1000.0, 3000.0)
 	dist := newDistribution(bucketer)
 	dist.Add(1000.0)
 	dist.Add(1000.0)
