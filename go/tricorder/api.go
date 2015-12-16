@@ -95,12 +95,12 @@ func NewLinearBucketer(count int, start, increment float64) *Bucketer {
 }
 
 // NewArbitraryBucketer returns a Bucketer representing specific endpoints
-// NewArbitraryBucketer([]float64{10.0, 20.0, 30.0}) means 4 buckets:
+// NewArbitraryBucketer(10.0, 20.0, 30.0) means 4 buckets:
 // <10.0; 10.0 - 20.0; 20.0 - 30.0; >= 30.0.
-// NewArbitraryBucketer panics if len(endpoints) == 0.
-// It is the caller's responsibility to ensure that the values in the
-// endpoints slice are in ascending order.
-func NewArbitraryBucketer(endpoints []float64) *Bucketer {
+// NewArbitraryBucketer panics if it is called with no arguments.
+// It is the caller's responsibility to ensure that the arguments are in
+// ascending order.
+func NewArbitraryBucketer(endpoints ...float64) *Bucketer {
 	return newBucketerFromEndpoints(endpoints)
 }
 
