@@ -64,6 +64,11 @@ func SinceEpoch(t time.Time) Duration {
 	return sinceEpoch(t)
 }
 
+// SinceEpochFloat returns the amount of time since unix epoch
+func SinceEpochFloat(f float64) Duration {
+	return sinceEpochFloat(f)
+}
+
 // AsGoDuration converts this duration to a go duration
 func (d Duration) AsGoDuration() time.Duration {
 	return d.asGoDuration()
@@ -73,6 +78,11 @@ func (d Duration) AsGoDuration() time.Duration {
 // This is the inverse of SinceEpoch.
 func (d Duration) AsGoTime() time.Time {
 	return d.asGoTime()
+}
+
+// AsFloat returns this duration in seconds.
+func (d Duration) AsFloat() float64 {
+	return d.asFloat()
 }
 
 // String shows in seconds
