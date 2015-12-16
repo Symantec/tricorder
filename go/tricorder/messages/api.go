@@ -74,8 +74,8 @@ func (d Duration) AsGoDuration() time.Duration {
 	return d.asGoDuration()
 }
 
-// AsGoTime Converts this duration to a go time.
-// This is the inverse of SinceEpoch.
+// AsGoTime Converts this duration to a go time in the
+// system's local time zone.
 func (d Duration) AsGoTime() time.Time {
 	return d.asGoTime()
 }
@@ -160,6 +160,17 @@ type MetricList []*Metric
 // AsJson returns a MetricList like this one that is Json compatible.
 func (m MetricList) AsJson() MetricList {
 	return m.asJson()
+}
+
+// FloatToTime converts seconds after Jan 1, 1970 GMT to a time in the
+// system's local time zone.
+func FloatToTime(secondsSinceEpoch float64) time.Time {
+	return SinceEpochFloat(secondsSinceEpoch).AsGoTime()
+}
+
+// TimeToFloat returns t as seconds after Jan 1, 1970 GMT
+func TimeToFloat(t time.Time) float64 {
+	return SinceEpoch(t).AsFloat()
 }
 
 func init() {
