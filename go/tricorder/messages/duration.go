@@ -3,6 +3,7 @@ package messages
 import (
 	"fmt"
 	"github.com/Symantec/tricorder/go/tricorder/units"
+	"math"
 	"time"
 )
 
@@ -24,6 +25,13 @@ func sinceEpoch(t time.Time) (result Duration) {
 		result.Seconds++
 		result.Nanoseconds -= 1000000000 // 1 billion
 	}
+	return
+}
+
+func sinceEpochFloat(f float64) (result Duration) {
+	ii, ff := math.Modf(f)
+	result.Seconds = int64(ii)
+	result.Nanoseconds = int32(ff * 1e9)
 	return
 }
 
@@ -51,6 +59,10 @@ func (d Duration) stringUsingUnits(unit units.Unit) string {
 		return fmt.Sprintf("%d.%09d", d.Seconds, formattedNs)
 	}
 
+}
+
+func (d Duration) asFloat() float64 {
+	return float64(d.Seconds) + float64(d.Nanoseconds)*1e-9
 }
 
 func (d Duration) isNegative() bool {
