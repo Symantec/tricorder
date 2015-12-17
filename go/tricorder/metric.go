@@ -465,6 +465,7 @@ func newValue(spec interface{}, region *region, unit units.Unit) *value {
 		return &value{
 			val:           v,
 			unit:          unit,
+			region:        region,
 			valType:       valType,
 			bits:          bits,
 			isfunc:        true,
@@ -498,14 +499,14 @@ func (v *value) Bits() int {
 }
 
 func (v *value) evaluate(s *session) reflect.Value {
-	if !v.isfunc {
-		if v.region != nil {
-			if s == nil {
-				s = newSession()
-				defer s.Close()
-			}
-			s.Visit(v.region)
+	if v.region != nil {
+		if s == nil {
+			s = newSession()
+			defer s.Close()
 		}
+		s.Visit(v.region)
+	}
+	if !v.isfunc {
 		return v.val
 	}
 	result := v.val.Call(nil)

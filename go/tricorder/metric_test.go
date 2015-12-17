@@ -52,6 +52,14 @@ func registerMetricsForGlobalsTest() {
 	RegisterMetricInRegion(
 		"/firstGroup/second", &secondGlobal, r1and2, units.None, "")
 	RegisterMetricInRegion(
+		"/firstGroup/firstTimesSecond",
+		func() int {
+			return firstGlobal * secondGlobal
+		},
+		r1and2,
+		units.None,
+		"")
+	RegisterMetricInRegion(
 		"/firstGroup/third", &thirdGlobal, r3to6, units.None, "")
 	RegisterMetricInRegion(
 		"/firstGroup/fourth", &fourthGlobal, r3to6, units.None, "")
@@ -99,9 +107,8 @@ func doGlobalsTest(t *testing.T) {
 
 	assertValueEquals(
 		t,
-		int64(202),
-		root.GetMetric("/firstGroup/second").AsInt(nil))
-
+		int64(20604),
+		root.GetMetric("/firstGroup/firstTimesSecond").AsInt(nil))
 	assertValueEquals(
 		t,
 		int64(301),
@@ -133,10 +140,9 @@ func doGlobalsTest(t *testing.T) {
 	barrier.Add(2)
 
 	// Collect metric in two goroutines running concurrently.
-	// Because the collections run concurrently, each region's update
-	// function gets called only one time even though they both collect
-	// from region r3to6.
-
+	// Because the collections run concurrently, each region's,
+	// including r3to6, update function gets called only one time even
+	// though both goroutines collect from region r3to6.
 	wg.Add(2)
 	go func() {
 		root.GetAllMetricsByPath(
@@ -150,10 +156,11 @@ func doGlobalsTest(t *testing.T) {
 	}()
 	wg.Wait()
 	expectedFirstGroup := map[string]int64{
-		"/firstGroup/first":  103,
-		"/firstGroup/second": 203,
-		"/firstGroup/third":  303,
-		"/firstGroup/fourth": 403,
+		"/firstGroup/first":            103,
+		"/firstGroup/second":           203,
+		"/firstGroup/firstTimesSecond": 20909,
+		"/firstGroup/third":            303,
+		"/firstGroup/fourth":           403,
 	}
 	expectedSecondGroup := map[string]int64{
 		"/secondGroup/fifth":   503,
@@ -199,10 +206,11 @@ func doGlobalsTest(t *testing.T) {
 	}()
 	wg.Wait()
 	expectedFirstGroupSeq := map[string]int64{
-		"/firstGroup/first":  104,
-		"/firstGroup/second": 204,
-		"/firstGroup/third":  304,
-		"/firstGroup/fourth": 404,
+		"/firstGroup/first":            104,
+		"/firstGroup/second":           204,
+		"/firstGroup/firstTimesSecond": 21216,
+		"/firstGroup/third":            304,
+		"/firstGroup/fourth":           404,
 	}
 	expectedSecondGroupSeq := map[string]int64{
 		"/secondGroup/fifth":   505,
