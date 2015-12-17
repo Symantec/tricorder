@@ -48,9 +48,9 @@ func RegisterMetric(
 }
 
 // RegisterMetricWithRegion works just like RegisterMetrics but allows
-// the caller to specify the region to which the variable being registered
-// belongs. RegisterMetricWithRegion ignores the region parameter when
-// registering a callback function or distribution.
+// the caller to specify the region to which the variable or callback function
+// being registered belongs. RegisterMetricWithRegion ignores the region
+// parameter when registering a distribution.
 func RegisterMetricInRegion(
 	path string,
 	metric interface{},
