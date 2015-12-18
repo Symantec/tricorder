@@ -173,6 +173,11 @@ func TimeToFloat(t time.Time) float64 {
 	return SinceEpoch(t).AsFloat()
 }
 
+// DurationToFloat returns d as seconds
+func DurationToFloat(d time.Duration) float64 {
+	return NewDuration(d).AsFloat()
+}
+
 func init() {
 	var tm time.Time
 	var dur time.Duration
