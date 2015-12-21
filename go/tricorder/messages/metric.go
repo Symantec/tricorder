@@ -2,38 +2,41 @@ package messages
 
 import (
 	"github.com/Symantec/tricorder/go/tricorder/types"
+	"github.com/Symantec/tricorder/go/tricorder/units"
 	"time"
 )
 
-func (m *Metric) isJson(modify bool) bool {
-	switch m.Kind {
-	case types.GoDuration:
-		if modify {
-			m.Kind = types.Duration
-			m.Value = m.durationAsString(m.Value.(time.Duration))
-		}
-		return false
-	case types.GoTime:
-		if modify {
-			m.Kind = types.Time
-			m.Value = m.timeAsString(m.Value.(time.Time))
-		}
+func isJson(kind types.Type) bool {
+	switch kind {
+	case types.GoDuration, types.GoTime:
 		return false
 	default:
 		return true
 	}
 }
 
-func (m *Metric) durationAsString(godur time.Duration) string {
-	return NewDuration(godur).StringUsingUnits(m.Unit)
+func asJson(value interface{}, kind types.Type, unit units.Unit) (
+	jsonValue interface{}, jsonKind types.Type) {
+	switch kind {
+	case types.GoDuration:
+		jsonKind = types.Duration
+		if value != nil {
+			jsonValue = durationAsString(value.(time.Duration), unit)
+		}
+	case types.GoTime:
+		jsonKind = types.Time
+		if value != nil {
+			jsonValue = timeAsString(value.(time.Time), unit)
+		}
+	default:
+		jsonKind = kind
+		jsonValue = value
+	}
+	return
 }
 
-func (m *Metric) timeAsString(gotime time.Time) string {
-	var dur Duration
-	if !gotime.IsZero() {
-		dur = SinceEpoch(gotime)
-	}
-	return dur.StringUsingUnits(m.Unit)
+func (m *Metric) convertToJson() {
+	m.Value, m.Kind = asJson(m.Value, m.Kind, m.Unit)
 }
 
 func (m MetricList) asJson() (result MetricList) {
@@ -52,4 +55,16 @@ func (m MetricList) asJson() (result MetricList) {
 		}
 	}
 	return
+}
+
+func timeAsString(gotime time.Time, unit units.Unit) string {
+	var dur Duration
+	if !gotime.IsZero() {
+		dur = SinceEpoch(gotime)
+	}
+	return dur.StringUsingUnits(unit)
+}
+
+func durationAsString(godur time.Duration, unit units.Unit) string {
+	return NewDuration(godur).StringUsingUnits(unit)
 }

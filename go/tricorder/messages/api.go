@@ -144,12 +144,12 @@ type Metric struct {
 
 // IsJson returns true if this metric is json compatible
 func (m *Metric) IsJson() bool {
-	return m.isJson(false)
+	return isJson(m.Kind)
 }
 
 // ConvertToJson changes this metric in place to be json compatible.
 func (m *Metric) ConvertToJson() {
-	m.isJson(true)
+	m.convertToJson()
 }
 
 // MetricList represents a list of metrics. Clients should treat MetricList
@@ -176,6 +176,18 @@ func TimeToFloat(t time.Time) float64 {
 // DurationToFloat returns d as seconds
 func DurationToFloat(d time.Duration) float64 {
 	return NewDuration(d).AsFloat()
+}
+
+// IsJson returns true if kind is allowed in Json.
+func IsJson(kind types.Type) bool {
+	return isJson(kind)
+}
+
+// AsJson takes a metric value, kind, and unit and returns an acceptable
+// JSON value and kind for given unit.
+func AsJson(value interface{}, kind types.Type, unit units.Unit) (
+	jsonValue interface{}, jsonKind types.Type) {
+	return asJson(value, kind, unit)
 }
 
 func init() {
