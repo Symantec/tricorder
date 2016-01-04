@@ -125,7 +125,8 @@ type Distribution distribution
 
 // Add adds a single value to a Distribution instance.
 // value can be a float32, float64, or a time.Duration.
-// If a time.Duration, Add converts it to seconds.
+// If a time.Duration, Add converts it to the same unit of time specified in
+// the RegisterMetric call made to register this Distribution.
 func (d *Distribution) Add(value interface{}) {
 	(*distribution)(d).Add(value)
 }
