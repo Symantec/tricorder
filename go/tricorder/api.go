@@ -177,3 +177,17 @@ func (d *DirectorySpec) RegisterDirectory(
 func (d *DirectorySpec) AbsPath() string {
 	return (*directory)(d).AbsPath()
 }
+
+// RegisterFlags registers each application flag as a metric under /proc/flags.
+func RegisterFlags() {
+	registerFlags()
+}
+
+// SetFlagUnit sets the unit for a specific flag. If the flag is a
+// time.Duration, the default unit is units.Second; otherwise the default
+// unit is units.None. If the client wishes to override the default unit for
+// a flag, they call this after registering a flag but before calling
+// ParseFlags.
+func SetFlagUnit(name string, unit units.Unit) {
+	setFlagUnit(name, unit)
+}
