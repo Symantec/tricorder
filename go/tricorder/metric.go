@@ -1,6 +1,7 @@
 package tricorder
 
 import (
+	"flag"
 	"fmt"
 	"github.com/Symantec/tricorder/go/tricorder/messages"
 	"github.com/Symantec/tricorder/go/tricorder/types"
@@ -42,6 +43,10 @@ var (
 		" KiB", " MiB", " GiB", " TiB", " PiB", " EiB"}
 	bytePerSecondSuffixes = []string{
 		" KiB/s", " MiB/s", " GiB/s", " TiB/s", " PiB/s", " EiB/s"}
+)
+
+var (
+	flagUnits = make(map[string]units.Unit)
 )
 
 // session represents one request to retrieve various metrics.
@@ -392,7 +397,9 @@ var (
 )
 
 // Given a type t from the reflect package, return the corresponding
-// types.Type and true if t is a pointer to that type or false otherwise.
+// types.Type, size in bits,  and true if t is a pointer to that type
+// or false otherwise. Returns bits = 0 if size is unknown.
+// If t is not supported, returns bits = -1.
 func getPrimitiveType(t reflect.Type) (
 	outType types.Type, bits int, isPtr bool) {
 	switch t {
@@ -433,9 +440,20 @@ func getPrimitiveType(t reflect.Type) (
 		case reflect.String:
 			return types.String, 0, false
 		default:
-			panic(panicInvalidMetric)
+			bits = -1
+			return
 		}
 	}
+}
+
+// like getPrimitiveType but panics if t is not supported
+func mustGetPrimitiveType(t reflect.Type) (
+	outType types.Type, bits int, isPtr bool) {
+	outType, bits, isPtr = getPrimitiveType(t)
+	if bits == -1 {
+		panic(panicInvalidMetric)
+	}
+	return
 }
 
 // unit parameter only used if spec is a *Distribution
@@ -452,6 +470,27 @@ func newValue(spec interface{}, region *region, unit units.Unit) *value {
 		dist.unit = unit
 		return &value{dist: dist, unit: unit, valType: types.Dist}
 	}
+	flagGetter, ok := spec.(flag.Getter)
+	if ok {
+		t := reflect.ValueOf(flagGetter.Get()).Type()
+		valType, bits, isValAPointer := getPrimitiveType(t)
+		var valFunc reflect.Value
+		if bits == -1 {
+			valType = types.String
+			bits = 0
+			isValAPointer = false
+			valFunc = reflect.ValueOf(flagGetter.String)
+		} else {
+			valFunc = reflect.ValueOf(flagGetter.Get)
+		}
+		return &value{
+			val:           valFunc,
+			unit:          unit,
+			valType:       valType,
+			bits:          bits,
+			isfunc:        true,
+			isValAPointer: isValAPointer}
+	}
 	v := reflect.ValueOf(spec)
 	t := v.Type()
 	if t.Kind() == reflect.Func {
@@ -461,7 +500,7 @@ func newValue(spec interface{}, region *region, unit units.Unit) *value {
 		if funcArgCount != 1 {
 			panic(panicBadFunctionReturnTypes)
 		}
-		valType, bits, isValAPointer := getPrimitiveType(t.Out(0))
+		valType, bits, isValAPointer := mustGetPrimitiveType(t.Out(0))
 		return &value{
 			val:           v,
 			unit:          unit,
@@ -472,7 +511,7 @@ func newValue(spec interface{}, region *region, unit units.Unit) *value {
 			isValAPointer: isValAPointer}
 	}
 	v = v.Elem()
-	valType, bits, isValAPointer := getPrimitiveType(v.Type())
+	valType, bits, isValAPointer := mustGetPrimitiveType(v.Type())
 	return &value{
 		val:           v,
 		unit:          unit,
@@ -509,8 +548,12 @@ func (v *value) evaluate(s *session) reflect.Value {
 	if !v.isfunc {
 		return v.val
 	}
-	result := v.val.Call(nil)
-	return result[0]
+	result := v.val.Call(nil)[0]
+	// Needed as the Get() method on flag values returns an interface{}.
+	if result.Type().Kind() == reflect.Interface {
+		return result.Elem()
+	}
+	return result
 }
 
 // AsXXX methods return this value as a type XX.
@@ -1021,6 +1064,40 @@ func (d *directory) registerMetric(
 		Description: description,
 		value:       newValue(value, region, unit)}
 	return current.storeMetric(path.Base(), metric)
+}
+
+func registerFlags() {
+	flagDirectory, err := RegisterDirectory("/proc/flags")
+	if err != nil {
+		panic(err)
+	}
+	flag.VisitAll(func(f *flag.Flag) {
+		flagDirectory.RegisterMetric(
+			f.Name,
+			f.Value,
+			flagUnit(f),
+			f.Usage)
+	})
+}
+
+func setFlagUnit(name string, unit units.Unit) {
+	flagUnits[name] = unit
+}
+
+func defaultUnit(val interface{}) units.Unit {
+	switch val.(type) {
+	case time.Duration:
+		return units.Second
+	default:
+		return units.None
+	}
+}
+
+func flagUnit(f *flag.Flag) units.Unit {
+	if unit, ok := flagUnits[f.Name]; ok {
+		return unit
+	}
+	return defaultUnit(f.Value.(flag.Getter).Get())
 }
 
 // pathSpec represents a relative path
