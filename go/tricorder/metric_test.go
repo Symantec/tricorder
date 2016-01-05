@@ -2,10 +2,12 @@ package tricorder
 
 import (
 	"errors"
+	"flag"
 	"github.com/Symantec/tricorder/go/tricorder/messages"
 	"github.com/Symantec/tricorder/go/tricorder/types"
 	"github.com/Symantec/tricorder/go/tricorder/units"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -24,6 +26,13 @@ var (
 	sixthGlobal   = 600
 	seventhGlobal = 700
 	eighthGlobal  = 800
+)
+
+var (
+	anIntFlag     int64
+	aDurationFlag time.Duration
+	aSliceFlag    flagValue
+	aUnitFlag     float64
 )
 
 func incrementFirstAndSecondGlobal() {
@@ -224,6 +233,9 @@ func doGlobalsTest(t *testing.T) {
 }
 
 func TestAPI(t *testing.T) {
+	RegisterFlags()
+	flag.Parse()
+
 	// Do concurrent globals test
 	registerMetricsForGlobalsTest()
 	doGlobalsTest(t)
@@ -450,6 +462,7 @@ func TestAPI(t *testing.T) {
 		root.GetDirectory("proc").List(),
 		"args",
 		"cpu",
+		"flags",
 		"foo",
 		"io",
 		"ipc",
@@ -508,6 +521,64 @@ func TestAPI(t *testing.T) {
 	if root.GetMetric("/") != nil {
 		t.Error("/ metric shouldn't exist")
 	}
+
+	// check /proc/flags/int_flag
+	anIntFlag = 923
+	anIntFlagMetric := root.GetMetric("/proc/flags/int_flag")
+	verifyMetric(t, "An integer flag", units.None, anIntFlagMetric)
+	verifyJsonValue(
+		t,
+		anIntFlagMetric, types.Int, 64,
+		int64(923))
+	verifyRpcValue(
+		t,
+		anIntFlagMetric, types.Int, 64,
+		int64(923))
+	assertValueEquals(t, "923", anIntFlagMetric.AsHtmlString(nil))
+
+	// check /proc/flags/duration_flag
+	aDurationFlag = 25 * time.Second
+	aDurationFlagMetric := root.GetMetric("/proc/flags/duration_flag")
+	verifyMetric(t, "A duration flag", units.Second, aDurationFlagMetric)
+	verifyJsonValue(
+		t,
+		aDurationFlagMetric, types.Duration, 0,
+		"25.000000000")
+	verifyRpcValue(
+		t,
+		aDurationFlagMetric, types.GoDuration, 0,
+		25*time.Second)
+	assertValueEquals(t, "25.000s", aDurationFlagMetric.AsHtmlString(nil))
+
+	// check /proc/flags/slice_flag
+	aSliceFlag.Set("one,two,three")
+	aSliceFlagMetric := root.GetMetric("/proc/flags/slice_flag")
+	verifyMetric(t, "A slice flag", units.None, aSliceFlagMetric)
+	verifyJsonValue(
+		t,
+		aSliceFlagMetric, types.String, 0,
+		"one,two,three")
+	verifyRpcValue(
+		t,
+		aSliceFlagMetric, types.String, 0,
+		"one,two,three")
+	assertValueEquals(
+		t, "\"one,two,three\"", aSliceFlagMetric.AsHtmlString(nil))
+
+	// check /proc/flags/unit_flag
+	aUnitFlag = 23.5
+	aUnitFlagMetric := root.GetMetric("/proc/flags/unit_flag")
+	verifyMetric(t, "A unit flag", units.Celsius, aUnitFlagMetric)
+	verifyJsonValue(
+		t,
+		aUnitFlagMetric, types.Float, 64,
+		23.5)
+	verifyRpcValue(
+		t,
+		aUnitFlagMetric, types.Float, 64,
+		23.5)
+	assertValueEquals(
+		t, "23.5", aUnitFlagMetric.AsHtmlString(nil))
 
 	// Check /testargs
 	argsMetric := root.GetMetric("/testargs")
@@ -1191,4 +1262,27 @@ func verifyGetAllMetricsByPath(
 	if !reflect.DeepEqual(expectedPaths, ([]string)(actual)) {
 		t.Errorf("Expected %v, got %v", expectedPaths, actual)
 	}
+}
+
+type flagValue []string
+
+func (f flagValue) String() string {
+	return strings.Join(f, ",")
+}
+
+func (f *flagValue) Set(s string) error {
+	*f = strings.Split(s, ",")
+	return nil
+}
+
+func (f flagValue) Get() interface{} {
+	return ([]string)(f)
+}
+
+func init() {
+	flag.Int64Var(&anIntFlag, "int_flag", 0, "An integer flag")
+	flag.DurationVar(&aDurationFlag, "duration_flag", time.Minute, "A duration flag")
+	flag.Var(&aSliceFlag, "slice_flag", "A slice flag")
+	flag.Float64Var(&aUnitFlag, "unit_flag", 0.0, "A unit flag")
+	SetFlagUnit("unit_flag", units.Celsius)
 }
