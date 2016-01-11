@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"github.com/Symantec/tricorder/go/tricorder"
 	"github.com/Symantec/tricorder/go/tricorder/units"
-	"github.com/gorilla/context"
-	"github.com/keep94/weblogs"
 	"log"
 	"net/http"
 	"net/rpc"
@@ -80,13 +78,7 @@ func rpcCountCallback() uint64 {
 func main() {
 	registerMetrics()
 	rpc.HandleHTTP()
-	defaultHandler := context.ClearHandler(
-		weblogs.HandlerWithOptions(
-			http.DefaultServeMux,
-			&weblogs.Options{
-				Logger: weblogs.ApacheCommonLogger()}))
-	if err := http.ListenAndServe(
-		":8080", defaultHandler); err != nil {
+	if err := http.ListenAndServe(":8080", nil); err != nil {
 		fmt.Println(err)
 	}
 }
