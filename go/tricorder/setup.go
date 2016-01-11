@@ -37,7 +37,7 @@ func initDefaultMetrics() {
 		syscall.Getrusage(syscall.RUSAGE_SELF, &resourceUsage)
 		userTime = timeValToDuration(&resourceUsage.Utime)
 		sysTime = timeValToDuration(&resourceUsage.Stime)
-		maxResidentSetSize = resourceUsage.Maxrss * 1024
+		maxResidentSetSize = int64(resourceUsage.Maxrss) * 1024
 	})
 	RegisterMetricInRegion(
 		"/proc/cpu/user",
