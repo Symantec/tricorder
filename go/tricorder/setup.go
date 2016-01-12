@@ -2,6 +2,7 @@ package tricorder
 
 import (
 	"github.com/Symantec/tricorder/go/tricorder/units"
+	"github.com/Symantec/tricorder/go/tricorder/wrapper"
 	"os"
 	"runtime"
 	"strings"
@@ -13,7 +14,7 @@ func getProgramArgs() string {
 	return strings.Join(os.Args[1:], "|")
 }
 
-func timeValToDuration(val *syscall.Timeval) time.Duration {
+func timeValToDuration(val *wrapper.Timeval) time.Duration {
 	return time.Duration(val.Sec)*time.Second + time.Duration(val.Usec)*time.Nanosecond
 }
 
@@ -29,15 +30,15 @@ func initDefaultMetrics() {
 		memStatsRegion,
 		units.Byte,
 		"Memory system has allocated to process")
-	var resourceUsage syscall.Rusage
+	var resourceUsage wrapper.Rusage
 	var userTime time.Duration
 	var sysTime time.Duration
 	var maxResidentSetSize int64
 	resourceUsageRegion := RegisterRegion(func() {
-		syscall.Getrusage(syscall.RUSAGE_SELF, &resourceUsage)
+		wrapper.Getrusage(syscall.RUSAGE_SELF, &resourceUsage)
 		userTime = timeValToDuration(&resourceUsage.Utime)
 		sysTime = timeValToDuration(&resourceUsage.Stime)
-		maxResidentSetSize = int64(resourceUsage.Maxrss) * 1024
+		maxResidentSetSize = resourceUsage.Maxrss
 	})
 	RegisterMetricInRegion(
 		"/proc/cpu/user",
