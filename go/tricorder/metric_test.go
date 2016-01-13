@@ -996,7 +996,7 @@ func TestArbitraryDistribution(t *testing.T) {
 		dist.Add(float64(i))
 	}
 	actual := dist.Snapshot()
-	if actual.Median < 50.0 || actual.Median >= 51 {
+	if actual.Median < 49.5 || actual.Median >= 51.5 {
 		t.Errorf("Median out of range: %f", actual.Median)
 	}
 	expected := &snapshot{

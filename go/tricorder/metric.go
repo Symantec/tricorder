@@ -313,28 +313,14 @@ func findDistributionIndex(pieces []*bucketPiece, value float64) int {
 	})
 }
 
-func valueIndexToPiece(counts []uint64, valueIdx float64) (
-	pieceIdx int, frac float64) {
-	pieceIdx = 0
-	startValueIdxInPiece := -0.5
-	for valueIdx-startValueIdxInPiece >= float64(counts[pieceIdx]) {
-		startValueIdxInPiece += float64(counts[pieceIdx])
+func (d *distribution) indexToValue(valueIdx uint64) float64 {
+	pieceIdx := 0
+	var startValueIdxInPiece uint64
+	for valueIdx-startValueIdxInPiece >= d.counts[pieceIdx] {
+		startValueIdxInPiece += d.counts[pieceIdx]
 		pieceIdx++
 	}
-	return pieceIdx, (valueIdx - startValueIdxInPiece) / float64(counts[pieceIdx])
-
-}
-
-func interpolate(min float64, max float64, frac float64) float64 {
-	return (1.0-frac)*min + frac*max
-}
-
-func (d *distribution) calculateMedian() float64 {
-	if d.count == 1 {
-		return d.min
-	}
-	medianIndex := float64(d.count-1) / 2.0
-	pieceIdx, frac := valueIndexToPiece(d.counts, medianIndex)
+	frac := float64(valueIdx-startValueIdxInPiece+1) / float64(d.counts[pieceIdx]+1)
 	pieceLen := len(d.pieces)
 	if pieceIdx == 0 {
 		return interpolate(
@@ -347,6 +333,20 @@ func (d *distribution) calculateMedian() float64 {
 		math.Max(d.pieces[pieceIdx].Start, d.min),
 		math.Min(d.pieces[pieceIdx].End, d.max),
 		frac)
+}
+
+func interpolate(min float64, max float64, frac float64) float64 {
+	return (1.0-frac)*min + frac*max
+}
+
+func (d *distribution) calculateMedian() float64 {
+	if d.count <= 2 {
+		return d.total / float64(d.count)
+	}
+	if d.count%2 == 0 {
+		return (d.indexToValue(d.count/2-1) + d.indexToValue(d.count/2)) / 2.0
+	}
+	return d.indexToValue(d.count / 2)
 }
 
 // Snapshot fetches the snapshot of this distribution atomically
