@@ -247,8 +247,9 @@ type snapshot struct {
 
 // distribution represents a distribution of values same as Distribution
 type distribution struct {
-	// Protects all fields except pieces whose contents never changes
-	// and unit which never changes after RegisterMetric sets it.
+	// Protects all fields except pieces whose contents never changes,
+	// isNotCumulative, and unit which never changes after
+	// RegisterMetric sets it.
 	lock            sync.RWMutex
 	pieces          []*bucketPiece
 	unit            units.Unit
@@ -261,28 +262,29 @@ type distribution struct {
 	isNotCumulative bool
 }
 
-func newDistribution(bucketer *Bucketer) *distribution {
+func newDistribution(bucketer *Bucketer, isNotCumulative bool) *distribution {
 	return &distribution{
-		pieces: bucketer.pieces,
-		unit:   units.None,
-		counts: make([]uint64, len(bucketer.pieces)),
+		pieces:          bucketer.pieces,
+		unit:            units.None,
+		counts:          make([]uint64, len(bucketer.pieces)),
+		isNotCumulative: isNotCumulative,
 	}
+}
+
+func (d *distribution) Sum() float64 {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	return d.total
 }
 
 func (d *distribution) Add(value interface{}) {
-	switch v := value.(type) {
-	case time.Duration:
-		(*distribution)(d).add(d.goDurationToFloat(v))
-	case float32:
-		(*distribution)(d).add(float64(v))
-	case float64:
-		(*distribution)(d).add(v)
-	default:
-		panic(panicTypeMismatch)
-	}
+	d.add(d.valueToFloat(value))
 }
 
-// Add adds a value to this distribution
+func (d *distribution) Update(oldValue, newValue interface{}) {
+	d.update(d.valueToFloat(oldValue), d.valueToFloat(newValue))
+}
+
 func (d *distribution) add(value float64) {
 	idx := findDistributionIndex(d.pieces, value)
 	d.lock.Lock()
@@ -299,6 +301,41 @@ func (d *distribution) add(value float64) {
 	}
 	d.count++
 	d.generation++
+}
+
+func (d *distribution) update(oldValue, newValue float64) {
+	if d.count == 0 {
+		panic("Can't call update on an empty distribution.")
+	}
+	if !d.isNotCumulative {
+		panic("Cannot call update on a cumulative distribution.")
+	}
+	oldIdx := findDistributionIndex(d.pieces, oldValue)
+	newIdx := findDistributionIndex(d.pieces, newValue)
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	d.counts[newIdx]++
+	d.counts[oldIdx]--
+	d.total += (newValue - oldValue)
+	if newValue < d.min {
+		d.min = newValue
+	} else if newValue > d.max {
+		d.max = newValue
+	}
+	d.generation++
+}
+
+func (d *distribution) valueToFloat(value interface{}) float64 {
+	switch v := value.(type) {
+	case time.Duration:
+		return d.goDurationToFloat(v)
+	case float32:
+		return float64(v)
+	case float64:
+		return v
+	default:
+		panic(panicTypeMismatch)
+	}
 }
 
 func (d *distribution) goDurationToFloat(dur time.Duration) float64 {
@@ -318,28 +355,14 @@ func findDistributionIndex(pieces []*bucketPiece, value float64) int {
 	})
 }
 
-func valueIndexToPiece(counts []uint64, valueIdx float64) (
-	pieceIdx int, frac float64) {
-	pieceIdx = 0
-	startValueIdxInPiece := -0.5
-	for valueIdx-startValueIdxInPiece >= float64(counts[pieceIdx]) {
-		startValueIdxInPiece += float64(counts[pieceIdx])
+func (d *distribution) indexToValue(valueIdx uint64) float64 {
+	pieceIdx := 0
+	var startValueIdxInPiece uint64
+	for valueIdx-startValueIdxInPiece >= d.counts[pieceIdx] {
+		startValueIdxInPiece += d.counts[pieceIdx]
 		pieceIdx++
 	}
-	return pieceIdx, (valueIdx - startValueIdxInPiece) / float64(counts[pieceIdx])
-
-}
-
-func interpolate(min float64, max float64, frac float64) float64 {
-	return (1.0-frac)*min + frac*max
-}
-
-func (d *distribution) calculateMedian() float64 {
-	if d.count == 1 {
-		return d.min
-	}
-	medianIndex := float64(d.count-1) / 2.0
-	pieceIdx, frac := valueIndexToPiece(d.counts, medianIndex)
+	frac := float64(valueIdx-startValueIdxInPiece+1) / float64(d.counts[pieceIdx]+1)
 	pieceLen := len(d.pieces)
 	if pieceIdx == 0 {
 		return interpolate(
@@ -352,6 +375,20 @@ func (d *distribution) calculateMedian() float64 {
 		math.Max(d.pieces[pieceIdx].Start, d.min),
 		math.Min(d.pieces[pieceIdx].End, d.max),
 		frac)
+}
+
+func interpolate(min float64, max float64, frac float64) float64 {
+	return (1.0-frac)*min + frac*max
+}
+
+func (d *distribution) calculateMedian() float64 {
+	if d.count <= 2 {
+		return d.total / float64(d.count)
+	}
+	if d.count%2 == 0 {
+		return (d.indexToValue(d.count/2-1) + d.indexToValue(d.count/2)) / 2.0
+	}
+	return d.indexToValue(d.count / 2)
 }
 
 // Snapshot fetches the snapshot of this distribution atomically
@@ -466,20 +503,22 @@ func mustGetPrimitiveType(t reflect.Type) (
 // unit parameter only used if spec is a *Distribution
 // In that case, it sets the unit of the *Distribution in place.
 func newValue(spec interface{}, region *region, unit units.Unit) *value {
-	capCumDist, ok := spec.(*CumulativeDistribution)
-	if ok {
-		dist := (*distribution)(capCumDist)
+	if someDist, ok := spec.(*NonCumulativeDistribution); ok {
+		dist := (*distribution)(someDist)
 		dist.unit = unit
 		return &value{dist: dist, unit: unit, valType: types.Dist}
 	}
-	capDist, ok := spec.(*Distribution)
-	if ok {
-		dist := (*distribution)(capDist)
+	if someDist, ok := spec.(*CumulativeDistribution); ok {
+		dist := (*distribution)(someDist)
 		dist.unit = unit
 		return &value{dist: dist, unit: unit, valType: types.Dist}
 	}
-	dist, ok := spec.(*distribution)
-	if ok {
+	if someDist, ok := spec.(*Distribution); ok {
+		dist := (*distribution)(someDist)
+		dist.unit = unit
+		return &value{dist: dist, unit: unit, valType: types.Dist}
+	}
+	if dist, ok := spec.(*distribution); ok {
 		dist.unit = unit
 		return &value{dist: dist, unit: unit, valType: types.Dist}
 	}
