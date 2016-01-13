@@ -186,7 +186,7 @@ If code generates a metric's value, register the callback function like so
 Tricorder can collect a distribution of values in a metric. In distributions, values are always floats. With distributions, the client program must manually add values. Unlike registering metrics, distribution instances are
 safe to use from multiple goroutines.
 
-	globalDist := tricorder.NewDistribution(tricorder.PowersOfTen)
+	globalDist := tricorder.PowersOfTen.NewCumulativeDistribution()
 	tricorder.RegisterMetric(
 		"path/to/distribution",
 		globalDist,
