@@ -993,9 +993,16 @@ func TestArbitraryDistribution(t *testing.T) {
 	verifyBucketer(t, bucketer, 10.0, 22.0, 50.0)
 	dist := newDistribution(bucketer)
 	for i := 100; i >= 1; i-- {
-		dist.Add(float64(i))
+		dist.Add(100.0)
 	}
 	actual := dist.Snapshot()
+	if actual.Median != 100.0 {
+		t.Errorf("Expected median to be 100: %f", actual.Median)
+	}
+	for i := 100; i >= 1; i-- {
+		dist.Update(100.0, float64(i))
+	}
+	actual = dist.Snapshot()
 	if actual.Median < 49.5 || actual.Median >= 51.5 {
 		t.Errorf("Median out of range: %f", actual.Median)
 	}

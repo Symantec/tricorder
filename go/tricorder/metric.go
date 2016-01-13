@@ -266,19 +266,13 @@ func newDistribution(bucketer *Bucketer) *distribution {
 }
 
 func (d *distribution) Add(value interface{}) {
-	switch v := value.(type) {
-	case time.Duration:
-		(*distribution)(d).add(d.goDurationToFloat(v))
-	case float32:
-		(*distribution)(d).add(float64(v))
-	case float64:
-		(*distribution)(d).add(v)
-	default:
-		panic(panicTypeMismatch)
-	}
+	d.add(d.valueToFloat(value))
 }
 
-// Add adds a value to this distribution
+func (d *distribution) Update(oldValue, newValue interface{}) {
+	d.update(d.valueToFloat(oldValue), d.valueToFloat(newValue))
+}
+
 func (d *distribution) add(value float64) {
 	idx := findDistributionIndex(d.pieces, value)
 	d.lock.Lock()
@@ -294,6 +288,37 @@ func (d *distribution) add(value float64) {
 		d.max = value
 	}
 	d.count++
+}
+
+func (d *distribution) update(oldValue, newValue float64) {
+	if d.count == 0 {
+		panic("Can't call update on an empty distribution.")
+	}
+	oldIdx := findDistributionIndex(d.pieces, oldValue)
+	newIdx := findDistributionIndex(d.pieces, newValue)
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	d.counts[newIdx]++
+	d.counts[oldIdx]--
+	d.total += (newValue - oldValue)
+	if newValue < d.min {
+		d.min = newValue
+	} else if newValue > d.max {
+		d.max = newValue
+	}
+}
+
+func (d *distribution) valueToFloat(value interface{}) float64 {
+	switch v := value.(type) {
+	case time.Duration:
+		return d.goDurationToFloat(v)
+	case float32:
+		return float64(v)
+	case float64:
+		return v
+	default:
+		panic(panicTypeMismatch)
+	}
 }
 
 func (d *distribution) goDurationToFloat(dur time.Duration) float64 {
