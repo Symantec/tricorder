@@ -13,7 +13,7 @@ func registerMetrics() {
 	var temperature float64
 	var someBool bool
 
-	rpcDistribution := tricorder.PowersOfTen.NewDistribution()
+	rpcDistribution := tricorder.PowersOfTen.NewCumulativeDistribution()
 
 	if err := tricorder.RegisterMetric(
 		"/proc/rpc-latency",
