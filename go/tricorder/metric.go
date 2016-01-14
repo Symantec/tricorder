@@ -257,6 +257,12 @@ type distribution struct {
 	count  uint64
 }
 
+func (d *distribution) Sum() float64 {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	return d.total
+}
+
 func newDistribution(bucketer *Bucketer) *distribution {
 	return &distribution{
 		pieces: bucketer.pieces,

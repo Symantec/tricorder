@@ -142,6 +142,11 @@ func (d *Distribution) Update(oldValue, newValue interface{}) {
 	(*distribution)(d).Update(oldValue, newValue)
 }
 
+// Sum returns the sum of the values in this distribution.
+func (d *Distribution) Sum() float64 {
+	return (*distribution)(d).Sum()
+}
+
 // DirectorySpec represents a specific directory in the heirarchy of
 // metrics.
 type DirectorySpec directory
