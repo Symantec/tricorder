@@ -131,6 +131,22 @@ func (d *Distribution) Add(value interface{}) {
 	(*distribution)(d).Add(value)
 }
 
+// Update updates a value in this distribution instance.
+// value can be a float32, float64, or a time.Duration.
+// If a time.Duration, Add converts it to the same unit of time specified in
+// the RegisterMetric call made to register this Distribution.
+// Update updates all distribution statistics except min and max.
+// When a client uses Update, they accept that min and max become all time
+// min and all time max.
+func (d *Distribution) Update(oldValue, newValue interface{}) {
+	(*distribution)(d).Update(oldValue, newValue)
+}
+
+// Sum returns the sum of the values in this distribution.
+func (d *Distribution) Sum() float64 {
+	return (*distribution)(d).Sum()
+}
+
 // DirectorySpec represents a specific directory in the heirarchy of
 // metrics.
 type DirectorySpec directory
