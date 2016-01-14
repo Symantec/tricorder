@@ -43,6 +43,9 @@ type Distribution struct {
 	Sum float64 `json:"sum"`
 	// The total number of values
 	Count uint64 `json:"count"`
+	// This field is incremented by 1 each time this distribution changes
+	// This distribution is cumulative iff Count == Generation.
+	Generation uint64 `json:"generation"`
 	// The number of values within each range
 	Ranges []*RangeWithCount `json:"ranges,omitempty"`
 }

@@ -253,7 +253,7 @@ func TestAPI(t *testing.T) {
 	var speedInBytesPerSecond uint32
 
 	rpcBucketer := NewExponentialBucketer(6, 10, 2.5)
-	rpcDistribution := rpcBucketer.NewDistribution()
+	rpcDistribution := rpcBucketer.NewCumulativeDistribution()
 
 	if err := RegisterMetric(
 		"/bytes/bytes",
@@ -844,12 +844,13 @@ func TestAPI(t *testing.T) {
 	expected := &messages.Metric{
 		Kind: types.Dist,
 		Value: &messages.Distribution{
-			Min:     0.0,
-			Max:     499.0,
-			Average: 249.5,
-			Sum:     124750.0,
-			Median:  actual.Value.(*messages.Distribution).Median,
-			Count:   500,
+			Min:        0.0,
+			Max:        499.0,
+			Average:    249.5,
+			Sum:        124750.0,
+			Median:     actual.Value.(*messages.Distribution).Median,
+			Count:      500,
+			Generation: 500,
 			Ranges: []*messages.RangeWithCount{
 				{
 					Upper: 10.0,
@@ -894,12 +895,13 @@ func TestAPI(t *testing.T) {
 	expectedRpc := &messages.Metric{
 		Kind: types.Dist,
 		Value: &messages.Distribution{
-			Min:     0.0,
-			Max:     499.0,
-			Average: 249.5,
-			Sum:     124750.0,
-			Median:  actualRpc.Value.(*messages.Distribution).Median,
-			Count:   500,
+			Min:        0.0,
+			Max:        499.0,
+			Average:    249.5,
+			Sum:        124750.0,
+			Median:     actualRpc.Value.(*messages.Distribution).Median,
+			Count:      500,
+			Generation: 500,
 			Ranges: []*messages.RangeWithCount{
 				{
 					Upper: 10.0,
@@ -1004,9 +1006,10 @@ func TestArbitraryDistribution(t *testing.T) {
 		Max:     100.0,
 		Average: 50.5,
 		// Let exact matching pass
-		Median: actual.Median,
-		Sum:    5050.0,
-		Count:  100,
+		Median:     actual.Median,
+		Sum:        5050.0,
+		Count:      100,
+		Generation: 100,
 		Breakdown: breakdown{
 			{
 				bucketPiece: &bucketPiece{

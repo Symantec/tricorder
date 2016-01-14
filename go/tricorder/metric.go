@@ -234,27 +234,29 @@ type breakdown []breakdownPiece
 
 // snapshot represents a snapshot of a distribution
 type snapshot struct {
-	Min       float64
-	Max       float64
-	Average   float64
-	Median    float64
-	Sum       float64
-	Count     uint64
-	Breakdown breakdown
+	Min        float64
+	Max        float64
+	Average    float64
+	Median     float64
+	Sum        float64
+	Count      uint64
+	Generation uint64
+	Breakdown  breakdown
 }
 
 // distribution represents a distribution of values same as Distribution
 type distribution struct {
 	// Protects all fields except pieces whose contents never changes
 	// and unit which never changes after RegisterMetric sets it.
-	lock   sync.RWMutex
-	pieces []*bucketPiece
-	unit   units.Unit
-	counts []uint64
-	total  float64
-	min    float64
-	max    float64
-	count  uint64
+	lock       sync.RWMutex
+	pieces     []*bucketPiece
+	unit       units.Unit
+	counts     []uint64
+	total      float64
+	min        float64
+	max        float64
+	count      uint64
+	generation uint64
 }
 
 func newDistribution(bucketer *Bucketer) *distribution {
@@ -294,6 +296,7 @@ func (d *distribution) add(value float64) {
 		d.max = value
 	}
 	d.count++
+	d.generation++
 }
 
 func (d *distribution) goDurationToFloat(dur time.Duration) float64 {
@@ -367,13 +370,14 @@ func (d *distribution) Snapshot() *snapshot {
 		}
 	}
 	return &snapshot{
-		Min:       d.min,
-		Max:       d.max,
-		Average:   d.total / float64(d.count),
-		Median:    d.calculateMedian(),
-		Sum:       d.total,
-		Count:     d.count,
-		Breakdown: bdn,
+		Min:        d.min,
+		Max:        d.max,
+		Average:    d.total / float64(d.count),
+		Median:     d.calculateMedian(),
+		Sum:        d.total,
+		Count:      d.count,
+		Generation: d.generation,
+		Breakdown:  bdn,
 	}
 
 }
@@ -459,6 +463,12 @@ func mustGetPrimitiveType(t reflect.Type) (
 // unit parameter only used if spec is a *Distribution
 // In that case, it sets the unit of the *Distribution in place.
 func newValue(spec interface{}, region *region, unit units.Unit) *value {
+	capCumDist, ok := spec.(*CumulativeDistribution)
+	if ok {
+		dist := (*distribution)(capCumDist)
+		dist.unit = unit
+		return &value{dist: dist, unit: unit, valType: types.Dist}
+	}
 	capDist, ok := spec.(*Distribution)
 	if ok {
 		dist := (*distribution)(capDist)
@@ -669,13 +679,14 @@ func (v *value) updateJsonOrRpcMetric(
 		snapshot := v.AsDistribution().Snapshot()
 		metric.Kind = t
 		metric.Value = &messages.Distribution{
-			Min:     snapshot.Min,
-			Max:     snapshot.Max,
-			Average: snapshot.Average,
-			Median:  snapshot.Median,
-			Sum:     snapshot.Sum,
-			Count:   snapshot.Count,
-			Ranges:  asRanges(snapshot.Breakdown)}
+			Min:        snapshot.Min,
+			Max:        snapshot.Max,
+			Average:    snapshot.Average,
+			Median:     snapshot.Median,
+			Sum:        snapshot.Sum,
+			Count:      snapshot.Count,
+			Generation: snapshot.Generation,
+			Ranges:     asRanges(snapshot.Breakdown)}
 	default:
 		panic(panicIncompatibleTypes)
 	}

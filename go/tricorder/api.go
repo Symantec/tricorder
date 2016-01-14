@@ -60,9 +60,7 @@ func RegisterMetricInRegion(
 	return root.registerMetric(newPathSpec(path), metric, (*region)(r), unit, description)
 }
 
-// Bucketer represents the organization of buckets for Distribution
-// instances. Because bucketer instances are immutable, multiple distribution
-// instances can share the same Bucketer instance.
+// Bucketer represents the organization of values into buckets.
 type Bucketer struct {
 	pieces []*bucketPiece
 }
@@ -108,25 +106,39 @@ func NewArbitraryBucketer(endpoints ...float64) *Bucketer {
 // of the form 10^k, 2*10^k, 5*10^k. lower is the lower bound of
 // the endpoints; upper is the upper bound of the endpoints.
 // NewGeometricBucker(0.5, 50) ==>
-// <0.5; 0.5-1; 1-2; 2-5; 5-10; 10-20; 20-50; >50
+// <0.5; 0.5-1; 1-2; 2-5; 5-10; 10-20; 20-50; >=50
 func NewGeometricBucketer(lower, upper float64) *Bucketer {
 	return newBucketerFromEndpoints(
 		newGeometricBucketerStream(lower, upper))
 }
 
-// NewDistribution creates a new Distribution that uses this bucketer
-// to distribute values.
+// Deprecated. Please use NewCumulativeDistribution().
 func (b *Bucketer) NewDistribution() *Distribution {
 	return (*Distribution)(newDistribution(b))
 }
 
-// Distribution represents a metric that is a distribution of value.
-type Distribution distribution
+// NewCumulativeDistribution creates a new CumulativeDistribution that uses
+// this bucketer to distribute values.
+func (b *Bucketer) NewCumulativeDistribution() *CumulativeDistribution {
+	return (*CumulativeDistribution)(newDistribution(b))
+}
 
-// Add adds a single value to a Distribution instance.
+// CumulativeDistribution represents a metric that is a distribution of
+// values. Cumulative distributions only receive new values.
+type CumulativeDistribution distribution
+
+// Add adds a single value to a CumulativeDistribution instance.
 // value can be a float32, float64, or a time.Duration.
 // If a time.Duration, Add converts it to the same unit of time specified in
-// the RegisterMetric call made to register this Distribution.
+// the RegisterMetric call made to register this instance.
+func (c *CumulativeDistribution) Add(value interface{}) {
+	(*distribution)(c).Add(value)
+}
+
+// Deprecated. Please use CumulativeDistribution.
+type Distribution distribution
+
+// Deprecated. Please use CumulativeDistribution.
 func (d *Distribution) Add(value interface{}) {
 	(*distribution)(d).Add(value)
 }
