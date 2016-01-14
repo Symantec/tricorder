@@ -60,7 +60,8 @@ func RegisterMetricInRegion(
 	return root.registerMetric(newPathSpec(path), metric, (*region)(r), unit, description)
 }
 
-// Bucketer represents the organization of values into buckets.
+// Bucketer represents the organization of values into buckets for
+// distributions. Bucketer instances are immutable.
 type Bucketer struct {
 	pieces []*bucketPiece
 }
