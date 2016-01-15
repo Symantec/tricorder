@@ -513,11 +513,6 @@ func newValue(spec interface{}, region *region, unit units.Unit) *value {
 		dist.unit = unit
 		return &value{dist: dist, unit: unit, valType: types.Dist}
 	}
-	if someDist, ok := spec.(*Distribution); ok {
-		dist := (*distribution)(someDist)
-		dist.unit = unit
-		return &value{dist: dist, unit: unit, valType: types.Dist}
-	}
 	if dist, ok := spec.(*distribution); ok {
 		dist.unit = unit
 		return &value{dist: dist, unit: unit, valType: types.Dist}
