@@ -115,25 +115,81 @@ func NewGeometricBucketer(lower, upper float64) *Bucketer {
 
 // Deprecated. Please use NewCumulativeDistribution().
 func (b *Bucketer) NewDistribution() *Distribution {
-	return (*Distribution)(newDistribution(b))
+	return (*Distribution)(newDistribution(b, false))
 }
 
 // NewCumulativeDistribution creates a new CumulativeDistribution that uses
 // this bucketer to distribute values.
 func (b *Bucketer) NewCumulativeDistribution() *CumulativeDistribution {
-	return (*CumulativeDistribution)(newDistribution(b))
+	return (*CumulativeDistribution)(newDistribution(b, false))
+}
+
+// NewNonCumulativeDistribution creates a new NonCumulativeDistribution that
+// uses this bucketer to distribute values.
+func (b *Bucketer) NewNonCumulativeDistribution() *NonCumulativeDistribution {
+	return (*NonCumulativeDistribution)(newDistribution(b, true))
 }
 
 // CumulativeDistribution represents a metric that is a distribution of
 // values. Cumulative distributions only receive new values.
 type CumulativeDistribution distribution
 
-// Add adds a single value to a CumulativeDistribution instance.
+// Add adds a single value to this CumulativeDistribution instance.
 // value can be a float32, float64, or a time.Duration.
 // If a time.Duration, Add converts it to the same unit of time specified in
 // the RegisterMetric call made to register this instance.
 func (c *CumulativeDistribution) Add(value interface{}) {
 	(*distribution)(c).Add(value)
+}
+
+// Unlike in CumulativeDistributions,values in NonCumulativeDistributions
+// can change shifting from bucket to bucket.
+type NonCumulativeDistribution distribution
+
+// Add adds a single value to this NonCumulativeDistribution instance.
+// value can be a float32, float64, or a time.Duration.
+// If a time.Duration, Add converts it to the same unit of time specified in
+// the RegisterMetric call made to register this instance.
+func (c *NonCumulativeDistribution) Add(value interface{}) {
+	(*distribution)(c).Add(value)
+}
+
+// Update updates a value in this NonCumulativeDistribution instance.
+// oldValue and newValue can be a float32, float64, or a time.Duration.
+// If a time.Duration, Update converts them to the same unit of time specified
+// in the RegisterMetric call made to register this instance.
+// The reliability of Update() depends on the caller providing the correct
+// old value of what is being changed. Failure to do this results in
+// undefined behavior.
+// Update updates all distribution statistics in the expected way; however,
+// it updates min and max such that min only gets smaller and max only gets
+// larger. If update Updates values such that they fall into a narrower
+// range than before, min and max remain unchanged to indicate the all-time
+// min and all-time max. To have min and max reflect the current min and max
+// instead of the all-time min and max, see UpdateMinMax().
+func (d *NonCumulativeDistribution) Update(oldValue, newValue interface{}) {
+	(*distribution)(d).Update(oldValue, newValue)
+}
+
+// UpdateMinMax() estimates the current min and max of this distribution.
+// and updates min and max accordingly.
+// As this call may be expensive, clients need not use unless both are
+// true:
+// 1) the client has made calls to Update which narrowed the current
+// min and max.
+// 2) The client wants min and max to to reflect the current min and max
+// instead of the all-time min and max.
+// This method only estimates. The only guarantees that it makes
+// upon returning are:
+// original_min <= min <= current_min and old_max >= max >= current_max.
+// In fact, calling this method may do nothing at all which would still be
+// correct behavior.
+func (d *NonCumulativeDistribution) UpdateMinMax() {
+}
+
+// Sum returns the sum of the values in this distribution.
+func (d *NonCumulativeDistribution) Sum() float64 {
+	return (*distribution)(d).Sum()
 }
 
 // Deprecated. Please use CumulativeDistribution.
