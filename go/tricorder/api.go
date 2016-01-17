@@ -113,11 +113,6 @@ func NewGeometricBucketer(lower, upper float64) *Bucketer {
 		newGeometricBucketerStream(lower, upper))
 }
 
-// Deprecated. Please use NewCumulativeDistribution().
-func (b *Bucketer) NewDistribution() *Distribution {
-	return (*Distribution)(newDistribution(b, false))
-}
-
 // NewCumulativeDistribution creates a new CumulativeDistribution that uses
 // this bucketer to distribute values.
 func (b *Bucketer) NewCumulativeDistribution() *CumulativeDistribution {
@@ -190,14 +185,6 @@ func (d *NonCumulativeDistribution) UpdateMinMax() {
 // Sum returns the sum of the values in this distribution.
 func (d *NonCumulativeDistribution) Sum() float64 {
 	return (*distribution)(d).Sum()
-}
-
-// Deprecated. Please use CumulativeDistribution.
-type Distribution distribution
-
-// Deprecated. Please use CumulativeDistribution.
-func (d *Distribution) Add(value interface{}) {
-	(*distribution)(d).Add(value)
 }
 
 // DirectorySpec represents a specific directory in the heirarchy of
