@@ -1013,6 +1013,10 @@ func TestArbitraryDistribution(t *testing.T) {
 	for i := 100; i >= 1; i-- {
 		dist.Update(100.0, float64(i))
 	}
+	for i := 0; i < 100; i++ {
+		dist.Add(100.0)
+		dist.Remove(100.0)
+	}
 	actual = dist.Snapshot()
 	if actual.Median < 49.5 || actual.Median >= 51.5 {
 		t.Errorf("Median out of range: %f", actual.Median)
@@ -1025,7 +1029,7 @@ func TestArbitraryDistribution(t *testing.T) {
 		Median:          actual.Median,
 		Sum:             5050.0,
 		Count:           100,
-		Generation:      200,
+		Generation:      400,
 		IsNotCumulative: true,
 		Breakdown: breakdown{
 			{
