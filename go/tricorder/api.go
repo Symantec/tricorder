@@ -182,6 +182,21 @@ func (d *NonCumulativeDistribution) Update(oldValue, newValue interface{}) {
 func (d *NonCumulativeDistribution) UpdateMinMax() {
 }
 
+// Remove removes a value from this NonCumulativeDistribution instance.
+// valueToBeRemoved can be a float32, float64, or a time.Duration.
+// If a time.Duration, Remove converts it to the same unit of time
+// specified in the RegisterMetric call made to register this instance.
+// The reliability of Remove() depends on the caller providing a value
+// already in the distribution. Failure to do this results in
+// undefined behavior.
+// Remove updates all distribution statistics in the expected way; however,
+// it leaves min and max unchanged.
+// To have min and max reflect the current min and max
+// instead of the all-time min and max, see UpdateMinMax().
+func (d *NonCumulativeDistribution) Remove(valueToBeRemoved interface{}) {
+	(*distribution)(d).Remove(valueToBeRemoved)
+}
+
 // Sum returns the sum of the values in this distribution.
 func (d *NonCumulativeDistribution) Sum() float64 {
 	return (*distribution)(d).Sum()

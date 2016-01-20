@@ -285,6 +285,10 @@ func (d *distribution) Update(oldValue, newValue interface{}) {
 	d.update(d.valueToFloat(oldValue), d.valueToFloat(newValue))
 }
 
+func (d *distribution) Remove(valueToBeRemoved interface{}) {
+	d.remove(d.valueToFloat(valueToBeRemoved))
+}
+
 func (d *distribution) add(value float64) {
 	idx := findDistributionIndex(d.pieces, value)
 	d.lock.Lock()
@@ -322,6 +326,22 @@ func (d *distribution) update(oldValue, newValue float64) {
 	} else if newValue > d.max {
 		d.max = newValue
 	}
+	d.generation++
+}
+
+func (d *distribution) remove(valueToBeRemoved float64) {
+	if d.count == 0 {
+		panic("Can't call remove on an empty distribution.")
+	}
+	if !d.isNotCumulative {
+		panic("Cannot call remove on a cumulative distribution.")
+	}
+	idx := findDistributionIndex(d.pieces, valueToBeRemoved)
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	d.counts[idx]--
+	d.total -= valueToBeRemoved
+	d.count--
 	d.generation++
 }
 
