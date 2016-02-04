@@ -598,7 +598,7 @@ func (v *value) Unit() units.Unit {
 	return v.unit
 }
 
-// Bits returns the size in bits if the type is an Int, Uint, for Float.
+// Bits returns the size in bits if the type is an Int, Uint, or Float.
 // Otherwise Bits returns 0.
 func (v *value) Bits() int {
 	return v.bits
@@ -652,7 +652,19 @@ func (v *value) AsFloat(s *session) float64 {
 	if v.valType != types.Float {
 		panic(panicIncompatibleTypes)
 	}
-	return v.evaluate(s).Float()
+	switch v.bits {
+	case 64:
+		return v.evaluate(s).Float()
+	case 32:
+		result, err := strconv.ParseFloat(strconv.FormatFloat(v.evaluate(s).Float(), 'g', -1, 32), 64)
+		// should not happen
+		if err != nil {
+			panic(err)
+		}
+		return result
+	default:
+		panic(fmt.Sprintf("Unrecognized bit size %d with float", v.bits))
+	}
 }
 
 func (v *value) AsString(s *session) string {

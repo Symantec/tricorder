@@ -799,15 +799,15 @@ func TestAPI(t *testing.T) {
 		t,
 		bazMetric, types.Float,
 		32,
-		12.375)
+		12.962)
 
 	verifyRpcValue(
 		t,
 		bazMetric, types.Float,
 		32,
-		12.375)
+		12.962)
 
-	assertValueEquals(t, "12.375", bazMetric.AsHtmlString(nil))
+	assertValueEquals(t, "12.962", bazMetric.AsHtmlString(nil))
 
 	// check /proc/foo/bar/abool
 	aboolMetric := root.GetMetric("proc/foo/bar/abool")
@@ -1186,7 +1186,7 @@ func rpcCountCallback() uint {
 }
 
 func bazCallback() float32 {
-	return 12.375
+	return 12.962
 }
 
 func boolCallback() bool {
