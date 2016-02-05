@@ -952,6 +952,88 @@ func TestAPI(t *testing.T) {
 		t, "/proc/rpc-count", rpcCountMetric.AbsPath())
 	assertValueEquals(t, "/proc/foo", fooDir.AbsPath())
 
+	verifyChildren(
+		t,
+		root.GetDirectory("/proc/foo").List(),
+		"bar")
+
+	if fooDir.UnregisterAll() != ErrNotEmpty {
+		t.Error("fooDir has non empty directories.")
+	}
+	if barDir.UnregisterAll() != nil {
+		t.Error("/proc/foo/bar should have been cleared.")
+	}
+	if fooDir.UnregisterAll() != nil {
+		t.Error("/proc/foo should have been cleared.")
+	}
+
+	// Unregistering all of fooDir makes it empty
+	verifyChildren(
+		t,
+		root.GetDirectory("/proc/foo").List())
+
+	verifyChildren(
+		t,
+		root.GetDirectory("proc").List(),
+		"args",
+		"cpu",
+		"flags",
+		"foo", // but fooDir is still linked into tricorder
+		"io",
+		"ipc",
+		"memory",
+		"name",
+		"rpc-count",
+		"rpc-latency",
+		"scheduler",
+		"signals",
+		"some-time",
+		"some-time-ptr",
+		"start-time",
+		"temperature",
+		"test-start-time")
+
+	if UnregisterPath("") != ErrPathIsRoot {
+		t.Error("Unregistering root should return ErrPathIsRoot")
+	}
+
+	if UnregisterPath("/proc") != ErrNotEmpty {
+		t.Error("expected /proc not to unregister")
+	}
+
+	if UnregisterPath("/proc/nosuchpath") != ErrPathNotFound {
+		t.Error("Expected /proc/nosuchpath not to unregister")
+	}
+
+	if UnregisterPath("/proc/nosuchpath/nosuchpath") != ErrPathNotFound {
+		t.Error("Expected /proc/nosuchpath/nosuchpath not to unregister")
+	}
+
+	if UnregisterPath("/proc/foo") != nil {
+		t.Error("Expected /proc/foo to unregister")
+	}
+
+	// foo gone
+	verifyChildren(
+		t,
+		root.GetDirectory("proc").List(),
+		"args",
+		"cpu",
+		"flags",
+		"io",
+		"ipc",
+		"memory",
+		"name",
+		"rpc-count",
+		"rpc-latency",
+		"scheduler",
+		"signals",
+		"some-time",
+		"some-time-ptr",
+		"start-time",
+		"temperature",
+		"test-start-time")
+
 }
 
 func TestLinearDistribution(t *testing.T) {

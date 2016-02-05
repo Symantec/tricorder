@@ -949,16 +949,10 @@ func newDirectory() *directory {
 	return &directory{contents: make(map[string]*listEntry)}
 }
 
-func (d *directory) listUnsorted() []*listEntry {
+func (d *directory) Empty() bool {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	result := make([]*listEntry, len(d.contents))
-	idx := 0
-	for _, n := range d.contents {
-		result[idx] = n
-		idx++
-	}
-	return result
+	return len(d.contents) == 0
 }
 
 // List lists the contents of this directory in lexographical order by name.
@@ -1048,6 +1042,18 @@ func (d *directory) GetAllMetrics(
 		}
 	}
 	return
+}
+
+func (d *directory) listUnsorted() []*listEntry {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
+	result := make([]*listEntry, len(d.contents))
+	idx := 0
+	for _, n := range d.contents {
+		result[idx] = n
+		idx++
+	}
+	return result
 }
 
 func (d *directory) getSingleListEntry(part string) *listEntry {
@@ -1151,6 +1157,46 @@ func (d *directory) registerMetric(
 		Description: description,
 		value:       newValue(value, region, unit)}
 	return current.storeMetric(path.Base(), metric)
+}
+
+func (d *directory) unregisterPath(path pathSpec) error {
+	if path.Empty() {
+		return ErrPathIsRoot
+	}
+	dir := d.getDirectory(path.Dir())
+	if dir == nil {
+		return ErrPathNotFound
+	}
+	name := path.Base()
+	dir.lock.Lock()
+	defer dir.lock.Unlock()
+	listEntry := dir.contents[name]
+	if listEntry == nil {
+		return ErrPathNotFound
+	}
+	// Best effort check to ensure directory we remove is empty.
+	// We cannot guarantee that the directory will remain empty while
+	// we remove it or after we remove it.
+	if listEntry.Directory != nil && !listEntry.Directory.Empty() {
+		return ErrNotEmpty
+	}
+	delete(dir.contents, name)
+	return nil
+}
+
+func (d *directory) unregisterAll() error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	// Best effort check to ensure directories we remove are empty.
+	// We cannot guarantee that they will remain empty while
+	// we remove them or after we remove them.
+	for _, listEntry := range d.contents {
+		if listEntry.Directory != nil && !listEntry.Directory.Empty() {
+			return ErrNotEmpty
+		}
+	}
+	d.contents = make(map[string]*listEntry)
+	return nil
 }
 
 func registerFlags() {
