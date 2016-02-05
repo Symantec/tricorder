@@ -1153,6 +1153,28 @@ func (d *directory) registerMetric(
 	return current.storeMetric(path.Base(), metric)
 }
 
+func (d *directory) unregisterPath(path pathSpec) (ok bool) {
+	if path.Empty() {
+		return false
+	}
+	dir := d.getDirectory(path.Dir())
+	if dir == nil {
+		return false
+	}
+	dir.lock.Lock()
+	defer dir.lock.Unlock()
+	name := path.Base()
+	_, ok = dir.contents[name]
+	delete(dir.contents, name)
+	return
+}
+
+func (d *directory) unregisterAll() {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	d.contents = make(map[string]*listEntry)
+}
+
 func registerFlags() {
 	flagDirectory, err := RegisterDirectory("/proc/flags")
 	if err != nil {

@@ -952,6 +952,72 @@ func TestAPI(t *testing.T) {
 		t, "/proc/rpc-count", rpcCountMetric.AbsPath())
 	assertValueEquals(t, "/proc/foo", fooDir.AbsPath())
 
+	verifyChildren(
+		t,
+		root.GetDirectory("/proc/foo").List(),
+		"bar")
+
+	fooDir.UnregisterAll()
+
+	// Unregistering all of fooDir makes it empty
+	verifyChildren(
+		t,
+		root.GetDirectory("/proc/foo").List())
+
+	verifyChildren(
+		t,
+		root.GetDirectory("proc").List(),
+		"args",
+		"cpu",
+		"flags",
+		"foo", // but fooDir is still linked into tricorder
+		"io",
+		"ipc",
+		"memory",
+		"name",
+		"rpc-count",
+		"rpc-latency",
+		"scheduler",
+		"signals",
+		"some-time",
+		"some-time-ptr",
+		"start-time",
+		"temperature",
+		"test-start-time")
+
+	if !UnregisterPath("/proc/foo") {
+		t.Error("Expected /proc/foo to unregister")
+	}
+
+	if UnregisterPath("/proc/nosuchpath") {
+		t.Error("Expected /proc/nosuchpath not to unregister")
+	}
+
+	if UnregisterPath("/proc/nosuchpath/nosuchpath") {
+		t.Error("Expected /proc/nosuchpath/nosuchpath not to unregister")
+	}
+
+	// foo gone
+	verifyChildren(
+		t,
+		root.GetDirectory("proc").List(),
+		"args",
+		"cpu",
+		"flags",
+		"io",
+		"ipc",
+		"memory",
+		"name",
+		"rpc-count",
+		"rpc-latency",
+		"scheduler",
+		"signals",
+		"some-time",
+		"some-time-ptr",
+		"start-time",
+		"temperature",
+		"test-start-time")
+
 }
 
 func TestLinearDistribution(t *testing.T) {
