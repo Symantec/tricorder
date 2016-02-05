@@ -909,6 +909,13 @@ type listEntry struct {
 	parent    *listEntry
 }
 
+func (n *listEntry) parentDir() *directory {
+	if n.parent == nil {
+		return root
+	}
+	return n.parent.Directory
+}
+
 func (n *listEntry) pathFrom(fromDir *directory) pathSpec {
 	var names pathSpec
 	current := n
@@ -939,8 +946,10 @@ type metricsCollector interface {
 
 // directory represents a directory same as DirectorySpec
 type directory struct {
-	contents           map[string]*listEntry
 	enclosingListEntry *listEntry
+	// lock locks only the contents map itself.
+	lock     sync.RWMutex
+	contents map[string]*listEntry
 }
 
 func newDirectory() *directory {
@@ -949,18 +958,25 @@ func newDirectory() *directory {
 
 // List lists the contents of this directory in lexographical order by name.
 func (d *directory) List() []*listEntry {
-	result := make([]*listEntry, len(d.contents))
-	idx := 0
-	for _, n := range d.contents {
-		result[idx] = n
-		idx++
-	}
-	return sortListEntries(result)
+	return sortListEntries(d.listUnsorted())
 }
 
 // AbsPath returns the absolute path of this directory
 func (d *directory) AbsPath() string {
 	return d.enclosingListEntry.absPath()
+}
+
+// Parent returns the parent directory of this directory or nil if this
+// directory is the root directory.
+func (d *directory) Parent() *directory {
+	if d.enclosingListEntry == nil {
+		return nil
+	}
+	return d.enclosingListEntry.parentDir()
+}
+
+func (d *directory) IsRoot() bool {
+	return d.enclosingListEntry == nil
 }
 
 // GetDirectory returns the directory with the given relative
@@ -1042,10 +1058,49 @@ func (d *directory) GetAllMetrics(
 	return
 }
 
+func (d *directory) listUnsorted() []*listEntry {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
+	result := make([]*listEntry, len(d.contents))
+	idx := 0
+	for _, n := range d.contents {
+		result[idx] = n
+		idx++
+	}
+	return result
+}
+
+func (d *directory) getListEntry(name string) *listEntry {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
+	return d.contents[name]
+}
+
+func (d *directory) removeListEntry(name string) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	delete(d.contents, name)
+}
+
+func (d *directory) removeListEntries() {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	d.contents = make(map[string]*listEntry)
+}
+
+func (d *directory) removeChildDirectory(child *directory) {
+	name := child.enclosingListEntry.Name
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	if d.contents[name] == child.enclosingListEntry {
+		delete(d.contents, name)
+	}
+}
+
 func (d *directory) getDirectory(path pathSpec) (result *directory) {
 	result = d
 	for _, part := range path {
-		n := result.contents[part]
+		n := result.getListEntry(part)
 		if n == nil || n.Directory == nil {
 			return nil
 		}
@@ -1063,7 +1118,7 @@ func (d *directory) getDirectoryOrMetric(path pathSpec) (
 	if dir == nil {
 		return nil, nil
 	}
-	n := dir.contents[path.Base()]
+	n := dir.getListEntry(path.Base())
 	if n == nil {
 		return nil, nil
 	}
@@ -1071,6 +1126,8 @@ func (d *directory) getDirectoryOrMetric(path pathSpec) (
 }
 
 func (d *directory) createDirIfNeeded(name string) (*directory, error) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
 	n := d.contents[name]
 
 	// We need to create the new directory
@@ -1093,6 +1150,8 @@ func (d *directory) createDirIfNeeded(name string) (*directory, error) {
 }
 
 func (d *directory) storeMetric(name string, m *metric) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
 	n := d.contents[name]
 	// Oops something already stored under name, return error
 	if n != nil {
@@ -1133,6 +1192,22 @@ func (d *directory) registerMetric(
 		Description: description,
 		value:       newValue(value, region, unit)}
 	return current.storeMetric(path.Base(), metric)
+}
+
+func (d *directory) unregisterPath(path pathSpec) {
+	if path.Empty() {
+		if d.IsRoot() {
+			d.removeListEntries()
+		} else {
+			d.Parent().removeChildDirectory(d)
+		}
+		return
+	}
+	dir := d.getDirectory(path.Dir())
+	if dir == nil {
+		return
+	}
+	dir.removeListEntry(path.Base())
 }
 
 func registerFlags() {
