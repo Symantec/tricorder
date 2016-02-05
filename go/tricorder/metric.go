@@ -939,23 +939,31 @@ type metricsCollector interface {
 
 // directory represents a directory same as DirectorySpec
 type directory struct {
-	contents           map[string]*listEntry
 	enclosingListEntry *listEntry
+	// lock locks only the contents map itself.
+	lock     sync.RWMutex
+	contents map[string]*listEntry
 }
 
 func newDirectory() *directory {
 	return &directory{contents: make(map[string]*listEntry)}
 }
 
-// List lists the contents of this directory in lexographical order by name.
-func (d *directory) List() []*listEntry {
+func (d *directory) listUnsorted() []*listEntry {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
 	result := make([]*listEntry, len(d.contents))
 	idx := 0
 	for _, n := range d.contents {
 		result[idx] = n
 		idx++
 	}
-	return sortListEntries(result)
+	return result
+}
+
+// List lists the contents of this directory in lexographical order by name.
+func (d *directory) List() []*listEntry {
+	return sortListEntries(d.listUnsorted())
 }
 
 // AbsPath returns the absolute path of this directory
@@ -1042,10 +1050,16 @@ func (d *directory) GetAllMetrics(
 	return
 }
 
+func (d *directory) getSingleListEntry(part string) *listEntry {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
+	return d.contents[part]
+}
+
 func (d *directory) getDirectory(path pathSpec) (result *directory) {
 	result = d
 	for _, part := range path {
-		n := result.contents[part]
+		n := result.getSingleListEntry(part)
 		if n == nil || n.Directory == nil {
 			return nil
 		}
@@ -1063,7 +1077,7 @@ func (d *directory) getDirectoryOrMetric(path pathSpec) (
 	if dir == nil {
 		return nil, nil
 	}
-	n := dir.contents[path.Base()]
+	n := dir.getSingleListEntry(path.Base())
 	if n == nil {
 		return nil, nil
 	}
@@ -1071,6 +1085,8 @@ func (d *directory) getDirectoryOrMetric(path pathSpec) (
 }
 
 func (d *directory) createDirIfNeeded(name string) (*directory, error) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
 	n := d.contents[name]
 
 	// We need to create the new directory
@@ -1093,6 +1109,8 @@ func (d *directory) createDirIfNeeded(name string) (*directory, error) {
 }
 
 func (d *directory) storeMetric(name string, m *metric) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
 	n := d.contents[name]
 	// Oops something already stored under name, return error
 	if n != nil {
