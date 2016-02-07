@@ -35,8 +35,8 @@ func RegisterRegion(updateFunc func()) *Region {
 // metric is the metric to register;
 // unit is the unit of measurement for the metric;
 // description is the description of the metric.
-// RegisterMetric returns an error if unsuccessful such as if path
-// already represents a metric or a directory.
+// RegisterMetric returns ErrPathInUse if path already represents a metric
+// or a directory.
 // RegisterMetric panics if metric is not of a valid type.
 func RegisterMetric(
 	path string,
@@ -58,6 +58,13 @@ func RegisterMetricInRegion(
 	unit units.Unit,
 	description string) error {
 	return root.registerMetric(newPathSpec(path), metric, (*region)(r), unit, description)
+}
+
+// UnregisterPath unregisters the metric or DirectorySpec at the given path.
+// If path denotes the root path, then UnregisterPath unregisters this entire
+// metric tree.
+func UnregisterPath(path string) {
+	root.unregisterPath(newPathSpec(path))
 }
 
 // Bucketer represents the organization of values into buckets for
@@ -206,7 +213,9 @@ func (d *NonCumulativeDistribution) Sum() float64 {
 // metrics.
 type DirectorySpec directory
 
-// RegisterDirectory returns the DirectorySpec for path.
+// RegisterDirectory returns the the DirectorySpec registered with path.
+// If nothing is registered with path, RegisterDirectory registers a
+// new DirectorySpec with path and returns it.
 // RegisterDirectory returns ErrPathInUse if path is already associated
 // with a metric.
 func RegisterDirectory(path string) (dirSpec *DirectorySpec, err error) {
@@ -247,6 +256,13 @@ func (d *DirectorySpec) RegisterDirectory(
 // Returns the absolute path this object represents
 func (d *DirectorySpec) AbsPath() string {
 	return (*directory)(d).AbsPath()
+}
+
+// UnregisterPath works just like the package level UnregisterPath
+// except that path is relative to this DirectorySpec. If path denotes the
+// root path, then UnregisterPath unregisters this entrie directory.
+func (d *DirectorySpec) UnregisterPath(path string) {
+	(*directory)(d).unregisterPath(newPathSpec(path))
 }
 
 // RegisterFlags registers each application flag as a metric under /proc/flags.

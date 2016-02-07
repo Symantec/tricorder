@@ -952,6 +952,101 @@ func TestAPI(t *testing.T) {
 		t, "/proc/rpc-count", rpcCountMetric.AbsPath())
 	assertValueEquals(t, "/proc/foo", fooDir.AbsPath())
 
+	// UnregisterPath on non existent paths is a noop
+	UnregisterPath("/proc/foo/pathDoesNotExist")
+	UnregisterPath("/proc/pathDoesNotExist/pathDoesNotExist")
+	UnregisterPath("/pathDoesNotExist/pathDoesNotExist/pathDoesNotExist")
+
+	var anIntValue int
+
+	if err := fooDir.RegisterMetric(
+		"/bar/baz",
+		&anIntValue,
+		units.None,
+		"Metric already exists"); err != ErrPathInUse {
+		t.Errorf("Expected ErrPathInUse for /bar/baz, got %v", err)
+	}
+
+	fooDir.UnregisterPath("/bar/baz")
+
+	if err := fooDir.RegisterMetric(
+		"/bar/baz",
+		&anIntValue,
+		units.None,
+		"some metric"); err != nil {
+		t.Errorf("Registration of /bar/baz should have succeded, got %v", err)
+	}
+
+	if err := RegisterMetric(
+		"/proc/foo/bar/baz",
+		&anIntValue,
+		units.None,
+		"Metric already exists"); err != ErrPathInUse {
+		t.Errorf("Expected ErrPathInUse for /proc/foo/bar/baz, got %v", err)
+	}
+
+	fooDir.UnregisterPath("/")
+
+	// No more fooDir
+	verifyChildren(
+		t,
+		root.GetDirectory("proc").List(),
+		"args",
+		"cpu",
+		"flags",
+		"io",
+		"ipc",
+		"memory",
+		"name",
+		"rpc-count",
+		"rpc-latency",
+		"scheduler",
+		"signals",
+		"some-time",
+		"some-time-ptr",
+		"start-time",
+		"temperature",
+		"test-start-time")
+
+	if err := RegisterMetric(
+		"/proc/foo/bar/baz",
+		&anIntValue,
+		units.None,
+		"some metric"); err != nil {
+		t.Errorf("registration of /proc/foo/bar/baz should have succeeded, got %v", err)
+	}
+
+	procDir, _ := RegisterDirectory("/proc")
+	procDir.UnregisterPath("/")
+
+	// No proc directory
+	verifyChildren(
+		t,
+		root.List(),
+		"bytes",
+		"firstGroup",
+		"secondGroup",
+		"testargs",
+		"testname",
+		"times")
+
+	UnregisterPath("firstGroup")
+
+	verifyChildren(
+		t,
+		root.List(),
+		"bytes",
+		"secondGroup",
+		"testargs",
+		"testname",
+		"times")
+
+	UnregisterPath("/")
+
+	// Everything gone
+	verifyChildren(
+		t,
+		root.List())
 }
 
 func TestLinearDistribution(t *testing.T) {
