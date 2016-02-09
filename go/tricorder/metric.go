@@ -21,6 +21,7 @@ const (
 	panicInvalidMetric          = "Invalid metric type."
 	panicIncompatibleTypes      = "Wrong AsXXX function called on value."
 	panicTypeMismatch           = "Wrong type passed to method."
+	panicDirectoryUnregistered  = "Directory is unregistered."
 )
 
 var (
@@ -947,9 +948,10 @@ type metricsCollector interface {
 // directory represents a directory same as DirectorySpec
 type directory struct {
 	enclosingListEntry *listEntry
-	// lock locks only the contents map itself.
-	lock     sync.RWMutex
-	contents map[string]*listEntry
+	// lock locks only the contents map itself and the unregistered flag.
+	lock         sync.RWMutex
+	contents     map[string]*listEntry
+	unregistered bool
 }
 
 func newDirectory() *directory {
@@ -1082,12 +1084,6 @@ func (d *directory) removeListEntry(name string) {
 	delete(d.contents, name)
 }
 
-func (d *directory) removeListEntries() {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-	d.contents = make(map[string]*listEntry)
-}
-
 func (d *directory) removeChildDirectory(child *directory) {
 	name := child.enclosingListEntry.Name
 	d.lock.Lock()
@@ -1128,6 +1124,9 @@ func (d *directory) getDirectoryOrMetric(path pathSpec) (
 func (d *directory) createDirIfNeeded(name string) (*directory, error) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
+	if d.unregistered {
+		panic(panicDirectoryUnregistered)
+	}
 	n := d.contents[name]
 
 	// We need to create the new directory
@@ -1152,6 +1151,9 @@ func (d *directory) createDirIfNeeded(name string) (*directory, error) {
 func (d *directory) storeMetric(name string, m *metric) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
+	if d.unregistered {
+		panic(panicDirectoryUnregistered)
+	}
 	n := d.contents[name]
 	// Oops something already stored under name, return error
 	if n != nil {
@@ -1194,13 +1196,18 @@ func (d *directory) registerMetric(
 	return current.storeMetric(path.Base(), metric)
 }
 
+func (d *directory) unregisterDirectory() {
+	if d.IsRoot() {
+		return
+	}
+	d.Parent().removeChildDirectory(d)
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	d.unregistered = true
+}
+
 func (d *directory) unregisterPath(path pathSpec) {
 	if path.Empty() {
-		if d.IsRoot() {
-			d.removeListEntries()
-		} else {
-			d.Parent().removeChildDirectory(d)
-		}
 		return
 	}
 	dir := d.getDirectory(path.Dir())

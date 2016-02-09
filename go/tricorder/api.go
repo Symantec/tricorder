@@ -61,8 +61,7 @@ func RegisterMetricInRegion(
 }
 
 // UnregisterPath unregisters the metric or DirectorySpec at the given path.
-// If path denotes the root path, then UnregisterPath unregisters this entire
-// metric tree.
+// UnregisterPath ignores requests to unregister the root path.
 func UnregisterPath(path string) {
 	root.unregisterPath(newPathSpec(path))
 }
@@ -259,10 +258,19 @@ func (d *DirectorySpec) AbsPath() string {
 }
 
 // UnregisterPath works just like the package level UnregisterPath
-// except that path is relative to this DirectorySpec. If path denotes the
-// root path, then UnregisterPath unregisters this entrie directory.
+// except that path is relative to this DirectorySpec.
 func (d *DirectorySpec) UnregisterPath(path string) {
 	(*directory)(d).unregisterPath(newPathSpec(path))
+}
+
+// UnregisterDirectory unregisters this DirectorySpec instance along with
+// all metrics and directories within it. The caller can unregister any
+// DirectorySpec instance except the one representing the top level directory.
+// That DirectorySpec instance simply ignores calls to UnregisterDirectory.
+// Using an unregistered DirectorySpec instance to register new metrics may
+// cause a panic.
+func (d *DirectorySpec) UnregisterDirectory() {
+	(*directory)(d).unregisterDirectory()
 }
 
 // RegisterFlags registers each application flag as a metric under /proc/flags.
