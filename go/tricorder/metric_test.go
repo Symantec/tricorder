@@ -957,6 +957,9 @@ func TestAPI(t *testing.T) {
 	UnregisterPath("/proc/pathDoesNotExist/pathDoesNotExist")
 	UnregisterPath("/pathDoesNotExist/pathDoesNotExist/pathDoesNotExist")
 
+	// UnregiserPath on root is a no-op
+	UnregisterPath("/")
+
 	var anIntValue int
 
 	if err := fooDir.RegisterMetric(
@@ -985,7 +988,7 @@ func TestAPI(t *testing.T) {
 		t.Errorf("Expected ErrPathInUse for /proc/foo/bar/baz, got %v", err)
 	}
 
-	fooDir.UnregisterPath("/")
+	fooDir.UnregisterDirectory()
 
 	// No more fooDir
 	verifyChildren(
@@ -1008,6 +1011,33 @@ func TestAPI(t *testing.T) {
 		"temperature",
 		"test-start-time")
 
+	// Regisering metrics using fooDir should cause panic
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Error("Expected registring a metric on unregistered directory to panic.")
+			}
+		}()
+		fooDir.RegisterMetric("/should/not/work",
+			&anIntValue,
+			units.None,
+			"some metric")
+
+	}()
+
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Error("Expected registring a short metric on unregistered directory to panic.")
+			}
+		}()
+		fooDir.RegisterMetric("/wontwork",
+			&anIntValue,
+			units.None,
+			"some metric")
+
+	}()
+
 	if err := RegisterMetric(
 		"/proc/foo/bar/baz",
 		&anIntValue,
@@ -1017,7 +1047,7 @@ func TestAPI(t *testing.T) {
 	}
 
 	procDir, _ := RegisterDirectory("/proc")
-	procDir.UnregisterPath("/")
+	procDir.UnregisterDirectory()
 
 	// No proc directory
 	verifyChildren(
@@ -1041,12 +1071,19 @@ func TestAPI(t *testing.T) {
 		"testname",
 		"times")
 
-	UnregisterPath("/")
+	rootDir, _ := RegisterDirectory("/")
 
-	// Everything gone
+	// This should be a no-op
+	rootDir.UnregisterDirectory()
+
 	verifyChildren(
 		t,
-		root.List())
+		root.List(),
+		"bytes",
+		"secondGroup",
+		"testargs",
+		"testname",
+		"times")
 }
 
 func TestLinearDistribution(t *testing.T) {
