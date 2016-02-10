@@ -7,11 +7,13 @@ import (
 	"log"
 	"net/http"
 	"net/rpc"
+	"time"
 )
 
 func registerMetrics() {
 	var temperature float64
 	var someBool bool
+	var someDuration time.Duration
 
 	rpcDistribution := tricorder.PowersOfTen.NewCumulativeDistribution()
 
@@ -30,6 +32,9 @@ func registerMetrics() {
 		log.Fatalf("Got error %v registering metric", err)
 	}
 	if err := tricorder.RegisterMetric("/proc/temperature", &temperature, units.Celsius, "Temperature"); err != nil {
+		log.Fatalf("Got error %v registering metric", err)
+	}
+	if err := tricorder.RegisterMetric("/proc/duration", &someDuration, units.Second, "Duration"); err != nil {
 		log.Fatalf("Got error %v registering metric", err)
 	}
 	fooDir, err := tricorder.RegisterDirectory("proc/foo")
@@ -55,6 +60,7 @@ func registerMetrics() {
 
 	temperature = 22.5
 	someBool = true
+	someDuration = 2*time.Minute + 5*time.Second
 
 	// Add data points to the distribution
 	// < 10: 10
