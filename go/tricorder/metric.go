@@ -449,7 +449,6 @@ type value struct {
 	region        *region
 	dist          *distribution
 	valType       types.Type
-	bits          int
 	isValAPointer bool
 	isfunc        bool
 	unit          units.Unit
@@ -462,50 +461,63 @@ var (
 )
 
 // Given a type t from the reflect package, return the corresponding
-// types.Type, size in bits,  and true if t is a pointer to that type
-// or false otherwise. Returns bits = 0 if size is unknown.
-// If t is not supported, returns bits = -1.
+// types.Type, and true if t is a pointer to that type
+// or false otherwise.
+// If t is not supported, returns ok = false.
 func getPrimitiveType(t reflect.Type) (
-	outType types.Type, bits int, isPtr bool) {
+	outType types.Type, isPtr, ok bool) {
 	switch t {
 	case timePtrType:
-		return types.Time, 0, true
+		return types.GoTime, true, true
 	case timeType:
-		return types.Time, 0, false
+		return types.GoTime, false, true
 	case durationType:
-		return types.Duration, 0, false
+		return types.GoDuration, false, true
 	default:
 		switch t.Kind() {
 		case reflect.Bool:
-			return types.Bool, 0, false
+			return types.Bool, false, true
 		case reflect.Int:
-			return types.Int, intSizeInBits, false
+			switch intSizeInBits {
+			case 32:
+				return types.Int32, false, true
+			case 64:
+				return types.Int64, false, true
+			default:
+				return
+			}
 		case reflect.Int8:
-			return types.Int, 8, false
+			return types.Int8, false, true
 		case reflect.Int16:
-			return types.Int, 16, false
+			return types.Int16, false, true
 		case reflect.Int32:
-			return types.Int, 32, false
+			return types.Int32, false, true
 		case reflect.Int64:
-			return types.Int, 64, false
+			return types.Int64, false, true
 		case reflect.Uint:
-			return types.Uint, intSizeInBits, false
+			switch intSizeInBits {
+			case 32:
+				return types.Uint32, false, true
+			case 64:
+				return types.Uint64, false, true
+			default:
+				return
+			}
 		case reflect.Uint8:
-			return types.Uint, 8, false
+			return types.Uint8, false, true
 		case reflect.Uint16:
-			return types.Uint, 16, false
+			return types.Uint16, false, true
 		case reflect.Uint32:
-			return types.Uint, 32, false
+			return types.Uint32, false, true
 		case reflect.Uint64:
-			return types.Uint, 64, false
+			return types.Uint64, false, true
 		case reflect.Float32:
-			return types.Float, 32, false
+			return types.Float32, false, true
 		case reflect.Float64:
-			return types.Float, 64, false
+			return types.Float64, false, true
 		case reflect.String:
-			return types.String, 0, false
+			return types.String, false, true
 		default:
-			bits = -1
 			return
 		}
 	}
@@ -513,9 +525,9 @@ func getPrimitiveType(t reflect.Type) (
 
 // like getPrimitiveType but panics if t is not supported
 func mustGetPrimitiveType(t reflect.Type) (
-	outType types.Type, bits int, isPtr bool) {
-	outType, bits, isPtr = getPrimitiveType(t)
-	if bits == -1 {
+	outType types.Type, isPtr bool) {
+	outType, isPtr, ok := getPrimitiveType(t)
+	if !ok {
 		panic(panicInvalidMetric)
 	}
 	return
@@ -541,11 +553,10 @@ func newValue(spec interface{}, region *region, unit units.Unit) *value {
 	flagGetter, ok := spec.(flag.Getter)
 	if ok {
 		t := reflect.ValueOf(flagGetter.Get()).Type()
-		valType, bits, isValAPointer := getPrimitiveType(t)
+		valType, isValAPointer, ok := getPrimitiveType(t)
 		var valFunc reflect.Value
-		if bits == -1 {
+		if !ok {
 			valType = types.String
-			bits = 0
 			isValAPointer = false
 			valFunc = reflect.ValueOf(flagGetter.String)
 		} else {
@@ -555,7 +566,6 @@ func newValue(spec interface{}, region *region, unit units.Unit) *value {
 			val:           valFunc,
 			unit:          unit,
 			valType:       valType,
-			bits:          bits,
 			isfunc:        true,
 			isValAPointer: isValAPointer}
 	}
@@ -568,24 +578,22 @@ func newValue(spec interface{}, region *region, unit units.Unit) *value {
 		if funcArgCount != 1 {
 			panic(panicBadFunctionReturnTypes)
 		}
-		valType, bits, isValAPointer := mustGetPrimitiveType(t.Out(0))
+		valType, isValAPointer := mustGetPrimitiveType(t.Out(0))
 		return &value{
 			val:           v,
 			unit:          unit,
 			region:        region,
 			valType:       valType,
-			bits:          bits,
 			isfunc:        true,
 			isValAPointer: isValAPointer}
 	}
 	v = v.Elem()
-	valType, bits, isValAPointer := mustGetPrimitiveType(v.Type())
+	valType, isValAPointer := mustGetPrimitiveType(v.Type())
 	return &value{
 		val:           v,
 		unit:          unit,
 		region:        region,
 		valType:       valType,
-		bits:          bits,
 		isValAPointer: isValAPointer}
 }
 
@@ -599,10 +607,10 @@ func (v *value) Unit() units.Unit {
 	return v.unit
 }
 
-// Bits returns the size in bits if the type is an Int, Uint, for Float.
+// Bits returns the size in bits if the type is an Int, Uint, or Float.
 // Otherwise Bits returns 0.
 func (v *value) Bits() int {
-	return v.bits
+	return v.valType.Bits()
 }
 
 func (v *value) evaluate(s *session) reflect.Value {
@@ -636,21 +644,21 @@ func (v *value) AsBool(s *session) bool {
 }
 
 func (v *value) AsInt(s *session) int64 {
-	if v.valType != types.Int {
+	if !v.valType.IsInt() {
 		panic(panicIncompatibleTypes)
 	}
 	return v.evaluate(s).Int()
 }
 
 func (v *value) AsUint(s *session) uint64 {
-	if v.valType != types.Uint {
+	if !v.valType.IsUint() {
 		panic(panicIncompatibleTypes)
 	}
 	return v.evaluate(s).Uint()
 }
 
 func (v *value) AsFloat(s *session) float64 {
-	if v.valType != types.Float {
+	if !v.valType.IsFloat() {
 		panic(panicIncompatibleTypes)
 	}
 	return v.evaluate(s).Float()
@@ -664,7 +672,7 @@ func (v *value) AsString(s *session) string {
 }
 
 func (v *value) AsTime(s *session) (result time.Time) {
-	if v.valType != types.Time {
+	if v.valType != types.GoTime {
 		panic(panicIncompatibleTypes)
 	}
 	val := v.evaluate(s)
@@ -683,17 +691,36 @@ func (v *value) AsGoDuration(s *session) time.Duration {
 }
 
 func (v *value) AsDuration(s *session) (result messages.Duration) {
-	if v.valType == types.Time {
+	if v.valType == types.GoTime {
 		t := v.AsTime(s)
 		if t.IsZero() {
 			return
 		}
 		return messages.SinceEpoch(t)
 	}
-	if v.valType == types.Duration {
+	if v.valType == types.GoDuration {
 		return messages.NewDuration(v.AsGoDuration(s))
 	}
 	panic(panicIncompatibleTypes)
+}
+
+func (v *value) AsInterface(s *session) (result interface{}) {
+	switch v.valType {
+	case types.Int32:
+		return int32(v.AsInt(s))
+	case types.Int64:
+		return int64(v.AsInt(s))
+	case types.Uint32:
+		return uint32(v.AsUint(s))
+	case types.Uint64:
+		return uint64(v.AsUint(s))
+	case types.GoTime:
+		return v.AsTime(s)
+	case types.GoDuration:
+		return v.AsGoDuration(s)
+	default:
+		return v.evaluate(s).Interface()
+	}
 }
 
 func asRanges(ranges breakdown) []*messages.RangeWithCount {
@@ -710,32 +737,11 @@ func asRanges(ranges breakdown) []*messages.RangeWithCount {
 func (v *value) updateJsonOrRpcMetric(
 	s *session, metric *messages.Metric, encoding rpcEncoding) {
 	t := v.Type()
+	metric.Kind = t
 	metric.Bits = v.Bits()
 	switch t {
-	case types.Bool:
-		metric.Kind = t
-		metric.Value = v.AsBool(s)
-	case types.Int:
-		metric.Kind = t
-		metric.Value = v.AsInt(s)
-	case types.Uint:
-		metric.Kind = t
-		metric.Value = v.AsUint(s)
-	case types.Float:
-		metric.Kind = t
-		metric.Value = v.AsFloat(s)
-	case types.String:
-		metric.Kind = t
-		metric.Value = v.AsString(s)
-	case types.Time:
-		metric.Kind = types.GoTime
-		metric.Value = v.AsTime(s)
-	case types.Duration:
-		metric.Kind = types.GoDuration
-		metric.Value = v.AsGoDuration(s)
 	case types.Dist:
 		snapshot := v.AsDistribution().Snapshot()
-		metric.Kind = t
 		metric.Value = &messages.Distribution{
 			Min:             snapshot.Min,
 			Max:             snapshot.Max,
@@ -747,7 +753,7 @@ func (v *value) updateJsonOrRpcMetric(
 			IsNotCumulative: snapshot.IsNotCumulative,
 			Ranges:          asRanges(snapshot.Breakdown)}
 	default:
-		panic(panicIncompatibleTypes)
+		metric.Value = v.AsInterface(s)
 	}
 	if encoding == jsonEncoding {
 		metric.ConvertToJson()
@@ -769,21 +775,24 @@ func (v *value) UpdateRpcMetric(s *session, metric *messages.Metric) {
 // For example, AsTextString panics if this value represents a distribution.
 // If caller passes a nil session, AsTextString creates its own internally.
 func (v *value) AsTextString(s *session) string {
-	switch v.Type() {
-	case types.Bool:
+	t := v.Type()
+	switch {
+	case t == types.Bool:
 		if v.AsBool(s) {
 			return "true"
 		}
 		return "false"
-	case types.Int:
+	case t.IsInt():
 		return strconv.FormatInt(v.AsInt(s), 10)
-	case types.Uint:
+	case t.IsUint():
 		return strconv.FormatUint(v.AsUint(s), 10)
-	case types.Float:
+	case t == types.Float32:
+		return strconv.FormatFloat(v.AsFloat(s), 'f', -1, 32)
+	case t == types.Float64:
 		return strconv.FormatFloat(v.AsFloat(s), 'f', -1, 64)
-	case types.String:
+	case t == types.String:
 		return "\"" + v.AsString(s) + "\""
-	case types.Time, types.Duration:
+	case t == types.GoTime, t == types.GoDuration:
 		return v.AsDuration(s).StringUsingUnits(v.unit)
 	default:
 		panic(panicIncompatibleTypes)
@@ -837,8 +846,9 @@ func uCompactForm(x uint64, radix uint, suffixes []string) string {
 // For example, AsHtmlString panics if this value represents a distribution.
 // If caller passes a nil session, AsHtmlString creates its own internally.
 func (v *value) AsHtmlString(s *session) string {
-	switch v.Type() {
-	case types.Int:
+	t := v.Type()
+	switch {
+	case t.IsInt():
 		switch v.unit {
 		case units.Byte:
 			return iCompactForm(v.AsInt(s), 1024, byteSuffixes)
@@ -848,7 +858,7 @@ func (v *value) AsHtmlString(s *session) string {
 		default:
 			return iCompactForm(v.AsInt(s), 1000, suffixes)
 		}
-	case types.Uint:
+	case t.IsUint():
 		switch v.unit {
 		case units.Byte:
 			return uCompactForm(v.AsUint(s), 1024, byteSuffixes)
@@ -858,7 +868,7 @@ func (v *value) AsHtmlString(s *session) string {
 		default:
 			return uCompactForm(v.AsUint(s), 1000, suffixes)
 		}
-	case types.Duration:
+	case t == types.GoDuration:
 		if s == nil {
 			s = newSession()
 			defer s.Close()
@@ -868,7 +878,7 @@ func (v *value) AsHtmlString(s *session) string {
 			return v.AsTextString(s)
 		}
 		return d.PrettyFormat()
-	case types.Time:
+	case t == types.GoTime:
 		t := v.AsTime(s).UTC()
 		return t.Format("2006-01-02T15:04:05.999999999Z")
 	default:

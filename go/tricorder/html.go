@@ -40,7 +40,7 @@ const (
 	        \ {{end}} \
 	      \ {{end}} \
 	    \ {{else}} \
-	      {{.Metric.AbsPath}} {{.AsHtmlString}} <span class="parens">({{.Metric.Type}}{{if .Metric.Bits}}{{.Metric.Bits}}{{end}}: {{.Metric.Description}}{{if .HasUnit}}; unit: {{.Metric.Unit}}{{end}})</span><br>
+	      {{.Metric.AbsPath}} {{.AsHtmlString}} <span class="parens">({{$top.HtmlType .Metric.Type}}: {{.Metric.Description}}{{if .HasUnit}}; unit: {{.Metric.Unit}}{{end}})</span><br>
 	    \ {{end}} \
 	  \ {{end}} \
 	\ {{end}} \
@@ -105,6 +105,17 @@ func (v *htmlView) AsHtmlString() string {
 
 func (v *htmlView) IsDistribution() bool {
 	return v.Metric.Type() == types.Dist
+}
+
+func (v *htmlView) HtmlType(t types.Type) types.Type {
+	switch t {
+	case types.GoTime:
+		return types.Time
+	case types.GoDuration:
+		return types.Duration
+	default:
+		return t
+	}
 }
 
 func (v *htmlView) HasUnit() bool {

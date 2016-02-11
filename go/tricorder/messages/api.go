@@ -119,9 +119,16 @@ func (d Duration) PrettyFormat() string {
 // Kind field:
 //
 // 	types.Bool	bool
-//	types.Int	int64
-//	types.Uint	uint64
-//	types.Float	float64
+//	types.Int8	int8
+//	types.Int16	int16
+//	types.Int32	int32
+//	types.Int64	int64
+//	types.Uint8	uint8
+//	types.Uint16	uint16
+//	types.Uint32	uint32
+//	types.Uint64	uint64
+//	types.Float32	float32
+//	types.Float64	float64
 //	types.String	string
 //	types.Dist	*messages.Distribution
 //	types.Time	string: Seconds since Jan 1, 1970 GMT. 9 digits after the decimal point.
@@ -138,9 +145,7 @@ type Metric struct {
 	// The metric's type
 	Kind types.Type `json:"kind"`
 	// The size in bits of metric's value if Kind is
-	// types.Int, types.Uint, or types.Float. This is size in bits used
-	// on the process serving the metrics and may be smaller than the
-	// number of bits used in the Value field of this struct.
+	// types.IntXX, types.UintXX, or types.FloatXX.
 	Bits int `json:"bits,omitempty"`
 	// value stored here
 	Value interface{} `json:"value"`

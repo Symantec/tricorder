@@ -537,11 +537,11 @@ func TestAPI(t *testing.T) {
 	verifyMetric(t, "An integer flag", units.None, anIntFlagMetric)
 	verifyJsonValue(
 		t,
-		anIntFlagMetric, types.Int, 64,
+		anIntFlagMetric, types.Int64, 64,
 		int64(923))
 	verifyRpcValue(
 		t,
-		anIntFlagMetric, types.Int, 64,
+		anIntFlagMetric, types.Int64, 64,
 		int64(923))
 	assertValueEquals(t, "923", anIntFlagMetric.AsHtmlString(nil))
 
@@ -580,11 +580,11 @@ func TestAPI(t *testing.T) {
 	verifyMetric(t, "A unit flag", units.Celsius, aUnitFlagMetric)
 	verifyJsonValue(
 		t,
-		aUnitFlagMetric, types.Float, 64,
+		aUnitFlagMetric, types.Float64, 64,
 		23.5)
 	verifyRpcValue(
 		t,
-		aUnitFlagMetric, types.Float, 64,
+		aUnitFlagMetric, types.Float64, 64,
 		23.5)
 	assertValueEquals(
 		t, "23.5", aUnitFlagMetric.AsHtmlString(nil))
@@ -616,15 +616,15 @@ func TestAPI(t *testing.T) {
 	verifyMetric(t, "Size in Bytes", units.Byte, sizeInBytesMetric)
 	verifyJsonValue(
 		t,
-		sizeInBytesMetric, types.Int,
+		sizeInBytesMetric, types.Int32,
 		32,
-		int64(934912))
+		int32(934912))
 
 	verifyRpcValue(
 		t,
-		sizeInBytesMetric, types.Int,
+		sizeInBytesMetric, types.Int32,
 		32,
-		int64(934912))
+		int32(934912))
 
 	assertValueEquals(
 		t, "913 KiB", sizeInBytesMetric.AsHtmlString(nil))
@@ -641,15 +641,15 @@ func TestAPI(t *testing.T) {
 		speedInBytesPerSecondMetric)
 	verifyJsonValue(
 		t,
-		speedInBytesPerSecondMetric, types.Uint,
+		speedInBytesPerSecondMetric, types.Uint32,
 		32,
-		uint64(3538944))
+		uint32(3538944))
 
 	verifyRpcValue(
 		t,
-		speedInBytesPerSecondMetric, types.Uint,
+		speedInBytesPerSecondMetric, types.Uint32,
 		32,
-		uint64(3538944))
+		uint32(3538944))
 
 	assertValueEquals(
 		t,
@@ -697,13 +697,13 @@ func TestAPI(t *testing.T) {
 	verifyMetric(t, "Temperature", units.Celsius, temperatureMetric)
 	verifyJsonValue(
 		t,
-		temperatureMetric, types.Float,
+		temperatureMetric, types.Float64,
 		64,
 		22.5)
 
 	verifyRpcValue(
 		t,
-		temperatureMetric, types.Float,
+		temperatureMetric, types.Float64,
 		64,
 		22.5)
 
@@ -714,13 +714,13 @@ func TestAPI(t *testing.T) {
 	verifyMetric(t, "Start Time", units.Second, startTimeMetric)
 	verifyJsonValue(
 		t,
-		startTimeMetric, types.Int,
+		startTimeMetric, types.Int64,
 		64,
 		int64(-1234567))
 
 	verifyRpcValue(
 		t,
-		startTimeMetric, types.Int,
+		startTimeMetric, types.Int64,
 		64,
 		int64(-1234567))
 
@@ -780,13 +780,13 @@ func TestAPI(t *testing.T) {
 	verifyMetric(t, "RPC count", units.None, rpcCountMetric)
 	verifyJsonValue(
 		t,
-		rpcCountMetric, types.Uint,
+		rpcCountMetric, types.Uint64,
 		64,
 		uint64(500))
 
 	verifyRpcValue(
 		t,
-		rpcCountMetric, types.Uint,
+		rpcCountMetric, types.Uint64,
 		64,
 		uint64(500))
 
@@ -797,15 +797,15 @@ func TestAPI(t *testing.T) {
 	verifyMetric(t, "An error", units.None, bazMetric)
 	verifyJsonValue(
 		t,
-		bazMetric, types.Float,
+		bazMetric, types.Float32,
 		32,
-		12.375)
+		float32(12.375))
 
 	verifyRpcValue(
 		t,
-		bazMetric, types.Float,
+		bazMetric, types.Float32,
 		32,
-		12.375)
+		float32(12.375))
 
 	assertValueEquals(t, "12.375", bazMetric.AsHtmlString(nil))
 
