@@ -10,15 +10,12 @@ const (
 	Int16   Type = "int16"
 	Int32   Type = "int32"
 	Int64   Type = "int64"
-	Int     Type = "int64" // TODO: remove
 	Uint8   Type = "uint8"
 	Uint16  Type = "uint16"
 	Uint32  Type = "uint32"
 	Uint64  Type = "uint64"
-	Uint    Type = "uint64" // TODO: remove
 	Float32 Type = "float32"
 	Float64 Type = "float64"
-	Float   Type = "float64" // TODO: remove
 	String  Type = "string"
 	Dist    Type = "distribution"
 	// for JSON RPC
