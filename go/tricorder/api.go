@@ -14,7 +14,7 @@ var (
 // updated by a common function. Each time a client sends a request for one or
 // more metrics backed by variables within a particular region, tricorder
 // calls that region’s update function one time before reading any of the
-// variables in that region to to respond to the client. However, to provide
+// variables in that region to respond to the client. However, to provide
 // a consistent view of the variables within a region, tricorder will never
 // call a region’s update function once it has begun reading variables in that
 // region to service an in-process request.  If tricorder does happen to
@@ -178,7 +178,7 @@ func (d *NonCumulativeDistribution) Update(oldValue, newValue interface{}) {
 // true:
 // 1) the client has made calls to Update which narrowed the current
 // min and max.
-// 2) The client wants min and max to to reflect the current min and max
+// 2) The client wants min and max to reflect the current min and max
 // instead of the all-time min and max.
 // This method only estimates. The only guarantees that it makes
 // upon returning are:
