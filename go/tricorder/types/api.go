@@ -1,6 +1,10 @@
 // Package types contains the various types for metric values.
 package types
 
+import (
+	"time"
+)
+
 // Type represents the type of a metric value
 type Type string
 
@@ -28,6 +32,47 @@ const (
 	// for GoRPC
 	GoDuration Type = "goDuration"
 )
+
+// ZeroValue returns the zero value for this type.
+// ZeroValue panics if this type is Dist.
+func (t Type) ZeroValue() interface{} {
+	switch t {
+	case Bool:
+		return false
+	case Int8:
+		return int8(0)
+	case Int16:
+		return int16(0)
+	case Int32:
+		return int32(0)
+	case Int64:
+		return int64(0)
+	case Uint8:
+		return uint8(0)
+	case Uint16:
+		return uint16(0)
+	case Uint32:
+		return uint32(0)
+	case Uint64:
+		return uint64(0)
+	case Float32:
+		return float32(0)
+	case Float64:
+		return float64(0)
+	case String:
+		return ""
+	case Dist:
+		panic("Dist type cannot create new value.")
+	case Time, Duration:
+		return "0.000000000"
+	case GoTime:
+		return time.Time{}
+	case GoDuration:
+		return time.Duration(0)
+	default:
+		panic("Unknown type")
+	}
+}
 
 func (t Type) IsInt() bool {
 	return t == Int8 || t == Int16 || t == Int32 || t == Int64
