@@ -309,16 +309,16 @@ func (d *distribution) add(value float64) {
 }
 
 func (d *distribution) update(oldValue, newValue float64) {
-	if d.count == 0 {
-		panic("Can't call update on an empty distribution.")
-	}
 	if !d.isNotCumulative {
 		panic("Cannot call update on a cumulative distribution.")
 	}
-	oldIdx := findDistributionIndex(d.pieces, oldValue)
-	newIdx := findDistributionIndex(d.pieces, newValue)
 	d.lock.Lock()
 	defer d.lock.Unlock()
+	if d.count == 0 {
+		panic("Can't call update on an empty distribution.")
+	}
+	oldIdx := findDistributionIndex(d.pieces, oldValue)
+	newIdx := findDistributionIndex(d.pieces, newValue)
 	d.counts[newIdx]++
 	d.counts[oldIdx]--
 	d.total += (newValue - oldValue)
@@ -331,15 +331,15 @@ func (d *distribution) update(oldValue, newValue float64) {
 }
 
 func (d *distribution) remove(valueToBeRemoved float64) {
-	if d.count == 0 {
-		panic("Can't call remove on an empty distribution.")
-	}
 	if !d.isNotCumulative {
 		panic("Cannot call remove on a cumulative distribution.")
 	}
-	idx := findDistributionIndex(d.pieces, valueToBeRemoved)
 	d.lock.Lock()
 	defer d.lock.Unlock()
+	if d.count == 0 {
+		panic("Can't call remove on an empty distribution.")
+	}
+	idx := findDistributionIndex(d.pieces, valueToBeRemoved)
 	d.counts[idx]--
 	d.total -= valueToBeRemoved
 	d.count--
