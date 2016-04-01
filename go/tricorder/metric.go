@@ -278,6 +278,12 @@ func (d *distribution) Sum() float64 {
 	return d.total
 }
 
+func (d *distribution) Count() uint64 {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	return d.count
+}
+
 func (d *distribution) Add(value interface{}) {
 	d.add(d.valueToFloat(value))
 }

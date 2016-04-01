@@ -208,6 +208,11 @@ func (d *NonCumulativeDistribution) Sum() float64 {
 	return (*distribution)(d).Sum()
 }
 
+// Count returns the number of values in this distribution
+func (d *NonCumulativeDistribution) Count() uint64 {
+	return (*distribution)(d).Count()
+}
+
 // DirectorySpec represents a specific directory in the heirarchy of
 // metrics.
 type DirectorySpec directory
