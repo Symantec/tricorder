@@ -783,6 +783,7 @@ func (v *value) updateJsonOrRpcMetric(
 	t := v.Type()
 	metric.Kind = t
 	metric.Bits = v.Bits()
+	metric.Unit = v.Unit()
 	switch t {
 	case types.Dist:
 		snapshot := v.AsDistribution().Snapshot()
@@ -951,6 +952,34 @@ type metric struct {
 // AbsPath returns the absolute path of this metric
 func (m *metric) AbsPath() string {
 	return m.enclosingListEntry.absPath()
+}
+
+// InitJsonMetric initializes 'metric' for JSON with this instance
+func (m *metric) InitJsonMetric(s *session, metric *messages.Metric) {
+	*metric = messages.Metric{
+		Path: m.AbsPath(), Description: m.Description}
+	m.value.UpdateJsonMetric(s, metric)
+}
+
+// UpdateJsonMetric is a synonym for InitJsonMetric. Here to prevent
+// client from unintenionally calling value.UpdateJsonMetric which does
+// only a partial initialization.
+func (m *metric) UpdateJsonMetric(s *session, metric *messages.Metric) {
+	m.InitJsonMetric(s, metric)
+}
+
+// InitJsonMetric initializes 'metric' for GoRPC with this instance
+func (m *metric) InitRpcMetric(s *session, metric *messages.Metric) {
+	*metric = messages.Metric{
+		Path: m.AbsPath(), Description: m.Description}
+	m.value.UpdateRpcMetric(s, metric)
+}
+
+// UpdateRpcMetric is a synonym for InitRpcMetric. Here to prevent
+// client from unintenionally calling value.UpdateRpcMetric which does
+// only a partial initialization.
+func (m *metric) UpdateRpcMetric(s *session, metric *messages.Metric) {
+	m.InitRpcMetric(s, metric)
 }
 
 // listEntry represents a single entry in a directory listing.

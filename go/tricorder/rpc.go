@@ -6,11 +6,8 @@ import (
 )
 
 func rpcAsMetric(m *metric, s *session) *messages.Metric {
-	result := messages.Metric{
-		Path:        m.AbsPath(),
-		Description: m.Description,
-		Unit:        m.Unit()}
-	m.UpdateRpcMetric(s, &result)
+	var result messages.Metric
+	m.InitRpcMetric(s, &result)
 	return &result
 }
 
