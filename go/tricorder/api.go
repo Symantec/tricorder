@@ -3,6 +3,7 @@ package tricorder
 import (
 	"errors"
 	"github.com/Symantec/tricorder/go/tricorder/units"
+	"time"
 )
 
 var (
@@ -25,9 +26,28 @@ var (
 // read the same data from that region.
 type Region region
 
-// NewRegion creates a new region with a particular update function
+var (
+	// The default region. Its update function does nothing and returns
+	// the current system time.
+	DefaultRegion *Region
+)
+
+// RegisterRegion is Deprecated: See NewRegion
 func RegisterRegion(updateFunc func()) *Region {
 	return (*Region)(newRegion(updateFunc))
+}
+
+// NewRegion creates a new region with the default update function.
+// The default update function does nothing and returns the current system
+// time.
+func NewRegion() *Region {
+	panic("Unsupported")
+}
+
+// RegisterUpdateFunc registers an update function with region while
+// clearing any previously registered update function
+func (r *Region) RegisterUpdateFunc(updateFunc func() time.Time) {
+	panic("Unsupported")
 }
 
 // RegisterMetric registers a single metric with the health system.
