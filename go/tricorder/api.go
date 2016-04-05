@@ -3,6 +3,7 @@ package tricorder
 import (
 	"errors"
 	"github.com/Symantec/tricorder/go/tricorder/units"
+	"time"
 )
 
 var (
@@ -10,24 +11,46 @@ var (
 	ErrPathInUse = errors.New("tricorder: Path in use")
 )
 
-// A region represents a collection of variables for metrics that are all
-// updated by a common function. Each time a client sends a request for one or
-// more metrics backed by variables within a particular region, tricorder
-// calls that region’s update function one time before reading any of the
-// variables in that region to respond to the client. However, to provide
-// a consistent view of the variables within a region, tricorder will never
-// call a region’s update function once it has begun reading variables in that
-// region to service an in-process request.  If tricorder does happen to
-// receive an incoming request for metrics from a given region after tricorder
-// has begun reading variables in that same region to service another
-// in-process request, tricorder will skip calling the region’s update
-// function for the incoming request. In this case, the two requests will
-// read the same data from that region.
+// Region is deprecated: See Group.
 type Region region
 
-// NewRegion creates a new region with a particular update function
+// RegisterRegion is Deprecated: See NewGroup
 func RegisterRegion(updateFunc func()) *Region {
 	return (*Region)(newRegion(updateFunc))
+}
+
+// A group represents a collection of variables for metrics that are all
+// updated by a common function. Each time a client sends a request for one or
+// more metrics backed by variables within a particular group, tricorder
+// calls that group’s update function one time before reading any of the
+// variables in that group to respond to the client. However, to provide
+// a consistent view of the variables within a group, tricorder will never
+// call a group’s update function once it has begun reading variables in that
+// group to service an in-process request.  If tricorder does happen to
+// receive an incoming request for metrics from a given group after tricorder
+// has begun reading variables in that same group to service another
+// in-process request, tricorder will skip calling the group’s update
+// function for the incoming request. In this case, the two requests will
+// read the same data from that group.
+type Group region
+
+var (
+	// The default group. Its update function does nothing and returns
+	// the current system time.
+	DefaultGroup = NewGroup()
+)
+
+// NewGroup creates a new group with the default update function.
+// The default update function does nothing and returns the current system
+// time.
+func NewGroup() *Group {
+	return (*Group)(newDefaultRegion())
+}
+
+// RegisterUpdateFunc registers an update function with group while
+// clearing any previously registered update function
+func (g *Group) RegisterUpdateFunc(updateFunc func() time.Time) {
+	(*region)(g).registerUpdateFunc(updateFunc)
 }
 
 // RegisterMetric registers a single metric with the health system.

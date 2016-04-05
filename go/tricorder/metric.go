@@ -83,42 +83,80 @@ func (s *session) Close() error {
 	return nil
 }
 
+func fixUpdateFunc(orig func()) func() time.Time {
+	return func() time.Time {
+		orig()
+		return time.Now()
+	}
+}
+
 type region struct {
-	sendCh     chan int
-	receiveCh  chan bool
-	lockCount  int
-	updateFunc func()
+	sendCh              chan int
+	receiveCh           chan time.Time
+	updateFuncSendCh    chan func() time.Time
+	updateFuncReceiveCh chan bool
+	lockCount           int
+	updateFunc          func() time.Time
+	updateTime          time.Time
 }
 
 func newRegion(updateFunc func()) *region {
 	result := &region{
-		sendCh:     make(chan int),
-		receiveCh:  make(chan bool),
-		updateFunc: updateFunc}
+		sendCh:              make(chan int),
+		receiveCh:           make(chan time.Time),
+		updateFuncSendCh:    make(chan func() time.Time),
+		updateFuncReceiveCh: make(chan bool),
+		updateFunc:          fixUpdateFunc(updateFunc)}
 	go func() {
 		result.handleRequests()
 	}()
 	return result
 }
 
+func voidFunc() {
+}
+
+func newDefaultRegion() *region {
+	return newRegion(voidFunc)
+}
+
+func (r *region) registerUpdateFunc(updateFunc func() time.Time) {
+	r.updateFuncSendCh <- updateFunc
+	<-r.updateFuncReceiveCh
+}
+
+func (r *region) handleLockUnlock(lockIncrement int) time.Time {
+	prevLockCount := r.lockCount
+	r.lockCount += lockIncrement
+	if r.lockCount < 0 {
+		panic("Lock count fell below 0")
+	}
+	// Update region for first lock holders
+	if prevLockCount == 0 && r.lockCount > 0 {
+		r.updateTime = r.updateFunc()
+	}
+	return r.updateTime
+}
+
+func (r *region) handleUpdateFunc(newFunc func() time.Time) bool {
+	r.updateFunc = newFunc
+	return true
+}
+
 func (r *region) handleRequests() {
 	for {
-		prevLockCount := r.lockCount
-		r.lockCount += <-r.sendCh
-		if r.lockCount < 0 {
-			panic("Lock count fell below 0")
+		select {
+		case in := <-r.sendCh:
+			r.receiveCh <- r.handleLockUnlock(in)
+		case in := <-r.updateFuncSendCh:
+			r.updateFuncReceiveCh <- r.handleUpdateFunc(in)
 		}
-		// Update region for first lock holders
-		if prevLockCount == 0 && r.lockCount > 0 {
-			r.updateFunc()
-		}
-		r.receiveCh <- true
 	}
 }
 
-func (r *region) RLock() {
+func (r *region) RLock() time.Time {
 	r.sendCh <- 1
-	<-r.receiveCh
+	return <-r.receiveCh
 }
 
 func (r *region) RUnlock() {
