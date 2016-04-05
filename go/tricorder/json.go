@@ -46,7 +46,7 @@ func jsonHandlerFunc(w http.ResponseWriter, r *http.Request) {
 		}
 		content, err = json.Marshal(jsonAsMetric(m, nil))
 	} else {
-		var collector jsonMetricsCollector
+		collector := make(jsonMetricsCollector, 0)
 		root.GetAllMetricsByPath(path, &collector, nil)
 		content, err = json.Marshal(collector)
 	}
