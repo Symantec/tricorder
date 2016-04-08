@@ -149,6 +149,14 @@ type Metric struct {
 	Bits int `json:"bits,omitempty"`
 	// value stored here
 	Value interface{} `json:"value"`
+	// Timestamp of metric value.
+	// For JSON this is seconds since Jan 1, 1970 as a string as
+	// "1234567890.999999999"
+	// For Go RPC this is a time.Time
+	Timestamp interface{} `json:"timestamp"`
+	// RegionId of the metric's region. Metrics with the same regionId
+	// will always have the same timestamp.
+	RegionId int `json:"id"`
 }
 
 // IsJson returns true if this metric is json compatible
