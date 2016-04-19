@@ -143,6 +143,11 @@ func (c *CumulativeDistribution) Add(value interface{}) {
 	(*distribution)(c).Add(value)
 }
 
+// Snapshot fetches a snapshot of this instance
+func (c *CumulativeDistribution) Snapshot() *Snapshot {
+	return nil
+}
+
 // Unlike in CumulativeDistributions,values in NonCumulativeDistributions
 // can change shifting from bucket to bucket.
 type NonCumulativeDistribution distribution
@@ -211,6 +216,49 @@ func (d *NonCumulativeDistribution) Sum() float64 {
 // Count returns the number of values in this distribution
 func (d *NonCumulativeDistribution) Count() uint64 {
 	return (*distribution)(d).Count()
+}
+
+// Snapshot fetches a snapshot of this instance
+func (d *NonCumulativeDistribution) Snapshot() *Snapshot {
+	return nil
+}
+
+// Snapshot represents a snapshot of a cumulative or non-cumulative distribution
+// Snapshot instances are immutable.
+type Snapshot struct {
+	s snapshot
+}
+
+// Sum returns the sum of the values
+func (s *Snapshot) Sum() float64 {
+	return 0.0
+}
+
+// Count returns the number of values
+func (s *Snapshot) Count() uint64 {
+	return 0
+}
+
+// Median returns the estimated median of the values
+func (s *Snapshot) Median() float64 {
+	return 0.0
+}
+
+// Average returns the average of the values
+func (s *Snapshot) Average() float64 {
+	return 0.0
+}
+
+// Min returns the minimum value.
+// Min is accurate only if the distribution is cumulative.
+func (s *Snapshot) Min() float64 {
+	return 0.0
+}
+
+// Max returns the maximum value.
+// Man is accurate only if the distribution is cumulative.
+func (s *Snapshot) Max() float64 {
+	return 0.0
 }
 
 // DirectorySpec represents a specific directory in the heirarchy of
