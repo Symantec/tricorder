@@ -70,10 +70,19 @@ func RegisterMetric(
 		newPathSpec(path), metric, nil, unit, description)
 }
 
-// RegisterMetricWithRegion works just like RegisterMetrics but allows
-// the caller to specify the region to which the variable or callback function
-// being registered belongs. RegisterMetricWithRegion ignores the region
-// parameter when registering a distribution.
+// RegisterMetricInGroup works just like RegisterMetric but allows
+// the caller to specify the group to which the variable or callback function
+// being registered belongs.
+func RegisterMetricInGroup(
+	path string,
+	metric interface{},
+	g *Group,
+	unit units.Unit,
+	description string) error {
+	return root.registerMetric(newPathSpec(path), metric, (*region)(g), unit, description)
+}
+
+// RegisterMetricInRegion is deprecated: See RegisterMetricInGroup.
 func RegisterMetricInRegion(
 	path string,
 	metric interface{},
@@ -260,9 +269,19 @@ func (d *DirectorySpec) RegisterMetric(
 	return (*directory)(d).registerMetric(newPathSpec(path), metric, nil, unit, description)
 }
 
-// RegisterMetricWithRegion works just like the package level
-// RegisterMetricWithRegion except that path is relative to this
+// RegisterMetricInGroup works just like the package level
+// RegisterMetricWithGroup except that path is relative to this
 // DirectorySpec.
+func (d *DirectorySpec) RegisterMetricInGroup(
+	path string,
+	metric interface{},
+	g *Group,
+	unit units.Unit,
+	description string) error {
+	return (*directory)(d).registerMetric(newPathSpec(path), metric, (*region)(g), unit, description)
+}
+
+// RegisterMetricInRegion is deprecated: See RegisterMetricInGroup.
 func (d *DirectorySpec) RegisterMetricInRegion(
 	path string,
 	metric interface{},

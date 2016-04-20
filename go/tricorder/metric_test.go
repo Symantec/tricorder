@@ -29,38 +29,54 @@ var (
 )
 
 var (
+	kFirstAndSecondTime   = time.Date(2016, 4, 20, 11, 0, 0, 0, time.Local)
+	kThirdToSixthTime     = time.Date(2016, 4, 20, 12, 0, 0, 0, time.Local)
+	kSeventhAndEighthTime = time.Date(2016, 4, 20, 13, 0, 0, 0, time.Local)
+)
+
+var (
 	anIntFlag     int64
 	aDurationFlag time.Duration
 	aSliceFlag    flagValue
 	aUnitFlag     float64
 )
 
-func incrementFirstAndSecondGlobal() {
+func incrementFirstAndSecondGlobal() time.Time {
 	firstGlobal++
 	secondGlobal++
+	return kFirstAndSecondTime
+
 }
 
-func incrementThirdToSixthGlobal() {
+func incrementThirdToSixthGlobal() time.Time {
 	thirdGlobal++
 	fourthGlobal++
 	fifthGlobal++
 	sixthGlobal++
+	return kThirdToSixthTime
 }
 
-func incrementSeventhAndEighthGlobal() {
+func incrementSeventhAndEighthGlobal() time.Time {
 	seventhGlobal++
 	eighthGlobal++
+	return kSeventhAndEighthTime
+}
+
+func registerGroup(f func() time.Time) *Group {
+	result := NewGroup()
+	result.RegisterUpdateFunc(f)
+	return result
 }
 
 func registerMetricsForGlobalsTest() {
-	r1and2 := RegisterRegion(incrementFirstAndSecondGlobal)
-	r3to6 := RegisterRegion(incrementThirdToSixthGlobal)
-	r7and8 := RegisterRegion(incrementSeventhAndEighthGlobal)
-	RegisterMetricInRegion(
+	r1and2 := registerGroup(incrementFirstAndSecondGlobal)
+	r3to6 := registerGroup(incrementThirdToSixthGlobal)
+	r7and8 := registerGroup(incrementSeventhAndEighthGlobal)
+	RegisterMetricInGroup(
 		"/firstGroup/first", &firstGlobal, r1and2, units.None, "")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/firstGroup/second", &secondGlobal, r1and2, units.None, "")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/firstGroup/firstTimesSecond",
 		func() int {
 			return firstGlobal * secondGlobal
@@ -68,17 +84,17 @@ func registerMetricsForGlobalsTest() {
 		r1and2,
 		units.None,
 		"")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/firstGroup/third", &thirdGlobal, r3to6, units.None, "")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/firstGroup/fourth", &fourthGlobal, r3to6, units.None, "")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/secondGroup/fifth", &fifthGlobal, r3to6, units.None, "")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/secondGroup/sixth", &sixthGlobal, r3to6, units.None, "")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/secondGroup/seventh", &seventhGlobal, r7and8, units.None, "")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/secondGroup/eighth", &eighthGlobal, r7and8, units.None, "")
 }
 
