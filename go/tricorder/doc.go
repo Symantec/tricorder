@@ -171,6 +171,13 @@ Metric types:
 			&durationValue,
 			tricorder.None,
 			"duration value description")
+	*tricorder.Snapshot (see below)
+		tricorder.RegisterMetric(
+			"a/path/to/distribution",
+			&snapshotPointer,
+			tricorder.None,
+			"Caller decides when it pulls the distribution's state")
+
 
 If code generates a metric's value, register the callback function like so
 
@@ -197,5 +204,17 @@ safe to use from multiple goroutines.
 		globalDist.Add(getSomeFloatValue())
 		globalDist.Add(getAnotherFloatValue())
 	}
+
+When the caller registers a distribution, tricorder always reports the most
+current state of the distribution. Sometimes the reported state of a
+distribution must stay in sync with other metrics or the caller may want to
+report the state of the distribution at a particular time. In this case,
+the caller can control when it queries the distribution for its state by
+registering a *tricorder.Snapshot instead.
+
+To register a *tricorder.Snapshot, the caller passes the address of it
+(a **tricorder.Snapshot) to RegisterMetric. Then the caller can store the
+latest snapshot of the distribution in the *tricorder.Snapshot whenever it
+chooses.
 */
 package tricorder
