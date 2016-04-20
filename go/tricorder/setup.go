@@ -21,119 +21,123 @@ func timeValToDuration(val *wrapper.Timeval) time.Duration {
 func initDefaultMetrics() {
 	programArgs := getProgramArgs()
 	var memStats runtime.MemStats
-	memStatsRegion := RegisterRegion(func() {
+	memStatsGroup := NewGroup()
+	memStatsGroup.RegisterUpdateFunc(func() time.Time {
 		runtime.ReadMemStats(&memStats)
+		return time.Now()
 	})
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/proc/memory/total",
 		&memStats.Sys,
-		memStatsRegion,
+		memStatsGroup,
 		units.Byte,
 		"Memory system has allocated to process")
 	var resourceUsage wrapper.Rusage
 	var userTime time.Duration
 	var sysTime time.Duration
 	var maxResidentSetSize int64
-	resourceUsageRegion := RegisterRegion(func() {
+	resourceUsageGroup := NewGroup()
+	resourceUsageGroup.RegisterUpdateFunc(func() time.Time {
 		wrapper.Getrusage(syscall.RUSAGE_SELF, &resourceUsage)
 		userTime = timeValToDuration(&resourceUsage.Utime)
 		sysTime = timeValToDuration(&resourceUsage.Stime)
 		maxResidentSetSize = resourceUsage.Maxrss
+		return time.Now()
 	})
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/proc/cpu/user",
 		&userTime,
-		resourceUsageRegion,
+		resourceUsageGroup,
 		units.Second,
 		"User CPU time used")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/proc/cpu/sys",
 		&sysTime,
-		resourceUsageRegion,
+		resourceUsageGroup,
 		units.Second,
 		"User CPU time used")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/proc/memory/max-resident-set-size",
 		&maxResidentSetSize,
-		resourceUsageRegion,
+		resourceUsageGroup,
 		units.Byte,
 		"Maximum resident set size")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/proc/memory/shared",
 		&resourceUsage.Ixrss,
-		resourceUsageRegion,
+		resourceUsageGroup,
 		units.Byte,
 		"Integral shared memory size")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/proc/memory/unshared-data",
 		&resourceUsage.Idrss,
-		resourceUsageRegion,
+		resourceUsageGroup,
 		units.Byte,
 		"Integral unshared data size")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/proc/memory/unshared-stack",
 		&resourceUsage.Isrss,
-		resourceUsageRegion,
+		resourceUsageGroup,
 		units.Byte,
 		"Integral unshared stack size")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/proc/memory/soft-page-fault",
 		&resourceUsage.Minflt,
-		resourceUsageRegion,
+		resourceUsageGroup,
 		units.None,
 		"Soft page faults")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/proc/memory/hard-page-fault",
 		&resourceUsage.Majflt,
-		resourceUsageRegion,
+		resourceUsageGroup,
 		units.None,
 		"Hard page faults")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/proc/memory/swaps",
 		&resourceUsage.Nswap,
-		resourceUsageRegion,
+		resourceUsageGroup,
 		units.None,
 		"Swaps")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/proc/io/input",
 		&resourceUsage.Inblock,
-		resourceUsageRegion,
+		resourceUsageGroup,
 		units.None,
 		"Block input operations")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/proc/io/output",
 		&resourceUsage.Oublock,
-		resourceUsageRegion,
+		resourceUsageGroup,
 		units.None,
 		"Block output operations")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/proc/ipc/sent",
 		&resourceUsage.Msgsnd,
-		resourceUsageRegion,
+		resourceUsageGroup,
 		units.None,
 		"IPC messages sent")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/proc/ipc/received",
 		&resourceUsage.Msgrcv,
-		resourceUsageRegion,
+		resourceUsageGroup,
 		units.None,
 		"IPC messages received")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/proc/signals/received",
 		&resourceUsage.Nsignals,
-		resourceUsageRegion,
+		resourceUsageGroup,
 		units.None,
 		"Signals received")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/proc/scheduler/voluntary-switches",
 		&resourceUsage.Nvcsw,
-		resourceUsageRegion,
+		resourceUsageGroup,
 		units.None,
 		"Voluntary context switches")
-	RegisterMetricInRegion(
+	RegisterMetricInGroup(
 		"/proc/scheduler/involuntary-switches",
 		&resourceUsage.Nivcsw,
-		resourceUsageRegion,
+		resourceUsageGroup,
 		units.None,
 		"Involuntary context switches")
 	RegisterMetric("/proc/name", &os.Args[0], units.None, "Program name")
