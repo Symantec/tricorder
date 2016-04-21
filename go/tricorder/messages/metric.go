@@ -37,6 +37,11 @@ func asJson(value interface{}, kind types.Type, unit units.Unit) (
 
 func (m *Metric) convertToJson() {
 	m.Value, m.Kind = asJson(m.Value, m.Kind, m.Unit)
+	if m.TimeStamp == nil {
+		m.TimeStamp = ""
+	} else {
+		m.TimeStamp = SinceEpoch(m.TimeStamp.(time.Time)).String()
+	}
 }
 
 func (m MetricList) asJson() (result MetricList) {

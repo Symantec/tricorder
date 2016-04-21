@@ -29,9 +29,13 @@ var (
 )
 
 var (
-	kFirstAndSecondTime   = time.Date(2016, 4, 20, 11, 0, 0, 0, time.Local)
-	kThirdToSixthTime     = time.Date(2016, 4, 20, 12, 0, 0, 0, time.Local)
-	kSeventhAndEighthTime = time.Date(2016, 4, 20, 13, 0, 0, 0, time.Local)
+	kUsualTimeStamp = time.Date(2016, 5, 13, 14, 27, 35, 0, time.UTC)
+)
+
+var (
+	firstAndSecondTimeGlobal   = time.Date(2016, 4, 20, 1, 0, 0, 0, time.UTC)
+	thirdToSixthTimeGlobal     = time.Date(2016, 4, 20, 3, 0, 0, 0, time.UTC)
+	seventhAndEighthTimeGlobal = time.Date(2016, 4, 20, 7, 0, 0, 0, time.UTC)
 )
 
 var (
@@ -44,8 +48,8 @@ var (
 func incrementFirstAndSecondGlobal() time.Time {
 	firstGlobal++
 	secondGlobal++
-	return kFirstAndSecondTime
-
+	firstAndSecondTimeGlobal = firstAndSecondTimeGlobal.AddDate(0, 0, 1)
+	return firstAndSecondTimeGlobal
 }
 
 func incrementThirdToSixthGlobal() time.Time {
@@ -53,13 +57,15 @@ func incrementThirdToSixthGlobal() time.Time {
 	fourthGlobal++
 	fifthGlobal++
 	sixthGlobal++
-	return kThirdToSixthTime
+	thirdToSixthTimeGlobal = thirdToSixthTimeGlobal.AddDate(0, 0, 1)
+	return thirdToSixthTimeGlobal
 }
 
 func incrementSeventhAndEighthGlobal() time.Time {
 	seventhGlobal++
 	eighthGlobal++
-	return kSeventhAndEighthTime
+	seventhAndEighthTimeGlobal = seventhAndEighthTimeGlobal.AddDate(0, 0, 1)
+	return seventhAndEighthTimeGlobal
 }
 
 func registerGroup(f func() time.Time) *Group {
@@ -106,10 +112,13 @@ type intMetricsCollectorForTesting struct {
 	Barrier *sync.WaitGroup
 	// The values collected by path
 	Values map[string]int64
+	// TimeStamps
+	TimeStamps map[string]time.Time
 }
 
 func (c *intMetricsCollectorForTesting) Collect(m *metric, s *session) error {
 	c.Values[m.AbsPath()] = m.AsInt(s)
+	c.TimeStamps[m.AbsPath()] = m.TimeStamp(s)
 	c.Count--
 	if c.Count == 0 {
 		c.Barrier.Done()
@@ -158,9 +167,17 @@ func doGlobalsTest(t *testing.T) {
 	// So all values should end in 02 at this point.
 
 	collectorFirstGroup := &intMetricsCollectorForTesting{
-		Count: 4, Barrier: &barrier, Values: make(map[string]int64)}
+		Count:      4,
+		Barrier:    &barrier,
+		Values:     make(map[string]int64),
+		TimeStamps: make(map[string]time.Time),
+	}
 	collectorSecondGroup := &intMetricsCollectorForTesting{
-		Count: 4, Barrier: &barrier, Values: make(map[string]int64)}
+		Count:      4,
+		Barrier:    &barrier,
+		Values:     make(map[string]int64),
+		TimeStamps: make(map[string]time.Time),
+	}
 	// Our barrier expects 2 goroutines
 	barrier.Add(2)
 
@@ -196,11 +213,36 @@ func doGlobalsTest(t *testing.T) {
 	assertValueDeepEquals(t, expectedFirstGroup, collectorFirstGroup.Values)
 	assertValueDeepEquals(t, expectedSecondGroup, collectorSecondGroup.Values)
 
+	expectedFirstGroupTs := map[string]time.Time{
+		"/firstGroup/first":            time.Date(2016, 4, 23, 1, 0, 0, 0, time.UTC),
+		"/firstGroup/second":           time.Date(2016, 4, 23, 1, 0, 0, 0, time.UTC),
+		"/firstGroup/firstTimesSecond": time.Date(2016, 4, 23, 1, 0, 0, 0, time.UTC),
+		"/firstGroup/third":            time.Date(2016, 4, 23, 3, 0, 0, 0, time.UTC),
+		"/firstGroup/fourth":           time.Date(2016, 4, 23, 3, 0, 0, 0, time.UTC),
+	}
+	expectedSecondGroupTs := map[string]time.Time{
+		"/secondGroup/fifth":   time.Date(2016, 4, 23, 3, 0, 0, 0, time.UTC),
+		"/secondGroup/sixth":   time.Date(2016, 4, 23, 3, 0, 0, 0, time.UTC),
+		"/secondGroup/seventh": time.Date(2016, 4, 23, 7, 0, 0, 0, time.UTC),
+		"/secondGroup/eighth":  time.Date(2016, 4, 23, 7, 0, 0, 0, time.UTC),
+	}
+
+	assertValueDeepEquals(t, expectedFirstGroupTs, collectorFirstGroup.TimeStamps)
+	assertValueDeepEquals(t, expectedSecondGroupTs, collectorSecondGroup.TimeStamps)
+
 	// Now collect the same metrics only do it sequentially.
 	collectorFirstGroupSeq := &intMetricsCollectorForTesting{
-		Count: 4, Barrier: &barrier, Values: make(map[string]int64)}
+		Count:      4,
+		Barrier:    &barrier,
+		Values:     make(map[string]int64),
+		TimeStamps: make(map[string]time.Time),
+	}
 	collectorSecondGroupSeq := &intMetricsCollectorForTesting{
-		Count: 4, Barrier: &barrier, Values: make(map[string]int64)}
+		Count:      4,
+		Barrier:    &barrier,
+		Values:     make(map[string]int64),
+		TimeStamps: make(map[string]time.Time),
+	}
 
 	// This time our barrier expects only one goroutine
 	barrier.Add(1)
@@ -246,11 +288,42 @@ func doGlobalsTest(t *testing.T) {
 	assertValueDeepEquals(t, expectedFirstGroupSeq, collectorFirstGroupSeq.Values)
 	assertValueDeepEquals(t, expectedSecondGroupSeq, collectorSecondGroupSeq.Values)
 
+	expectedFirstGroupSeqTs := map[string]time.Time{
+		"/firstGroup/first":            time.Date(2016, 4, 24, 1, 0, 0, 0, time.UTC),
+		"/firstGroup/second":           time.Date(2016, 4, 24, 1, 0, 0, 0, time.UTC),
+		"/firstGroup/firstTimesSecond": time.Date(2016, 4, 24, 1, 0, 0, 0, time.UTC),
+		"/firstGroup/third":            time.Date(2016, 4, 24, 3, 0, 0, 0, time.UTC),
+		"/firstGroup/fourth":           time.Date(2016, 4, 24, 3, 0, 0, 0, time.UTC),
+	}
+	expectedSecondGroupSeqTs := map[string]time.Time{
+		"/secondGroup/fifth":   time.Date(2016, 4, 25, 3, 0, 0, 0, time.UTC),
+		"/secondGroup/sixth":   time.Date(2016, 4, 25, 3, 0, 0, 0, time.UTC),
+		"/secondGroup/seventh": time.Date(2016, 4, 24, 7, 0, 0, 0, time.UTC),
+		"/secondGroup/eighth":  time.Date(2016, 4, 24, 7, 0, 0, 0, time.UTC),
+	}
+
+	assertValueDeepEquals(t, expectedFirstGroupSeqTs, collectorFirstGroupSeq.TimeStamps)
+	assertValueDeepEquals(t, expectedSecondGroupSeqTs, collectorSecondGroupSeq.TimeStamps)
+
+	firstmetric := root.GetMetric("/firstGroup/first")
+	var ametric messages.Metric
+	firstmetric.InitJsonMetric(nil, &ametric)
+	firstMetricGroupId := ametric.GroupId
+
+	seventhmetric := root.GetMetric("/secondGroup/seventh")
+	seventhmetric.InitJsonMetric(nil, &ametric)
+	// group for first and second metric created first.
+	// Then group for third to sixth metric
+	// Then group for this metric created
+	assertValueEquals(t, firstMetricGroupId+2, ametric.GroupId)
 }
 
 func TestAPI(t *testing.T) {
 	RegisterFlags()
 	flag.Parse()
+	DefaultGroup.RegisterUpdateFunc(func() time.Time {
+		return kUsualTimeStamp
+	})
 
 	// Do concurrent globals test
 	registerMetricsForGlobalsTest()
@@ -836,6 +909,7 @@ func TestAPI(t *testing.T) {
 				},
 			},
 		},
+		TimeStamp: "",
 	}
 	assertValueDeepEquals(t, expected, &actual)
 
@@ -1327,6 +1401,8 @@ func verifyJson(
 	assertValueEquals(t, tp, ametric.Kind)
 	assertValueEquals(t, bits, ametric.Bits)
 	assertValueEquals(t, value, ametric.Value)
+	assertValueEquals(t, "1463149655.000000000", ametric.TimeStamp)
+	assertValueEquals(t, 0, ametric.GroupId)
 }
 
 func verifyRpc(
@@ -1345,6 +1421,8 @@ func verifyRpc(
 	assertValueEquals(t, tp, ametric.Kind)
 	assertValueEquals(t, bits, ametric.Bits)
 	assertValueEquals(t, value, ametric.Value)
+	assertValueEquals(t, kUsualTimeStamp, ametric.TimeStamp)
+	assertValueEquals(t, 0, ametric.GroupId)
 }
 
 func verifyJsonValue(

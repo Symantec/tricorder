@@ -27,7 +27,20 @@ const (
 var (
 	root          = newDirectory()
 	intSizeInBits = int(unsafe.Sizeof(0)) * 8
+	idGenerator   = newIdSequence()
 )
+
+func newIdSequence() chan int {
+	result := make(chan int)
+	go func() {
+		id := 0
+		for {
+			result <- id
+			id++
+		}
+	}()
+	return result
+}
 
 type rpcEncoding int
 
@@ -55,31 +68,39 @@ var (
 // Callers may pass nil for *session parameter in which case
 // it is up to the function to create its own session if necessary.
 type session struct {
-	visitedRegions map[*region]bool
+	visitedRegions map[*region]time.Time
 }
 
 func newSession() *session {
-	return &session{visitedRegions: make(map[*region]bool)}
+	return &session{visitedRegions: make(map[*region]time.Time)}
 }
 
 // Visit indicates that caller is about to fetch metrics from a
 // particular region. If this is the session's first time to visit the
 // region and no other session is currently visiting it, then
 // Visit calls the region's update function.
-func (s *session) Visit(r *region) {
-	if !s.visitedRegions[r] {
-		r.RLock()
-		s.visitedRegions[r] = true
+// Visit returns the timestamp of metrics in region r.
+func (s *session) Visit(r *region) time.Time {
+	if s.visitedRegions == nil {
+		panic("Trying to visit with a closed session.")
 	}
+	result, ok := s.visitedRegions[r]
+	if !ok {
+		result = r.RLock()
+		s.visitedRegions[r] = result
+	}
+	return result
 }
 
 // Close signals that the caller has retrieved all metrics for the
 // particular request. In particular Close indicates that this session
 // is finished visiting its regions.
+// It is an error to use a session instance once it is closed.
 func (s *session) Close() error {
 	for visitedRegion := range s.visitedRegions {
 		visitedRegion.RUnlock()
 	}
+	s.visitedRegions = nil
 	return nil
 }
 
@@ -91,33 +112,44 @@ func fixUpdateFunc(orig func()) func() time.Time {
 }
 
 type region struct {
+	// The unique id. Immutable.
+	id int
+	// Channels to interact with event loop.
 	sendCh              chan int
 	receiveCh           chan time.Time
 	updateFuncSendCh    chan func() time.Time
 	updateFuncReceiveCh chan bool
-	lockCount           int
-	updateFunc          func() time.Time
-	updateTime          time.Time
+	// Everything below here can only be accessed via the handleRequests
+	// event loop.
+	lockCount  int
+	updateFunc func() time.Time
+	updateTime time.Time
 }
 
-func newRegion(updateFunc func()) *region {
+func newRegion(updateFunc func() time.Time) *region {
 	result := &region{
+		id:                  <-idGenerator,
 		sendCh:              make(chan int),
 		receiveCh:           make(chan time.Time),
 		updateFuncSendCh:    make(chan func() time.Time),
 		updateFuncReceiveCh: make(chan bool),
-		updateFunc:          fixUpdateFunc(updateFunc)}
+		updateFunc:          updateFunc}
 	go func() {
 		result.handleRequests()
 	}()
 	return result
 }
 
-func voidFunc() {
+func voidFunc() time.Time {
+	return time.Now()
 }
 
 func newDefaultRegion() *region {
 	return newRegion(voidFunc)
+}
+
+func (r *region) Id() int {
+	return r.id
 }
 
 func (r *region) registerUpdateFunc(updateFunc func() time.Time) {
@@ -609,6 +641,7 @@ func newValue(spec interface{}, region *region, unit units.Unit) *value {
 		return &value{
 			val:           valFunc,
 			unit:          unit,
+			region:        region,
 			valType:       valType,
 			isfunc:        true,
 			isValAPointer: isValAPointer}
@@ -767,6 +800,29 @@ func (v *value) AsInterface(s *session) (result interface{}) {
 	}
 }
 
+// RegionId returns the region id for the timestamps of this value.
+// RegionId panics if called on a distribution value since distributions
+// are updated continually and have no timestamp.
+func (v *value) RegionId() int {
+	if v.region == nil {
+		panic("Cannot all RegionId on a distribution value.")
+	}
+	return v.region.Id()
+}
+
+// TimeStamp returns the timestamp of the value fetched with the given session.
+// s must be non-nil and must be the same session passed to an AsXXX method
+// to fetch the value. The caller may call this method and the AsXXX method
+// in any order as long as it passes the same session to both.
+// TimeStamp panics if called on a distribution value since distributions
+// are updated continually and have no timestamp.
+func (v *value) TimeStamp(s *session) time.Time {
+	if v.region == nil {
+		panic("Cannot call TimeStamp on a distribution value.")
+	}
+	return s.Visit(v.region)
+}
+
 func asRanges(ranges breakdown) []*messages.RangeWithCount {
 	result := make([]*messages.RangeWithCount, len(ranges))
 	for i := range ranges {
@@ -798,7 +854,13 @@ func (v *value) updateJsonOrRpcMetric(
 			IsNotCumulative: snapshot.IsNotCumulative,
 			Ranges:          asRanges(snapshot.Breakdown)}
 	default:
+		if s == nil {
+			s = newSession()
+			defer s.Close()
+		}
 		metric.Value = v.AsInterface(s)
+		metric.GroupId = v.RegionId()
+		metric.TimeStamp = v.TimeStamp(s)
 	}
 	if encoding == jsonEncoding {
 		metric.ConvertToJson()
