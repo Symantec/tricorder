@@ -158,7 +158,7 @@ type Metric struct {
 	TimeStamp interface{} `json:"timestamp"`
 	// GroupId of the metric's region. Metrics with the same group Id
 	// will always have the same timestamp.
-	GroupId int `json:"id"`
+	GroupId int `json:"groupId"`
 }
 
 // IsJson returns true if this metric is json compatible
