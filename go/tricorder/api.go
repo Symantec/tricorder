@@ -16,7 +16,7 @@ type Region region
 
 // RegisterRegion is Deprecated: See NewGroup
 func RegisterRegion(updateFunc func()) *Region {
-	return (*Region)(newRegion(updateFunc))
+	return (*Region)(newRegion(fixUpdateFunc(updateFunc)))
 }
 
 // A group represents a collection of variables for metrics that are all
@@ -67,7 +67,11 @@ func RegisterMetric(
 	unit units.Unit,
 	description string) error {
 	return root.registerMetric(
-		newPathSpec(path), metric, nil, unit, description)
+		newPathSpec(path),
+		metric,
+		(*region)(DefaultGroup),
+		unit,
+		description)
 }
 
 // RegisterMetricInGroup works just like RegisterMetric but allows
@@ -266,7 +270,12 @@ func (d *DirectorySpec) RegisterMetric(
 	metric interface{},
 	unit units.Unit,
 	description string) error {
-	return (*directory)(d).registerMetric(newPathSpec(path), metric, nil, unit, description)
+	return (*directory)(d).registerMetric(
+		newPathSpec(path),
+		metric,
+		(*region)(DefaultGroup),
+		unit,
+		description)
 }
 
 // RegisterMetricInGroup works just like the package level
