@@ -98,8 +98,11 @@ Sample metric json object:
 		"path": "/proc/foo/bar/baz",
 		"description": "Another float value",
 		"unit": "None",
-		"kind": "float",
-		"value": 12.375
+		"kind": "float64",
+		"bits": 64,
+		"value": 12.375,
+		"timestamp": "1461347384.190380063",
+		"groupId": 0
 	}
 
 For more information on the json schema, see the messages.Metric type.
