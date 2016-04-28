@@ -111,8 +111,6 @@ Register Custom Metrics
 
 To add additional metrics to the default metrics tricorder provides,
 Use tricorder.RegisterMetric() and tricorder.RegisterDirectory().
-You must register all custom metrics at the beginning of the program
-before starting additional goroutines or calling http.ListenAndServe.
 Always pass the address of a variable to RegisterMetric() so that
 tricorder can see changes in the variable's value.
 
@@ -186,8 +184,9 @@ If code generates a metric's value, register the callback function like so
 		tricorder.None,
 		"generated int description")
 
-Tricorder can collect a distribution of values in a metric. In distributions, values are always floats. With distributions, the client program must manually add values. Unlike registering metrics, distribution instances are
-safe to use from multiple goroutines.
+Tricorder can collect a distribution of values in a metric. In distributions,
+values are always floats. With distributions, the client program must manually
+add values. Distribution instances are safe to use from multiple goroutines.
 
 	globalDist := tricorder.PowersOfTen.NewCumulativeDistribution()
 	tricorder.RegisterMetric(
