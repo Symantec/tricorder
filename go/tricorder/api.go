@@ -53,7 +53,8 @@ func (g *Group) RegisterUpdateFunc(updateFunc func() time.Time) {
 	(*region)(g).registerUpdateFunc(updateFunc)
 }
 
-// RegisterMetric registers a single metric with the health system.
+// RegisterMetric registers a single metric with the health system in the
+// default group.
 // path is the absolute path of the metric e.g "/proc/rpc";
 // metric is the metric to register;
 // unit is the unit of measurement for the metric;
@@ -329,7 +330,8 @@ func (d *DirectorySpec) UnregisterDirectory() {
 	(*directory)(d).unregisterDirectory()
 }
 
-// RegisterFlags registers each application flag as a metric under /proc/flags.
+// RegisterFlags registers each application flag as a metric under /proc/flags
+// in the default group.
 func RegisterFlags() {
 	registerFlags()
 }
@@ -337,8 +339,7 @@ func RegisterFlags() {
 // SetFlagUnit sets the unit for a specific flag. If the flag is a
 // time.Duration, the default unit is units.Second; otherwise the default
 // unit is units.None. If the client wishes to override the default unit for
-// a flag, they call this after registering a flag but before calling
-// ParseFlags.
+// a flag, they call this before calling RegisterFlags.
 func SetFlagUnit(name string, unit units.Unit) {
 	setFlagUnit(name, unit)
 }
