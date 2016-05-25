@@ -783,6 +783,12 @@ func (v *value) AsDuration(s *session) (result duration.Duration) {
 }
 
 func (v *value) AsInterface(s *session) (result interface{}) {
+	// Int32, Int64, Uint32, and Uint64 cases are necessary in case
+	// client passed an int or uint pointer to RegisterMetric.
+	// If we were to just call v.evaluate(s).Interface() we would return
+	// that plain int or uint instead of a sized int or uint and violate
+	// the contract of the API which specifies that the value is always
+	// a sized int or uint.
 	switch v.valType {
 	case types.Int32:
 		return int32(v.AsInt(s))
