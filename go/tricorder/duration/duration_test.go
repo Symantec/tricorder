@@ -1,4 +1,4 @@
-package messages
+package duration
 
 import (
 	"github.com/Symantec/tricorder/go/tricorder/units"
@@ -6,13 +6,23 @@ import (
 	"time"
 )
 
+func TestConversions(t *testing.T) {
+	atime := time.Date(2016, 5, 25, 16, 9, 59, 0, time.Local)
+	assertValueEquals(t, 1464217799.0, TimeToFloat(atime))
+	assertValueEquals(t, atime, FloatToTime(1464217799.0))
+	assertValueEquals(
+		t, 3.625, ToFloat(3*time.Second+625*time.Millisecond))
+	assertValueEquals(
+		t, 3*time.Second+625*time.Millisecond, FromFloat(3.625))
+}
+
 func TestDuration(t *testing.T) {
 	var expected Duration
 	if expected.IsNegative() {
 		t.Error("Expected duration to be positive.")
 	}
 	var duration time.Duration
-	actual := NewDuration(duration)
+	actual := New(duration)
 	if expected != actual {
 		t.Errorf("Expected %v, got %v", expected, actual)
 	}
@@ -21,7 +31,7 @@ func TestDuration(t *testing.T) {
 	}
 	expected = Duration{Seconds: 0, Nanoseconds: 1}
 	duration = time.Nanosecond
-	actual = NewDuration(duration)
+	actual = New(duration)
 	if expected != actual {
 		t.Errorf("Expected %v, got %v", expected, actual)
 	}
@@ -33,7 +43,7 @@ func TestDuration(t *testing.T) {
 		t.Error("Expected duration to be positive.")
 	}
 	duration = time.Second
-	actual = NewDuration(duration)
+	actual = New(duration)
 	if expected != actual {
 		t.Errorf("Expected %v, got %v", expected, actual)
 	}
@@ -42,7 +52,7 @@ func TestDuration(t *testing.T) {
 	}
 	expected = Duration{Seconds: 1, Nanoseconds: 999999999}
 	duration = 2*time.Second - time.Nanosecond
-	actual = NewDuration(duration)
+	actual = New(duration)
 	if expected != actual {
 		t.Errorf("Expected %v, got %v", expected, actual)
 	}
@@ -54,7 +64,7 @@ func TestDuration(t *testing.T) {
 		t.Error("Expected duration to be negative.")
 	}
 	duration = -time.Nanosecond
-	actual = NewDuration(duration)
+	actual = New(duration)
 	if expected != actual {
 		t.Errorf("Expected %v, got %v", expected, actual)
 	}
@@ -66,7 +76,7 @@ func TestDuration(t *testing.T) {
 		t.Error("Expected duration to be negative.")
 	}
 	duration = -time.Second
-	actual = NewDuration(duration)
+	actual = New(duration)
 	if expected != actual {
 		t.Errorf("Expected %v, got %v", expected, actual)
 	}
@@ -75,7 +85,7 @@ func TestDuration(t *testing.T) {
 	}
 	expected = Duration{Seconds: -1, Nanoseconds: -999999999}
 	duration = -2*time.Second + time.Nanosecond
-	actual = NewDuration(duration)
+	actual = New(duration)
 	if expected != actual {
 		t.Errorf("Expected %v, got %v", expected, actual)
 	}
@@ -211,5 +221,11 @@ func TestPrettyFormat(t *testing.T) {
 func assertStringEquals(t *testing.T, expected, actual string) {
 	if expected != actual {
 		t.Errorf("Expected %s, got %s", expected, actual)
+	}
+}
+
+func assertValueEquals(t *testing.T, expected, actual interface{}) {
+	if expected != actual {
+		t.Errorf("Expected %v, got %v", expected, actual)
 	}
 }

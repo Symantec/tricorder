@@ -5,6 +5,7 @@ package messages
 import (
 	"encoding/gob"
 	"errors"
+	"github.com/Symantec/tricorder/go/tricorder/duration"
 	"github.com/Symantec/tricorder/go/tricorder/types"
 	"github.com/Symantec/tricorder/go/tricorder/units"
 	"time"
@@ -51,64 +52,24 @@ type Distribution struct {
 	Ranges []*RangeWithCount `json:"ranges,omitempty"`
 }
 
-// Duration represents a duration of time
-// For negative durations, both Seconds and Nanoseconds are negative.
-// Internal use only for now.
+// Deprecated: See tricorder/duration.Duration
 type Duration struct {
-	Seconds     int64
-	Nanoseconds int32
+	duration.Duration
 }
 
+// Deprecated: See tricorder/duration.New
 func NewDuration(d time.Duration) Duration {
-	return newDuration(d)
+	return Duration{duration.New(d)}
 }
 
-// SinceEpoch returns the amount of time since unix epoch
+// Deprecated: See tricorder/duration.SinceEpoch
 func SinceEpoch(t time.Time) Duration {
-	return sinceEpoch(t)
+	return Duration{duration.SinceEpoch(t)}
 }
 
-// SinceEpochFloat returns the amount of time since unix epoch
+// Deprecated: See tricorder/duration.SinceEpochFloat
 func SinceEpochFloat(f float64) Duration {
-	return sinceEpochFloat(f)
-}
-
-// AsGoDuration converts this duration to a go duration
-func (d Duration) AsGoDuration() time.Duration {
-	return d.asGoDuration()
-}
-
-// AsGoTime Converts this duration to a go time in the
-// system's local time zone.
-func (d Duration) AsGoTime() time.Time {
-	return d.asGoTime()
-}
-
-// AsFloat returns this duration in seconds.
-func (d Duration) AsFloat() float64 {
-	return d.asFloat()
-}
-
-// String shows in seconds
-func (d Duration) String() string {
-	return d.stringUsingUnits(units.Second)
-}
-
-// StringUsingUnits shows in specified time unit.
-// If unit not a time, shows in seconds.
-func (d Duration) StringUsingUnits(unit units.Unit) string {
-	return d.stringUsingUnits(unit)
-}
-
-// IsNegative returns true if this duration is negative.
-func (d Duration) IsNegative() bool {
-	return d.isNegative()
-}
-
-// PrettyFormat pretty formats this duration.
-// PrettyFormat panics if this duration is negative.
-func (d Duration) PrettyFormat() string {
-	return d.prettyFormat()
+	return Duration{duration.SinceEpochFloat(f)}
 }
 
 // Metric represents a single metric
@@ -181,20 +142,19 @@ func (m MetricList) AsJson() MetricList {
 	return m.asJson()
 }
 
-// FloatToTime converts seconds after Jan 1, 1970 GMT to a time in the
-// system's local time zone.
+// Deprecated: See tricorder/duration.FloatToTime
 func FloatToTime(secondsSinceEpoch float64) time.Time {
-	return SinceEpochFloat(secondsSinceEpoch).AsGoTime()
+	return duration.FloatToTime(secondsSinceEpoch)
 }
 
-// TimeToFloat returns t as seconds after Jan 1, 1970 GMT
-func TimeToFloat(t time.Time) float64 {
-	return SinceEpoch(t).AsFloat()
+// Deprecated: See tricorder/duration.TimeToFloat
+func TimeToFloat(t time.Time) (secondsSinceEpoch float64) {
+	return duration.TimeToFloat(t)
 }
 
-// DurationToFloat returns d as seconds
-func DurationToFloat(d time.Duration) float64 {
-	return NewDuration(d).AsFloat()
+// Deprecated: See tricorder/duration.DurationToFloat
+func DurationToFloat(d time.Duration) (seconds float64) {
+	return duration.ToFloat(d)
 }
 
 // IsJson returns true if kind is allowed in Json.

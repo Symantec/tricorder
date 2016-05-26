@@ -1,6 +1,7 @@
 package messages
 
 import (
+	"github.com/Symantec/tricorder/go/tricorder/duration"
 	"github.com/Symantec/tricorder/go/tricorder/types"
 	"github.com/Symantec/tricorder/go/tricorder/units"
 	"time"
@@ -40,7 +41,7 @@ func (m *Metric) convertToJson() {
 	if m.TimeStamp == nil {
 		m.TimeStamp = ""
 	} else {
-		m.TimeStamp = SinceEpoch(m.TimeStamp.(time.Time)).String()
+		m.TimeStamp = duration.SinceEpoch(m.TimeStamp.(time.Time)).String()
 	}
 }
 
@@ -63,13 +64,13 @@ func (m MetricList) asJson() (result MetricList) {
 }
 
 func timeAsString(gotime time.Time, unit units.Unit) string {
-	var dur Duration
+	var dur duration.Duration
 	if !gotime.IsZero() {
-		dur = SinceEpoch(gotime)
+		dur = duration.SinceEpoch(gotime)
 	}
 	return dur.StringUsingUnits(unit)
 }
 
 func durationAsString(godur time.Duration, unit units.Unit) string {
-	return NewDuration(godur).StringUsingUnits(unit)
+	return duration.New(godur).StringUsingUnits(unit)
 }
