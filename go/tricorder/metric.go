@@ -3,6 +3,7 @@ package tricorder
 import (
 	"flag"
 	"fmt"
+	"github.com/Symantec/tricorder/go/tricorder/duration"
 	"github.com/Symantec/tricorder/go/tricorder/messages"
 	"github.com/Symantec/tricorder/go/tricorder/types"
 	"github.com/Symantec/tricorder/go/tricorder/units"
@@ -767,16 +768,16 @@ func (v *value) AsGoDuration(s *session) time.Duration {
 	return time.Duration(v.evaluate(s).Int())
 }
 
-func (v *value) AsDuration(s *session) (result messages.Duration) {
+func (v *value) AsDuration(s *session) (result duration.Duration) {
 	if v.valType == types.GoTime {
 		t := v.AsTime(s)
 		if t.IsZero() {
 			return
 		}
-		return messages.SinceEpoch(t)
+		return duration.SinceEpoch(t)
 	}
 	if v.valType == types.GoDuration {
-		return messages.NewDuration(v.AsGoDuration(s))
+		return duration.New(v.AsGoDuration(s))
 	}
 	panic(panicIncompatibleTypes)
 }
