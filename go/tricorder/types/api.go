@@ -2,6 +2,7 @@
 package types
 
 import (
+	"github.com/Symantec/tricorder/go/tricorder/duration"
 	"time"
 )
 
@@ -71,6 +72,84 @@ func (t Type) ZeroValue() interface{} {
 		return time.Duration(0)
 	default:
 		panic("Unknown type")
+	}
+}
+
+// CanToFromFloat returns true if this type supports conversion to/from float64
+func (t Type) CanToFromFloat() bool {
+	switch t {
+	case Bool, String, Dist, Time, Duration:
+		return false
+	case Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64, Float32, Float64, GoTime, GoDuration:
+		return true
+	default:
+		panic("Unknown type")
+	}
+}
+
+// FromFloat converts a float64 to a value according to this type
+// FromFloat panics if this type doesn't support conversion from float64
+func (t Type) FromFloat(value float64) interface{} {
+	switch t {
+	case Int8:
+		return int8(value + 0.5)
+	case Int16:
+		return int16(value + 0.5)
+	case Int32:
+		return int32(value + 0.5)
+	case Int64:
+		return int64(value + 0.5)
+	case Uint8:
+		return uint8(value + 0.5)
+	case Uint16:
+		return uint16(value + 0.5)
+	case Uint32:
+		return uint32(value + 0.5)
+	case Uint64:
+		return uint64(value + 0.5)
+	case Float32:
+		return float32(value)
+	case Float64:
+		return value
+	case GoTime:
+		return duration.FloatToTime(value)
+	case GoDuration:
+		return duration.FromFloat(value)
+	default:
+		panic("Type doesn't support converstion from a float")
+	}
+}
+
+// ToFloat converts a value of this type to a float64
+// ToFloat panics if this type doesn't support conversion to float64
+func (t Type) ToFloat(x interface{}) float64 {
+	switch t {
+	case Int8:
+		return float64(x.(int8))
+	case Int16:
+		return float64(x.(int16))
+	case Int32:
+		return float64(x.(int32))
+	case Int64:
+		return float64(x.(int64))
+	case Uint8:
+		return float64(x.(uint8))
+	case Uint16:
+		return float64(x.(uint16))
+	case Uint32:
+		return float64(x.(uint32))
+	case Uint64:
+		return float64(x.(uint64))
+	case Float32:
+		return float64(x.(float32))
+	case Float64:
+		return x.(float64)
+	case GoTime:
+		return duration.TimeToFloat(x.(time.Time))
+	case GoDuration:
+		return duration.ToFloat(x.(time.Duration))
+	default:
+		panic("Type doesn't support conversion to float.")
 	}
 }
 
