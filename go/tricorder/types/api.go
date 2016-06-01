@@ -10,6 +10,7 @@ import (
 type Type string
 
 const (
+	Unknown Type = ""
 	Bool    Type = "bool"
 	Int8    Type = "int8"
 	Int16   Type = "int16"
@@ -33,6 +34,45 @@ const (
 	// for GoRPC
 	GoDuration Type = "goDuration"
 )
+
+// FromGoValue returns the type of a value found in the GoRPC API.
+// FromGoValue returns unknown if it cannot determine the type.
+func FromGoValue(value interface{}) Type {
+	switch i := value.(type) {
+	case bool:
+		return Bool
+	case int8:
+		return Int8
+	case int16:
+		return Int16
+	case int32:
+		return Int32
+	case int64:
+		return Int64
+	case uint8:
+		return Uint8
+	case uint16:
+		return Uint16
+	case uint32:
+		return Uint32
+	case uint64:
+		return Uint64
+	case float32:
+		return Float32
+	case float64:
+		return Float64
+	case string:
+		return String
+	case time.Time:
+		return GoTime
+	case time.Duration:
+		return GoDuration
+	case goValue:
+		return i.Type()
+	default:
+		return Unknown
+	}
+}
 
 // ZeroValue returns the zero value for this type.
 // ZeroValue panics if this type is Dist.

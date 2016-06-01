@@ -1,8 +1,10 @@
 package types_test
 
 import (
+	"github.com/Symantec/tricorder/go/tricorder/messages"
 	"github.com/Symantec/tricorder/go/tricorder/types"
 	"testing"
+	"time"
 )
 
 func TestZeroValue(t *testing.T) {
@@ -64,6 +66,25 @@ func TestToFloat(t *testing.T) {
 	assertValueEquals(t, -38.375, types.Float32.ToFloat(float32(-38.375)))
 	assertValueEquals(t, 69.25, types.Float64.ToFloat(69.25))
 	assertValueEquals(t, -38.375, types.Float64.ToFloat(-38.375))
+}
+
+func TestFromGoValue(t *testing.T) {
+	assertValueEquals(t, types.Bool, types.FromGoValue(true))
+	assertValueEquals(t, types.Int8, types.FromGoValue(int8(0)))
+	assertValueEquals(t, types.Int16, types.FromGoValue(int16(32)))
+	assertValueEquals(t, types.Int32, types.FromGoValue(int32(47)))
+	assertValueEquals(t, types.Int64, types.FromGoValue(int64(50)))
+	assertValueEquals(t, types.Uint8, types.FromGoValue(uint8(0)))
+	assertValueEquals(t, types.Uint16, types.FromGoValue(uint16(32)))
+	assertValueEquals(t, types.Uint32, types.FromGoValue(uint32(47)))
+	assertValueEquals(t, types.Uint64, types.FromGoValue(uint64(50)))
+	assertValueEquals(t, types.Float32, types.FromGoValue(float32(9.24)))
+	assertValueEquals(t, types.Float64, types.FromGoValue(9.24))
+	assertValueEquals(t, types.String, types.FromGoValue("boo"))
+	assertValueEquals(t, types.GoDuration, types.FromGoValue(time.Minute))
+	assertValueEquals(t, types.GoTime, types.FromGoValue(time.Now()))
+	var dist *messages.Distribution
+	assertValueEquals(t, types.Dist, types.FromGoValue(dist))
 }
 
 func TestFromFloat(t *testing.T) {

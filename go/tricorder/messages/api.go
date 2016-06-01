@@ -52,6 +52,10 @@ type Distribution struct {
 	Ranges []*RangeWithCount `json:"ranges,omitempty"`
 }
 
+func (d *Distribution) Type() types.Type {
+	return types.Dist
+}
+
 // Deprecated: See tricorder/duration.Duration
 type Duration struct {
 	duration.Duration
