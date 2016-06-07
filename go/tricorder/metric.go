@@ -627,8 +627,9 @@ func newValue(spec interface{}, region *region, unit units.Unit) *value {
 		dist.unit = unit
 		return &value{dist: dist, unit: unit, valType: types.Dist}
 	}
-	flagGetter, ok := spec.(flag.Getter)
+	flagValue, ok := spec.(flag.Value)
 	if ok {
+		flagGetter := toFlagGetter(flagValue)
 		t := reflect.ValueOf(flagGetter.Get()).Type()
 		valType, isValAPointer, ok := getPrimitiveType(t)
 		var valFunc reflect.Value
@@ -1369,6 +1370,22 @@ func (d *directory) unregisterPath(path pathSpec) {
 	dir.removeListEntry(path.Base())
 }
 
+type flagValueToGetterType struct {
+	flag.Value
+}
+
+func (f *flagValueToGetterType) Get() interface{} {
+	return f.String()
+}
+
+func toFlagGetter(value flag.Value) flag.Getter {
+	result, ok := value.(flag.Getter)
+	if ok {
+		return result
+	}
+	return &flagValueToGetterType{value}
+}
+
 func registerFlags() {
 	flagDirectory, err := RegisterDirectory("/proc/flags")
 	if err != nil {
@@ -1400,7 +1417,7 @@ func flagUnit(f *flag.Flag) units.Unit {
 	if unit, ok := flagUnits[f.Name]; ok {
 		return unit
 	}
-	return defaultUnit(f.Value.(flag.Getter).Get())
+	return defaultUnit(toFlagGetter(f.Value).Get())
 }
 
 // pathSpec represents a relative path

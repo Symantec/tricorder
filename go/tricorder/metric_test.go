@@ -39,10 +39,11 @@ var (
 )
 
 var (
-	anIntFlag     int64
-	aDurationFlag time.Duration
-	aSliceFlag    flagValue
-	aUnitFlag     float64
+	anIntFlag          int64
+	aDurationFlag      time.Duration
+	aSliceFlag         flagValue
+	aNoGetterSliceFlag noGetterFlagValue
+	aUnitFlag          float64
 )
 
 func incrementFirstAndSecondGlobal() time.Time {
@@ -655,6 +656,20 @@ func TestAPI(t *testing.T) {
 		"one,two,three")
 	assertValueEquals(
 		t, "\"one,two,three\"", aSliceFlagMetric.AsHtmlString(nil))
+
+	// check /proc/flags/no_getter_slice_flag
+	aNoGetterSliceFlag.Set("four,five")
+	aNoGetterSliceFlagMetric := root.GetMetric("/proc/flags/no_getter_slice_flag")
+	verifyJsonAndRpc(
+		t,
+		aNoGetterSliceFlagMetric,
+		"/proc/flags/no_getter_slice_flag",
+		"A no getter slice flag", units.None, types.String, 0,
+		"four,five")
+	assertValueEquals(
+		t,
+		"\"four,five\"",
+		aNoGetterSliceFlagMetric.AsHtmlString(nil))
 
 	// check /proc/flags/unit_flag
 	aUnitFlag = 23.5
@@ -1510,10 +1525,25 @@ func (f flagValue) Get() interface{} {
 	return ([]string)(f)
 }
 
+type noGetterFlagValue []string
+
+func (f noGetterFlagValue) String() string {
+	return strings.Join(f, ",")
+}
+
+func (f *noGetterFlagValue) Set(s string) error {
+	*f = strings.Split(s, ",")
+	return nil
+}
+
 func init() {
 	flag.Int64Var(&anIntFlag, "int_flag", 0, "An integer flag")
 	flag.DurationVar(&aDurationFlag, "duration_flag", time.Minute, "A duration flag")
 	flag.Var(&aSliceFlag, "slice_flag", "A slice flag")
+	flag.Var(
+		&aNoGetterSliceFlag,
+		"no_getter_slice_flag",
+		"A no getter slice flag")
 	flag.Float64Var(&aUnitFlag, "unit_flag", 0.0, "A unit flag")
 	SetFlagUnit("unit_flag", units.Celsius)
 }
