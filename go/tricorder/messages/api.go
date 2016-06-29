@@ -5,7 +5,6 @@ package messages
 import (
 	"encoding/gob"
 	"errors"
-	"github.com/Symantec/tricorder/go/tricorder/duration"
 	"github.com/Symantec/tricorder/go/tricorder/types"
 	"github.com/Symantec/tricorder/go/tricorder/units"
 	"time"
@@ -54,26 +53,6 @@ type Distribution struct {
 
 func (d *Distribution) Type() types.Type {
 	return types.Dist
-}
-
-// Deprecated: See tricorder/duration.Duration
-type Duration struct {
-	duration.Duration
-}
-
-// Deprecated: See tricorder/duration.New
-func NewDuration(d time.Duration) Duration {
-	return Duration{duration.New(d)}
-}
-
-// Deprecated: See tricorder/duration.SinceEpoch
-func SinceEpoch(t time.Time) Duration {
-	return Duration{duration.SinceEpoch(t)}
-}
-
-// Deprecated: See tricorder/duration.SinceEpochFloat
-func SinceEpochFloat(f float64) Duration {
-	return Duration{duration.SinceEpochFloat(f)}
 }
 
 // Metric represents a single metric
@@ -144,21 +123,6 @@ type MetricList []*Metric
 // AsJson returns a MetricList like this one that is Json compatible.
 func (m MetricList) AsJson() MetricList {
 	return m.asJson()
-}
-
-// Deprecated: See tricorder/duration.FloatToTime
-func FloatToTime(secondsSinceEpoch float64) time.Time {
-	return duration.FloatToTime(secondsSinceEpoch)
-}
-
-// Deprecated: See tricorder/duration.TimeToFloat
-func TimeToFloat(t time.Time) (secondsSinceEpoch float64) {
-	return duration.TimeToFloat(t)
-}
-
-// Deprecated: See tricorder/duration.DurationToFloat
-func DurationToFloat(d time.Duration) (seconds float64) {
-	return duration.ToFloat(d)
 }
 
 // IsJson returns true if kind is allowed in Json.
