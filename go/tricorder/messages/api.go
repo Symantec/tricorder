@@ -88,6 +88,8 @@ type Metric struct {
 	Unit units.Unit `json:"unit"`
 	// The metric's type
 	Kind types.Type `json:"kind"`
+	// The sub-type if type is an aggregate such as List.
+	SubType types.Type `json:"subType,omitempty"`
 	// The size in bits of metric's value if Kind is
 	// types.IntXX, types.UintXX, or types.FloatXX.
 	Bits int `json:"bits,omitempty"`
@@ -107,7 +109,7 @@ type Metric struct {
 
 // IsJson returns true if this metric is json compatible
 func (m *Metric) IsJson() bool {
-	return isJson(m.Kind)
+	return isJson(m.Kind, m.SubType)
 }
 
 // ConvertToJson changes this metric in place to be json compatible.
@@ -125,16 +127,39 @@ func (m MetricList) AsJson() MetricList {
 	return m.asJson()
 }
 
-// IsJson returns true if kind is allowed in Json.
+// Deprecated. See IsJsonWithSubType.
+// IsJson(kind) is equivalent to IsJsonWithSubType(kind, types.Unknown)
 func IsJson(kind types.Type) bool {
-	return isJson(kind)
+	return isJson(kind, types.Unknown)
 }
 
-// AsJson takes a metric value, kind, and unit and returns an acceptable
-// JSON value and kind for given unit.
+// IsJsonWithSubType returns true if given kind and subType are allowed in
+// JSON.
+// If kind is types.List subtype indicates the type of the elements in
+// the list. Otherwise, caller should pass types.Unknown for subType.
+func IsJsonWithSubType(kind, subType types.Type) bool {
+	return isJson(kind, subType)
+}
+
+// Deprecated. See AsJsonWithSubType.
+// Equivalent to IsJsonWithSubType(value, kind, types.Unknown, unit) except
+// does not return a sub type.
 func AsJson(value interface{}, kind types.Type, unit units.Unit) (
 	jsonValue interface{}, jsonKind types.Type) {
-	return asJson(value, kind, unit)
+	jsonValue, jsonKind, _ = asJson(value, kind, types.Unknown, unit)
+	return
+}
+
+// AsJsonWithSubType takes a metric value, kind, subtype, and unit and returns
+// an acceptable JSON value, kind, and subType for given unit.
+// If kind is types.List, subType indicates the type of elements in the list.
+// Otherwise, caller should pass types.Unknown for subType. Likewise, if
+// returned jsonKind is types.List, jsonSubType is the type of elements in
+// the list. Otherwise jsonSubType is types.Unknown.
+func AsJsonWithSubType(
+	value interface{}, kind, subType types.Type, unit units.Unit) (
+	jsonValue interface{}, jsonKind, jsonSubType types.Type) {
+	return asJson(value, kind, subType, unit)
 }
 
 func init() {

@@ -10,29 +10,27 @@ import (
 type Type string
 
 const (
-	Unknown Type = ""
-	Bool    Type = "bool"
-	Int8    Type = "int8"
-	Int16   Type = "int16"
-	Int32   Type = "int32"
-	Int64   Type = "int64"
-	Uint8   Type = "uint8"
-	Uint16  Type = "uint16"
-	Uint32  Type = "uint32"
-	Uint64  Type = "uint64"
-	Float32 Type = "float32"
-	Float64 Type = "float64"
-	String  Type = "string"
-	Dist    Type = "distribution"
-	// for JSON RPC
-	Time Type = "time"
-	// for JSON RPC
-	Duration Type = "duration"
-
-	// for GoRPC
-	GoTime Type = "goTime"
-	// for GoRPC
+	Unknown    Type = ""
+	Bool       Type = "bool"
+	Int8       Type = "int8"
+	Int16      Type = "int16"
+	Int32      Type = "int32"
+	Int64      Type = "int64"
+	Uint8      Type = "uint8"
+	Uint16     Type = "uint16"
+	Uint32     Type = "uint32"
+	Uint64     Type = "uint64"
+	Float32    Type = "float32"
+	Float64    Type = "float64"
+	String     Type = "string"
+	GoTime     Type = "goTime"
 	GoDuration Type = "goDuration"
+	Dist       Type = "distribution"
+	List       Type = "list"
+	// for JSON RPC only
+	Time Type = "time"
+	// for JSON RPC only
+	Duration Type = "duration"
 )
 
 // FromGoValue returns the type of a value found in the GoRPC API.

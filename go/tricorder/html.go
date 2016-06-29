@@ -39,6 +39,13 @@ const (
 		<span class="summary"> min: {{$top.ToFloat32 .Min}} max: {{$top.ToFloat32 .Max}} avg: {{$top.ToFloat32 .Average}} &#126;median: {{$top.ToFloat32 .Median}} sum: {{$top.ToFloat32 .Sum}} count: {{.Count}}</span><br><br>
 	        \ {{end}} \
 	      \ {{end}} \
+	    \ {{else if .IsList}} \
+	      {{.Metric.AbsPath}} <span class="parens">(list of {{$top.HtmlType .Metric.SubType}}: {{.Metric.Description}}{{if .HasUnit}}; unit: {{.Metric.Unit}}{{end}})</span>
+	      <ul>
+	      \ {{range .HtmlStrings}} \
+	        <li>{{.}}</li>
+	      \ {{end}} \
+	      </ul>
 	    \ {{else}} \
 	      {{.Metric.AbsPath}} {{.AsHtmlString}} <span class="parens">({{$top.HtmlType .Metric.Type}}: {{.Metric.Description}}{{if .HasUnit}}; unit: {{.Metric.Unit}}{{end}})</span><br>
 	    \ {{end}} \
@@ -103,8 +110,16 @@ func (v *htmlView) AsHtmlString() string {
 	return v.Metric.AsHtmlString(v.Session)
 }
 
+func (v *htmlView) HtmlStrings() interface{} {
+	return v.Metric.AsList().HtmlStrings(v.Metric.Unit())
+}
+
 func (v *htmlView) IsDistribution() bool {
 	return v.Metric.Type() == types.Dist
+}
+
+func (v *htmlView) IsList() bool {
+	return v.Metric.Type() == types.List
 }
 
 func (v *htmlView) HtmlType(t types.Type) types.Type {
@@ -226,6 +241,13 @@ func textEmitDistribution(s *snapshot, w io.Writer) error {
 func textEmitMetric(m *metric, s *session, w io.Writer) error {
 	if m.Type() == types.Dist {
 		return textEmitDistribution(m.AsDistribution().Snapshot(), w)
+	}
+	if m.Type() == types.List {
+		_, err := fmt.Fprintf(
+			w,
+			"%s\n",
+			strings.Join(m.AsList().TextStrings(m.Unit()), "|"))
+		return err
 	}
 	_, err := fmt.Fprintf(w, "%s\n", m.AsTextString(s))
 	return err

@@ -13,6 +13,13 @@ import (
 	"time"
 )
 
+type messageType int
+
+const (
+	jsonMessage messageType = iota
+	rpcMessage
+)
+
 var (
 	kCallbackError = errors.New("callback error")
 )
@@ -346,6 +353,16 @@ func TestAPI(t *testing.T) {
 	rpcDistribution := rpcBucketer.NewCumulativeDistribution()
 	nonCumulativeDist := rpcBucketer.NewNonCumulativeDistribution()
 
+	int64List := newListWithTimeStamp(
+		[]int64{2, 3, 5, 7},
+		ImmutableSlice,
+		kUsualTimeStamp)
+	durationList := newListWithTimeStamp(
+		[]time.Duration{time.Second, time.Minute},
+		ImmutableSlice,
+		kUsualTimeStamp.Add(2*time.Hour))
+	firstListGroupId := int64List.GroupId()
+
 	if err := RegisterMetric(
 		"/times/asdf",
 		nonCumulativeDist,
@@ -443,6 +460,22 @@ func TestAPI(t *testing.T) {
 		"Args passed to app"); err != nil {
 		t.Fatalf("Got error %v registering metric", err)
 	}
+
+	if err := RegisterMetric(
+		"/list/int64",
+		(*List)(int64List),
+		units.None,
+		"list of int 64s"); err != nil {
+		t.Fatalf("Got error %v registering metric", err)
+	}
+	if err := RegisterMetric(
+		"/list/duration",
+		(*List)(durationList),
+		units.None,
+		"list of durations"); err != nil {
+		t.Fatalf("Got error %v registering metric", err)
+	}
+
 	fooDir, err := RegisterDirectory("proc/foo")
 	if err != nil {
 		t.Fatalf("Got error %v registering directory", err)
@@ -551,6 +584,7 @@ func TestAPI(t *testing.T) {
 		root.List(),
 		"bytes",
 		"firstGroup",
+		"list",
 		"proc",
 		"secondGroup",
 		"testargs",
@@ -624,7 +658,7 @@ func TestAPI(t *testing.T) {
 	// check /proc/flags/int_flag
 	anIntFlag = 923
 	anIntFlagMetric := root.GetMetric("/proc/flags/int_flag")
-	verifyJsonAndRpc(
+	verifyJsonAndRpcDefaultTsGroupId(
 		t,
 		anIntFlagMetric, "/proc/flags/int_flag",
 		"An integer flag", units.None, types.Int64, 64,
@@ -634,12 +668,12 @@ func TestAPI(t *testing.T) {
 	// check /proc/flags/duration_flag
 	aDurationFlag = 25 * time.Second
 	aDurationFlagMetric := root.GetMetric("/proc/flags/duration_flag")
-	verifyJson(
+	verifyJsonDefaultTsGroupId(
 		t,
 		aDurationFlagMetric, "/proc/flags/duration_flag",
 		"A duration flag", units.Second, types.Duration, 0,
 		"25.000000000")
-	verifyRpc(
+	verifyRpcDefaultTsGroupId(
 		t,
 		aDurationFlagMetric, "/proc/flags/duration_flag",
 		"A duration flag", units.Second, types.GoDuration, 0,
@@ -649,7 +683,7 @@ func TestAPI(t *testing.T) {
 	// check /proc/flags/slice_flag
 	aSliceFlag.Set("one,two,three")
 	aSliceFlagMetric := root.GetMetric("/proc/flags/slice_flag")
-	verifyJsonAndRpc(
+	verifyJsonAndRpcDefaultTsGroupId(
 		t,
 		aSliceFlagMetric, "/proc/flags/slice_flag",
 		"A slice flag", units.None, types.String, 0,
@@ -660,7 +694,7 @@ func TestAPI(t *testing.T) {
 	// check /proc/flags/no_getter_slice_flag
 	aNoGetterSliceFlag.Set("four,five")
 	aNoGetterSliceFlagMetric := root.GetMetric("/proc/flags/no_getter_slice_flag")
-	verifyJsonAndRpc(
+	verifyJsonAndRpcDefaultTsGroupId(
 		t,
 		aNoGetterSliceFlagMetric,
 		"/proc/flags/no_getter_slice_flag",
@@ -674,7 +708,7 @@ func TestAPI(t *testing.T) {
 	// check /proc/flags/unit_flag
 	aUnitFlag = 23.5
 	aUnitFlagMetric := root.GetMetric("/proc/flags/unit_flag")
-	verifyJsonAndRpc(
+	verifyJsonAndRpcDefaultTsGroupId(
 		t,
 		aUnitFlagMetric, "/proc/flags/unit_flag",
 		"A unit flag", units.Celsius, types.Float64, 64,
@@ -684,7 +718,7 @@ func TestAPI(t *testing.T) {
 
 	// Check /testargs
 	argsMetric := root.GetMetric("/testargs")
-	verifyJsonAndRpc(
+	verifyJsonAndRpcDefaultTsGroupId(
 		t,
 		argsMetric, "/testargs",
 		"Args passed to app", units.None, types.String, 0,
@@ -693,7 +727,7 @@ func TestAPI(t *testing.T) {
 
 	// Check /testname
 	nameMetric := root.GetMetric("/testname")
-	verifyJsonAndRpc(
+	verifyJsonAndRpcDefaultTsGroupId(
 		t,
 		nameMetric, "/testname",
 		"Name of app", units.None, types.String, 0,
@@ -703,7 +737,7 @@ func TestAPI(t *testing.T) {
 
 	// Check /bytes/bytes
 	sizeInBytesMetric := root.GetMetric("/bytes/bytes")
-	verifyJsonAndRpc(
+	verifyJsonAndRpcDefaultTsGroupId(
 		t,
 		sizeInBytesMetric, "/bytes/bytes",
 		"Size in Bytes", units.Byte, types.Int32, 32,
@@ -717,7 +751,7 @@ func TestAPI(t *testing.T) {
 	// Check /bytes/bytesPerSecond
 	speedInBytesPerSecondMetric := root.GetMetric(
 		"/bytes/bytesPerSecond")
-	verifyJsonAndRpc(
+	verifyJsonAndRpcDefaultTsGroupId(
 		t,
 		speedInBytesPerSecondMetric, "/bytes/bytesPerSecond",
 		"Speed in Bytes per Second", units.BytePerSecond,
@@ -735,12 +769,12 @@ func TestAPI(t *testing.T) {
 
 	// Check /times/seconds
 	inSecondMetric := root.GetMetric("/times/seconds")
-	verifyJson(
+	verifyJsonDefaultTsGroupId(
 		t,
 		inSecondMetric, "/times/seconds",
 		"In seconds", units.Second, types.Duration, 0,
 		"-21.053000000")
-	verifyRpc(
+	verifyRpcDefaultTsGroupId(
 		t,
 		inSecondMetric, "/times/seconds",
 		"In seconds", units.Second, types.GoDuration, 0,
@@ -751,12 +785,12 @@ func TestAPI(t *testing.T) {
 
 	// Check /times/milliseconds
 	inMillisecondMetric := root.GetMetric("/times/milliseconds")
-	verifyJson(
+	verifyJsonDefaultTsGroupId(
 		t,
 		inMillisecondMetric, "/times/milliseconds",
 		"In milliseconds", units.Millisecond, types.Duration, 0,
 		"7008.000000")
-	verifyRpc(
+	verifyRpcDefaultTsGroupId(
 		t,
 		inMillisecondMetric, "/times/milliseconds",
 		"In milliseconds", units.Millisecond, types.GoDuration, 0,
@@ -767,7 +801,7 @@ func TestAPI(t *testing.T) {
 
 	// Check /proc/temperature
 	temperatureMetric := root.GetMetric("/proc/temperature")
-	verifyJsonAndRpc(
+	verifyJsonAndRpcDefaultTsGroupId(
 		t,
 		temperatureMetric, "/proc/temperature",
 		"Temperature", units.Celsius, types.Float64, 64,
@@ -777,7 +811,7 @@ func TestAPI(t *testing.T) {
 
 	// Check /proc/start-time
 	startTimeMetric := root.GetMetric("/proc/test-start-time")
-	verifyJsonAndRpc(
+	verifyJsonAndRpcDefaultTsGroupId(
 		t,
 		startTimeMetric, "/proc/test-start-time",
 		"Start Time", units.Second, types.Int64, 64,
@@ -788,12 +822,12 @@ func TestAPI(t *testing.T) {
 
 	// Check /proc/some-time
 	someTimeMetric := root.GetMetric("/proc/some-time")
-	verifyJson(
+	verifyJsonDefaultTsGroupId(
 		t,
 		someTimeMetric, "/proc/some-time",
 		"Some time", units.None, types.Time, 0,
 		"1447594013.007265341")
-	verifyRpc(
+	verifyRpcDefaultTsGroupId(
 		t,
 		someTimeMetric, "/proc/some-time",
 		"Some time", units.None, types.GoTime, 0,
@@ -804,12 +838,12 @@ func TestAPI(t *testing.T) {
 	// Check /proc/some-time-ptr
 	someTimePtrMetric := root.GetMetric("/proc/some-time-ptr")
 	// a nil time pointer should result in 0 time.
-	verifyJson(
+	verifyJsonDefaultTsGroupId(
 		t,
 		someTimePtrMetric, "/proc/some-time-ptr",
 		"Some time pointer", units.None, types.Time, 0,
 		"0.000000000")
-	verifyRpc(
+	verifyRpcDefaultTsGroupId(
 		t,
 		someTimePtrMetric, "/proc/some-time-ptr",
 		"Some time pointer", units.None, types.GoTime, 0,
@@ -829,7 +863,7 @@ func TestAPI(t *testing.T) {
 
 	// Check /proc/rpc-count
 	rpcCountMetric := root.GetMetric("/proc/rpc-count")
-	verifyJsonAndRpc(
+	verifyJsonAndRpcDefaultTsGroupId(
 		t,
 		rpcCountMetric, "/proc/rpc-count",
 		"RPC count", units.None, types.Uint64, 64,
@@ -839,7 +873,7 @@ func TestAPI(t *testing.T) {
 
 	// check /proc/foo/bar/baz
 	bazMetric := root.GetMetric("proc/foo/bar/baz")
-	verifyJsonAndRpc(
+	verifyJsonAndRpcDefaultTsGroupId(
 		t,
 		bazMetric, "/proc/foo/bar/baz",
 		"An error", units.None, types.Float32, 32,
@@ -849,7 +883,7 @@ func TestAPI(t *testing.T) {
 
 	// check /proc/foo/bar/abool
 	aboolMetric := root.GetMetric("proc/foo/bar/abool")
-	verifyJsonAndRpc(
+	verifyJsonAndRpcDefaultTsGroupId(
 		t,
 		aboolMetric, "/proc/foo/bar/abool",
 		"A boolean value", units.None, types.Bool, 0,
@@ -859,12 +893,56 @@ func TestAPI(t *testing.T) {
 
 	// check /proc/foo/bar/anotherBool
 	anotherBoolMetric := root.GetMetric("proc/foo/bar/anotherBool")
-	verifyJsonAndRpc(
+	verifyJsonAndRpcDefaultTsGroupId(
 		t,
 		anotherBoolMetric, "/proc/foo/bar/anotherBool",
 		"A boolean callback value", units.None, types.Bool, 0,
 		false)
 	assertValueEquals(t, "false", anotherBoolMetric.AsHtmlString(nil))
+
+	// Check /list/int64
+	int64ListMetric := root.GetMetric("/list/int64")
+	verifyJsonAndRpc(
+		t,
+		int64ListMetric, "/list/int64",
+		"list of int 64s", units.None, types.List, 64,
+		[]int64{2, 3, 5, 7})
+	var someJsonMetric messages.Metric
+	var someRpcMetric messages.Metric
+	int64ListMetric.InitJsonMetric(nil, &someJsonMetric)
+	assertValueEquals(t, types.Int64, someJsonMetric.SubType)
+	assertValueEquals(t, firstListGroupId, someJsonMetric.GroupId)
+	assertValueEquals(t, "1463149655.000000000", someJsonMetric.TimeStamp)
+	int64ListMetric.InitRpcMetric(nil, &someRpcMetric)
+	assertValueEquals(t, types.Int64, someRpcMetric.SubType)
+	assertValueEquals(t, firstListGroupId, someRpcMetric.GroupId)
+	assertValueEquals(t, kUsualTimeStamp, someRpcMetric.TimeStamp)
+
+	// Check /list/duration
+	durationListMetric := root.GetMetric("/list/duration")
+	verifyJson(
+		t,
+		durationListMetric, "/list/duration",
+		"list of durations", units.None, types.List, 0,
+		[]string{"1.000000000", "60.000000000"})
+	verifyRpc(
+		t,
+		durationListMetric, "/list/duration",
+		"list of durations", units.None, types.List, 0,
+		[]time.Duration{time.Second, time.Minute})
+
+	durationListMetric.InitJsonMetric(nil, &someJsonMetric)
+	assertValueEquals(t, types.Duration, someJsonMetric.SubType)
+	assertValueEquals(t, firstListGroupId+1, someJsonMetric.GroupId)
+	assertValueEquals(
+		t, "1463156855.000000000", someJsonMetric.TimeStamp)
+	durationListMetric.InitRpcMetric(nil, &someRpcMetric)
+	assertValueEquals(t, types.GoDuration, someRpcMetric.SubType)
+	assertValueEquals(t, firstListGroupId+1, someRpcMetric.GroupId)
+	assertValueEquals(
+		t,
+		kUsualTimeStamp.Add(2*time.Hour),
+		someRpcMetric.TimeStamp)
 
 	// Check /proc/rpc-latency
 	rpcLatency := root.GetMetric("/proc/rpc-latency")
@@ -1092,6 +1170,7 @@ func TestAPI(t *testing.T) {
 		root.List(),
 		"bytes",
 		"firstGroup",
+		"list",
 		"secondGroup",
 		"testargs",
 		"testname",
@@ -1103,6 +1182,7 @@ func TestAPI(t *testing.T) {
 		t,
 		root.List(),
 		"bytes",
+		"list",
 		"secondGroup",
 		"testargs",
 		"testname",
@@ -1117,6 +1197,7 @@ func TestAPI(t *testing.T) {
 		t,
 		root.List(),
 		"bytes",
+		"list",
 		"secondGroup",
 		"testargs",
 		"testname",
@@ -1350,6 +1431,232 @@ func TestCompactDecimalUnsigned(t *testing.T) {
 	assertValueEquals(t, "1.00 mil", uCompactForm(810000, 900, suffixes))
 }
 
+func TestInt64List(t *testing.T) {
+	alist := newListWithTimeStamp(
+		[]int64{2, 3, 5, 7},
+		ImmutableSlice,
+		kUsualTimeStamp)
+	aslice, ts := alist.AsSlice()
+	assertValueDeepEquals(t, []int64{2, 3, 5, 7}, aslice)
+	assertValueEquals(t, kUsualTimeStamp, ts)
+	assertValueEquals(t, types.Int64, alist.SubType())
+
+	mutableInt64Slice := []int64{3000, 5000, 7000}
+	alist.ChangeWithTimeStamp(
+		mutableInt64Slice,
+		MutableSlice,
+		kUsualTimeStamp.Add(5*time.Hour))
+	// Change the slice
+	mutableInt64Slice[0] = 19683
+	mutableInt64Slice[1] = 12167
+	mutableInt64Slice[2] = 8192
+
+	aslice, ts = alist.AsSlice()
+	assertValueDeepEquals(
+		t, []int64{3000, 5000, 7000}, aslice)
+	assertValueEquals(t, kUsualTimeStamp.Add(5*time.Hour), ts)
+	textStrings := alist.TextStrings(units.None)
+	if assertValueEquals(t, 3, len(textStrings)) {
+		assertValueEquals(t, "3000", textStrings[0])
+		assertValueEquals(t, "5000", textStrings[1])
+		assertValueEquals(t, "7000", textStrings[2])
+	}
+	htmlStrings := alist.HtmlStrings(units.None)
+	if assertValueEquals(t, 3, len(htmlStrings)) {
+		assertValueEquals(t, "3.00 thousand", htmlStrings[0])
+		assertValueEquals(t, "5.00 thousand", htmlStrings[1])
+		assertValueEquals(t, "7.00 thousand", htmlStrings[2])
+	}
+	htmlStrings = alist.HtmlStrings(units.Byte)
+	if assertValueEquals(t, 3, len(htmlStrings)) {
+		assertValueEquals(t, "2.93 KiB", htmlStrings[0])
+		assertValueEquals(t, "4.88 KiB", htmlStrings[1])
+		assertValueEquals(t, "6.84 KiB", htmlStrings[2])
+	}
+}
+
+func TestBoolList(t *testing.T) {
+	alist := newListWithTimeStamp(
+		[]bool{false, true, true},
+		ImmutableSlice,
+		kUsualTimeStamp)
+	aslice, ts := alist.AsSlice()
+	assertValueDeepEquals(t, []bool{false, true, true}, aslice)
+	assertValueEquals(t, kUsualTimeStamp, ts)
+	assertValueEquals(t, types.Bool, alist.SubType())
+	assertValueDeepEquals(
+		t,
+		[]string{"false", "true", "true"},
+		alist.TextStrings(units.None))
+	assertValueDeepEquals(
+		t,
+		[]string{"false", "true", "true"},
+		alist.HtmlStrings(units.None))
+}
+
+func TestDurationList(t *testing.T) {
+	alist := newListWithTimeStamp(
+		[]time.Duration{time.Second, time.Minute},
+		ImmutableSlice,
+		kUsualTimeStamp)
+	aslice, ts := alist.AsSlice()
+	assertValueDeepEquals(
+		t, []time.Duration{time.Second, time.Minute}, aslice)
+	assertValueEquals(t, kUsualTimeStamp, ts)
+	assertValueEquals(t, types.GoDuration, alist.SubType())
+	assertValueDeepEquals(
+		t,
+		[]string{"1000.000000", "60000.000000"},
+		alist.TextStrings(units.Millisecond))
+	assertValueDeepEquals(
+		t,
+		[]string{"1.000000000", "60.000000000"},
+		alist.TextStrings(units.Second))
+	assertValueDeepEquals(
+		t,
+		[]string{"1.000000000", "60.000000000"},
+		alist.TextStrings(units.None))
+	assertValueDeepEquals(
+		t,
+		[]string{"1.000s", "1m 0.000s"},
+		alist.HtmlStrings(units.Millisecond))
+	assertValueDeepEquals(
+		t,
+		[]string{"1.000s", "1m 0.000s"},
+		alist.HtmlStrings(units.Second))
+	assertValueDeepEquals(
+		t,
+		[]string{"1.000s", "1m 0.000s"},
+		alist.HtmlStrings(units.None))
+}
+
+func TestTimeList(t *testing.T) {
+	alist := newListWithTimeStamp(
+		[]time.Time{
+			kUsualTimeStamp.Add(time.Hour),
+			kUsualTimeStamp.Add(3 * time.Hour)},
+		ImmutableSlice,
+		kUsualTimeStamp)
+	aslice, ts := alist.AsSlice()
+	assertValueDeepEquals(
+		t,
+		[]time.Time{
+			kUsualTimeStamp.Add(time.Hour),
+			kUsualTimeStamp.Add(3 * time.Hour)},
+		aslice)
+	assertValueEquals(t, kUsualTimeStamp, ts)
+	assertValueEquals(t, types.GoTime, alist.SubType())
+	assertValueDeepEquals(
+		t,
+		[]string{
+			"1463153255.000000000",
+			"1463160455.000000000"},
+		alist.TextStrings(units.None))
+	assertValueDeepEquals(
+		t,
+		[]string{
+			"2016-05-13T15:27:35Z",
+			"2016-05-13T17:27:35Z"},
+		alist.HtmlStrings(units.None))
+}
+
+func TestIntList(t *testing.T) {
+	alist := newListWithTimeStamp(
+		[]int{-36, -49},
+		ImmutableSlice,
+		kUsualTimeStamp.Add(time.Hour))
+	aslice, ts := alist.AsSlice()
+	switch aslice.(type) {
+	case []int32:
+		assertValueDeepEquals(t, []int32{-36, -49}, aslice)
+		assertValueEquals(t, types.Int32, alist.SubType())
+	case []int64:
+		assertValueDeepEquals(t, []int64{-36, -49}, aslice)
+		assertValueEquals(t, types.Int64, alist.SubType())
+	default:
+		t.Fatal("Expected int32 or int64")
+	}
+	assertValueEquals(t, kUsualTimeStamp.Add(time.Hour), ts)
+	alist.ChangeWithTimeStamp(
+		[]int{-100, -121, -144},
+		ImmutableSlice,
+		kUsualTimeStamp.Add(4*time.Hour))
+	aslice, ts = alist.AsSlice()
+	switch aslice.(type) {
+	case []int32:
+		assertValueDeepEquals(t, []int32{-100, -121, -144}, aslice)
+		assertValueEquals(t, types.Int32, alist.SubType())
+	case []int64:
+		assertValueDeepEquals(t, []int64{-100, -121, -144}, aslice)
+		assertValueEquals(t, types.Int64, alist.SubType())
+	default:
+		t.Fatal("Expected int32 or int64")
+	}
+	assertValueEquals(t, kUsualTimeStamp.Add(4*time.Hour), ts)
+	textStrings := alist.TextStrings(units.None)
+	if assertValueEquals(t, 3, len(textStrings)) {
+		assertValueEquals(t, "-100", textStrings[0])
+		assertValueEquals(t, "-121", textStrings[1])
+		assertValueEquals(t, "-144", textStrings[2])
+	}
+	htmlStrings := alist.HtmlStrings(units.None)
+	if assertValueEquals(t, 3, len(htmlStrings)) {
+		assertValueEquals(t, "-100", htmlStrings[0])
+		assertValueEquals(t, "-121", htmlStrings[1])
+		assertValueEquals(t, "-144", htmlStrings[2])
+	}
+}
+
+func TestUintList(t *testing.T) {
+	alist := newListWithTimeStamp(
+		[]uint{89, 144, 233, 377, 610},
+		ImmutableSlice,
+		kUsualTimeStamp.Add(7*time.Hour))
+	aslice, ts := alist.AsSlice()
+	switch aslice.(type) {
+	case []uint32:
+		assertValueDeepEquals(t, []uint32{89, 144, 233, 377, 610}, aslice)
+		assertValueEquals(t, types.Uint32, alist.SubType())
+	case []uint64:
+		assertValueDeepEquals(t, []uint64{89, 144, 233, 377, 610}, aslice)
+		assertValueEquals(t, types.Uint64, alist.SubType())
+	default:
+		t.Fatal("Expected uint32 or uint64")
+	}
+	assertValueEquals(t, kUsualTimeStamp.Add(7*time.Hour), ts)
+	textStrings := alist.TextStrings(units.None)
+	if assertValueEquals(t, 5, len(textStrings)) {
+		assertValueEquals(t, "89", textStrings[0])
+		assertValueEquals(t, "144", textStrings[1])
+		assertValueEquals(t, "233", textStrings[2])
+		assertValueEquals(t, "377", textStrings[3])
+		assertValueEquals(t, "610", textStrings[4])
+	}
+	htmlStrings := alist.HtmlStrings(units.None)
+	if assertValueEquals(t, 5, len(htmlStrings)) {
+		assertValueEquals(t, "89", htmlStrings[0])
+		assertValueEquals(t, "144", htmlStrings[1])
+		assertValueEquals(t, "233", htmlStrings[2])
+		assertValueEquals(t, "377", textStrings[3])
+		assertValueEquals(t, "610", textStrings[4])
+	}
+}
+
+func TestListNoChangeSubType(t *testing.T) {
+	alist := newListWithTimeStamp(
+		[]int64{2, 3, 5, 7},
+		ImmutableSlice,
+		kUsualTimeStamp)
+	defer func() {
+		recover()
+	}()
+	alist.ChangeWithTimeStamp(
+		[]int32{2, 3, 5, 7},
+		ImmutableSlice,
+		kUsualTimeStamp)
+	t.Error("panic expected")
+}
+
 func rpcCountCallback() uint {
 	return 500
 }
@@ -1373,10 +1680,12 @@ func verifyMetric(
 }
 
 func assertValueEquals(
-	t *testing.T, expected, actual interface{}) {
+	t *testing.T, expected, actual interface{}) bool {
 	if expected != actual {
 		t.Errorf("Expected %v, got %v", expected, actual)
+		return false
 	}
+	return true
 }
 
 func assertValueDeepEquals(
@@ -1384,6 +1693,20 @@ func assertValueDeepEquals(
 	if !reflect.DeepEqual(expected, actual) {
 		t.Errorf("Expected %v, got %v", expected, actual)
 	}
+}
+
+func verifyJsonAndRpcDefaultTsGroupId(
+	t *testing.T,
+	m *metric,
+	path, description string,
+	unit units.Unit,
+	tp types.Type,
+	bits int,
+	value interface{}) {
+	verifyJsonDefaultTsGroupId(
+		t, m, path, description, unit, tp, bits, value)
+	verifyRpcDefaultTsGroupId(
+		t, m, path, description, unit, tp, bits, value)
 }
 
 func verifyJsonAndRpc(
@@ -1400,6 +1723,27 @@ func verifyJsonAndRpc(
 		t, m, path, description, unit, tp, bits, value)
 }
 
+func verifyJsonDefaultTsGroupId(
+	t *testing.T,
+	m *metric,
+	path, description string,
+	unit units.Unit,
+	tp types.Type,
+	bits int,
+	value interface{}) {
+	_verifyMessage(
+		t,
+		m,
+		path,
+		description,
+		unit,
+		tp,
+		bits,
+		value,
+		jsonMessage,
+		true)
+}
+
 func verifyJson(
 	t *testing.T,
 	m *metric,
@@ -1408,16 +1752,38 @@ func verifyJson(
 	tp types.Type,
 	bits int,
 	value interface{}) {
-	var ametric messages.Metric
-	m.InitJsonMetric(nil, &ametric)
-	assertValueEquals(t, path, ametric.Path)
-	assertValueEquals(t, description, ametric.Description)
-	assertValueEquals(t, unit, ametric.Unit)
-	assertValueEquals(t, tp, ametric.Kind)
-	assertValueEquals(t, bits, ametric.Bits)
-	assertValueEquals(t, value, ametric.Value)
-	assertValueEquals(t, "1463149655.000000000", ametric.TimeStamp)
-	assertValueEquals(t, 0, ametric.GroupId)
+	_verifyMessage(
+		t,
+		m,
+		path,
+		description,
+		unit,
+		tp,
+		bits,
+		value,
+		jsonMessage,
+		false)
+}
+
+func verifyRpcDefaultTsGroupId(
+	t *testing.T,
+	m *metric,
+	path, description string,
+	unit units.Unit,
+	tp types.Type,
+	bits int,
+	value interface{}) {
+	_verifyMessage(
+		t,
+		m,
+		path,
+		description,
+		unit,
+		tp,
+		bits,
+		value,
+		rpcMessage,
+		true)
 }
 
 func verifyRpc(
@@ -1428,16 +1794,66 @@ func verifyRpc(
 	tp types.Type,
 	bits int,
 	value interface{}) {
+	_verifyMessage(
+		t,
+		m,
+		path,
+		description,
+		unit,
+		tp,
+		bits,
+		value,
+		rpcMessage,
+		false)
+}
+
+func _verifyMessage(
+	t *testing.T,
+	m *metric,
+	path, description string,
+	unit units.Unit,
+	tp types.Type,
+	bits int,
+	value interface{},
+	mt messageType,
+	defaultTsGroupId bool) {
 	var ametric messages.Metric
-	m.InitRpcMetric(nil, &ametric)
+	switch mt {
+	case jsonMessage:
+		m.InitJsonMetric(nil, &ametric)
+	case rpcMessage:
+		m.InitRpcMetric(nil, &ametric)
+	default:
+		panic("Invalid messageType")
+	}
 	assertValueEquals(t, path, ametric.Path)
 	assertValueEquals(t, description, ametric.Description)
 	assertValueEquals(t, unit, ametric.Unit)
 	assertValueEquals(t, tp, ametric.Kind)
 	assertValueEquals(t, bits, ametric.Bits)
-	assertValueEquals(t, value, ametric.Value)
-	assertValueEquals(t, kUsualTimeStamp, ametric.TimeStamp)
-	assertValueEquals(t, 0, ametric.GroupId)
+	if reflect.TypeOf(value).Kind() == reflect.Slice {
+		assertValueDeepEquals(t, value, ametric.Value)
+	} else {
+		assertValueEquals(t, value, ametric.Value)
+	}
+	if defaultTsGroupId {
+		switch mt {
+		case jsonMessage:
+			assertValueEquals(
+				t,
+				"1463149655.000000000",
+				ametric.TimeStamp)
+		case rpcMessage:
+			assertValueEquals(
+				t,
+				kUsualTimeStamp,
+				ametric.TimeStamp)
+		default:
+			panic("Invalid messageType")
+		}
+		assertValueEquals(
+			t, 0, ametric.GroupId)
+	}
 }
 
 func verifyJsonValue(

@@ -7,17 +7,24 @@ import (
 	"time"
 )
 
-func isJson(kind types.Type) bool {
+func isJson(kind, subType types.Type) bool {
 	switch kind {
 	case types.GoDuration, types.GoTime:
 		return false
+	case types.List:
+		switch subType {
+		case types.GoDuration, types.GoTime:
+			return false
+		default:
+			return true
+		}
 	default:
 		return true
 	}
 }
 
-func asJson(value interface{}, kind types.Type, unit units.Unit) (
-	jsonValue interface{}, jsonKind types.Type) {
+func asJson(value interface{}, kind, subType types.Type, unit units.Unit) (
+	jsonValue interface{}, jsonKind, jsonSubType types.Type) {
 	switch kind {
 	case types.GoDuration:
 		jsonKind = types.Duration
@@ -29,6 +36,33 @@ func asJson(value interface{}, kind types.Type, unit units.Unit) (
 		if value != nil {
 			jsonValue = timeAsString(value.(time.Time), unit)
 		}
+	case types.List:
+		jsonKind = types.List
+		switch subType {
+		case types.GoDuration:
+			jsonSubType = types.Duration
+			if value != nil {
+				durations := value.([]time.Duration)
+				jsonDurations := make([]string, len(durations))
+				for i := range jsonDurations {
+					jsonDurations[i] = durationAsString(durations[i], unit)
+				}
+				jsonValue = jsonDurations
+			}
+		case types.GoTime:
+			jsonSubType = types.Time
+			if value != nil {
+				times := value.([]time.Time)
+				jsonTimes := make([]string, len(times))
+				for i := range jsonTimes {
+					jsonTimes[i] = timeAsString(times[i], unit)
+				}
+				jsonValue = jsonTimes
+			}
+		default:
+			jsonSubType = subType
+			jsonValue = value
+		}
 	default:
 		jsonKind = kind
 		jsonValue = value
@@ -37,7 +71,7 @@ func asJson(value interface{}, kind types.Type, unit units.Unit) (
 }
 
 func (m *Metric) convertToJson() {
-	m.Value, m.Kind = asJson(m.Value, m.Kind, m.Unit)
+	m.Value, m.Kind, m.SubType = asJson(m.Value, m.Kind, m.SubType, m.Unit)
 	if m.TimeStamp == nil {
 		m.TimeStamp = ""
 	} else {
