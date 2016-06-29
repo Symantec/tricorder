@@ -88,6 +88,8 @@ type Metric struct {
 	Unit units.Unit `json:"unit"`
 	// The metric's type
 	Kind types.Type `json:"kind"`
+	// The sub-type if type is an aggregate such as List.
+	SubType types.Type `json:"subType,omitempty"`
 	// The size in bits of metric's value if Kind is
 	// types.IntXX, types.UintXX, or types.FloatXX.
 	Bits int `json:"bits,omitempty"`
@@ -105,11 +107,6 @@ type Metric struct {
 	GroupId int `json:"groupId"`
 }
 
-// IsJson returns true if this metric is json compatible
-func (m *Metric) IsJson() bool {
-	return isJson(m.Kind)
-}
-
 // ConvertToJson changes this metric in place to be json compatible.
 func (m *Metric) ConvertToJson() {
 	m.convertToJson()
@@ -120,21 +117,25 @@ func (m *Metric) ConvertToJson() {
 // Metric instances in place.
 type MetricList []*Metric
 
-// AsJson returns a MetricList like this one that is Json compatible.
-func (m MetricList) AsJson() MetricList {
-	return m.asJson()
-}
-
-// IsJson returns true if kind is allowed in Json.
-func IsJson(kind types.Type) bool {
-	return isJson(kind)
-}
-
-// AsJson takes a metric value, kind, and unit and returns an acceptable
-// JSON value and kind for given unit.
+// Deprecated. See AsJsonWithSubType.
+// Equivalent to IsJsonWithSubType(value, kind, types.Unknown, unit) except
+// does not return a sub type.
 func AsJson(value interface{}, kind types.Type, unit units.Unit) (
 	jsonValue interface{}, jsonKind types.Type) {
-	return asJson(value, kind, unit)
+	jsonValue, jsonKind, _ = asJson(value, kind, types.Unknown, unit)
+	return
+}
+
+// AsJsonWithSubType takes a metric value, kind, subtype, and unit and returns
+// an acceptable JSON value, kind, and subType for given unit.
+// If kind is types.List, subType indicates the type of elements in the list.
+// Otherwise, caller should pass types.Unknown for subType. Likewise, if
+// returned jsonKind is types.List, jsonSubType is the type of elements in
+// the list. Otherwise jsonSubType is types.Unknown.
+func AsJsonWithSubType(
+	value interface{}, kind, subType types.Type, unit units.Unit) (
+	jsonValue interface{}, jsonKind, jsonSubType types.Type) {
+	return asJson(value, kind, subType, unit)
 }
 
 func init() {

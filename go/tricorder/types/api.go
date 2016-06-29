@@ -10,72 +10,125 @@ import (
 type Type string
 
 const (
-	Unknown Type = ""
-	Bool    Type = "bool"
-	Int8    Type = "int8"
-	Int16   Type = "int16"
-	Int32   Type = "int32"
-	Int64   Type = "int64"
-	Uint8   Type = "uint8"
-	Uint16  Type = "uint16"
-	Uint32  Type = "uint32"
-	Uint64  Type = "uint64"
-	Float32 Type = "float32"
-	Float64 Type = "float64"
-	String  Type = "string"
-	Dist    Type = "distribution"
-	// for JSON RPC
-	Time Type = "time"
-	// for JSON RPC
-	Duration Type = "duration"
-
-	// for GoRPC
-	GoTime Type = "goTime"
-	// for GoRPC
+	Unknown    Type = ""
+	Bool       Type = "bool"
+	Int8       Type = "int8"
+	Int16      Type = "int16"
+	Int32      Type = "int32"
+	Int64      Type = "int64"
+	Uint8      Type = "uint8"
+	Uint16     Type = "uint16"
+	Uint32     Type = "uint32"
+	Uint64     Type = "uint64"
+	Float32    Type = "float32"
+	Float64    Type = "float64"
+	String     Type = "string"
+	GoTime     Type = "goTime"
 	GoDuration Type = "goDuration"
+	Dist       Type = "distribution"
+	List       Type = "list"
+	// for JSON RPC only
+	Time Type = "time"
+	// for JSON RPC only
+	Duration Type = "duration"
 )
 
 // FromGoValue returns the type of a value found in the GoRPC API.
-// FromGoValue returns unknown if it cannot determine the type.
+// FromGoValue returns Unknown if it cannot determine the type.
+// In case value is a slice of unknown type, FromGoValue returns Unknown
+// rather than List.
 func FromGoValue(value interface{}) Type {
+	kind, _ := FromGoValueWithSubType(value)
+	return kind
+}
+
+// FromGoValueWithSubType returns both the type and sub-type of the value
+// found in the GoRPC API.
+// FromGoValueWithSubType returns Unknown, Unknown if it cannot determine the
+// type.
+// In case value is a slice of an unknown type, FromGoValueWithSubType returns
+// Unknown, Unknown rather than List, Unknown.
+func FromGoValueWithSubType(value interface{}) (kind, subType Type) {
 	switch i := value.(type) {
 	case bool:
-		return Bool
+		kind = Bool
 	case int8:
-		return Int8
+		kind = Int8
 	case int16:
-		return Int16
+		kind = Int16
 	case int32:
-		return Int32
+		kind = Int32
 	case int64:
-		return Int64
+		kind = Int64
 	case uint8:
-		return Uint8
+		kind = Uint8
 	case uint16:
-		return Uint16
+		kind = Uint16
 	case uint32:
-		return Uint32
+		kind = Uint32
 	case uint64:
-		return Uint64
+		kind = Uint64
 	case float32:
-		return Float32
+		kind = Float32
 	case float64:
-		return Float64
+		kind = Float64
 	case string:
-		return String
+		kind = String
 	case time.Time:
-		return GoTime
+		kind = GoTime
 	case time.Duration:
-		return GoDuration
+		kind = GoDuration
 	case goValue:
-		return i.Type()
+		kind = i.Type()
+	case []bool:
+		kind = List
+		subType = Bool
+	case []int8:
+		kind = List
+		subType = Int8
+	case []int16:
+		kind = List
+		subType = Int16
+	case []int32:
+		kind = List
+		subType = Int32
+	case []int64:
+		kind = List
+		subType = Int64
+	case []uint8:
+		kind = List
+		subType = Uint8
+	case []uint16:
+		kind = List
+		subType = Uint16
+	case []uint32:
+		kind = List
+		subType = Uint32
+	case []uint64:
+		kind = List
+		subType = Uint64
+	case []float32:
+		kind = List
+		subType = Float32
+	case []float64:
+		kind = List
+		subType = Float64
+	case []string:
+		kind = List
+		subType = String
+	case []time.Time:
+		kind = List
+		subType = GoTime
+	case []time.Duration:
+		kind = List
+		subType = GoDuration
 	default:
-		return Unknown
 	}
+	return
 }
 
 // ZeroValue returns the zero value for this type.
-// ZeroValue panics if this type is Dist.
+// ZeroValue panics if this type is Dist or List.
 func (t Type) ZeroValue() interface{} {
 	switch t {
 	case Bool:
@@ -104,6 +157,8 @@ func (t Type) ZeroValue() interface{} {
 		return ""
 	case Dist:
 		panic("Dist type cannot create new value.")
+	case List:
+		panic("List type cannot create new value.")
 	case Time, Duration:
 		return "0.000000000"
 	case GoTime:
@@ -115,10 +170,69 @@ func (t Type) ZeroValue() interface{} {
 	}
 }
 
+// NilSlice returns the nil slice of this type.
+// NilSlice panics if this type is Dist or List.
+func (t Type) NilSlice() interface{} {
+	switch t {
+	case Bool:
+		var result []bool
+		return result
+	case Int8:
+		var result []int8
+		return result
+	case Int16:
+		var result []int16
+		return result
+	case Int32:
+		var result []int32
+		return result
+	case Int64:
+		var result []int64
+		return result
+	case Uint8:
+		var result []uint8
+		return result
+	case Uint16:
+		var result []uint16
+		return result
+	case Uint32:
+		var result []uint32
+		return result
+	case Uint64:
+		var result []uint64
+		return result
+	case Float32:
+		var result []float32
+		return result
+	case Float64:
+		var result []float64
+		return result
+	case String:
+		var result []string
+		return result
+	case Dist:
+		panic("Dist type cannot create new value.")
+	case List:
+		panic("List type cannot create new value.")
+	case Time, Duration:
+		var result []string
+		return result
+	case GoTime:
+		var result []time.Time
+		return result
+	case GoDuration:
+		var result []time.Duration
+		return result
+	default:
+		panic("Unknown type")
+
+	}
+}
+
 // CanToFromFloat returns true if this type supports conversion to/from float64
 func (t Type) CanToFromFloat() bool {
 	switch t {
-	case Bool, String, Dist, Time, Duration:
+	case Bool, String, Dist, List, Time, Duration:
 		return false
 	case Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64, Float32, Float64, GoTime, GoDuration:
 		return true
@@ -218,4 +332,14 @@ func (t Type) Bits() int {
 	default:
 		return 0
 	}
+}
+
+// UsesSubType returns true if this type uses a sub-type.
+func (t Type) UsesSubType() bool {
+	return t == List
+}
+
+// SupportsEquality returns true if this type supports equality.
+func (t Type) SupportsEquality() bool {
+	return t != List && t != Dist
 }
