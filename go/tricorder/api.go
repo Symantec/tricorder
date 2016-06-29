@@ -250,6 +250,48 @@ func (d *NonCumulativeDistribution) Count() uint64 {
 	return (*distribution)(d).Count()
 }
 
+const (
+	// Indicates that passed slice may change.
+	MutableSice = true
+	// Indicates that passed slice will never change.
+	ImmutableSlice = false
+)
+
+// List represents a metric that is a list of values of the same type.
+// List instances are safe to use with multiple goroutines.
+type List struct {
+}
+
+// NewList returns a new list containing the values in aslice.
+//
+// aslice must be a slice of any type that tricorder supports that
+// represents a single value. For example aslice can be an []int32,
+// []int64, or []time.Time, but it cannot be a []*tricorder.List.
+// Moreover, aslice cannot be a slice of pointers such as []*int64.
+// NewList panics if aslice is not a slice or is a slice of an
+// unsupported type.
+//
+// aSliceMutable lets tricorder know whether or not caller plans to
+// modify aslice in the future. If caller passes ImmutableSlice or
+// false for aSliceMutable and later modifies aslice, the results
+// are undefined. If caller passes MutableSlice or true and later
+// modifies aslice, tricorder will continue to report the original
+// values in aslice.
+//
+// To change the values in a List, caller must use the Change method.
+func NewList(aslice interface{}, aSliceMutable bool) *List {
+	panic("Unsupported operation")
+}
+
+// Change updates this instance so that it contains only the values
+// found in aslice.
+//
+// The parameters aslice and aSliceMutable work the same way as in
+// NewList.
+func (l *List) Change(aslice interface{}, aSliceMutable bool) {
+	panic("Unsupported operation")
+}
+
 // DirectorySpec represents a specific directory in the heirarchy of
 // metrics.
 type DirectorySpec directory
