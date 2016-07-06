@@ -1516,8 +1516,8 @@ func TestInt64List(t *testing.T) {
 		[]int64{2, 3, 5, 7},
 		ImmutableSlice,
 		kUsualTimeStamp)
-	aslice, ts := alist.AsSlice()
-	assertValueDeepEquals(t, []int64{2, 3, 5, 7}, aslice)
+	aSlice, ts := alist.AsSlice()
+	assertValueDeepEquals(t, []int64{2, 3, 5, 7}, aSlice)
 	assertValueEquals(t, kUsualTimeStamp, ts)
 	assertValueEquals(t, types.Int64, alist.SubType())
 
@@ -1531,9 +1531,9 @@ func TestInt64List(t *testing.T) {
 	mutableInt64Slice[1] = 12167
 	mutableInt64Slice[2] = 8192
 
-	aslice, ts = alist.AsSlice()
+	aSlice, ts = alist.AsSlice()
 	assertValueDeepEquals(
-		t, []int64{3000, 5000, 7000}, aslice)
+		t, []int64{3000, 5000, 7000}, aSlice)
 	assertValueEquals(t, kUsualTimeStamp.Add(5*time.Hour), ts)
 	textStrings := alist.TextStrings(units.None)
 	if assertValueEquals(t, 3, len(textStrings)) {
@@ -1560,8 +1560,8 @@ func TestBoolList(t *testing.T) {
 		[]bool{false, true, true},
 		ImmutableSlice,
 		kUsualTimeStamp)
-	aslice, ts := alist.AsSlice()
-	assertValueDeepEquals(t, []bool{false, true, true}, aslice)
+	aSlice, ts := alist.AsSlice()
+	assertValueDeepEquals(t, []bool{false, true, true}, aSlice)
 	assertValueEquals(t, kUsualTimeStamp, ts)
 	assertValueEquals(t, types.Bool, alist.SubType())
 	assertValueDeepEquals(
@@ -1579,9 +1579,9 @@ func TestDurationList(t *testing.T) {
 		[]time.Duration{time.Second, time.Minute},
 		ImmutableSlice,
 		kUsualTimeStamp)
-	aslice, ts := alist.AsSlice()
+	aSlice, ts := alist.AsSlice()
 	assertValueDeepEquals(
-		t, []time.Duration{time.Second, time.Minute}, aslice)
+		t, []time.Duration{time.Second, time.Minute}, aSlice)
 	assertValueEquals(t, kUsualTimeStamp, ts)
 	assertValueEquals(t, types.GoDuration, alist.SubType())
 	assertValueDeepEquals(
@@ -1617,13 +1617,13 @@ func TestTimeList(t *testing.T) {
 			kUsualTimeStamp.Add(3 * time.Hour)},
 		ImmutableSlice,
 		kUsualTimeStamp)
-	aslice, ts := alist.AsSlice()
+	aSlice, ts := alist.AsSlice()
 	assertValueDeepEquals(
 		t,
 		[]time.Time{
 			kUsualTimeStamp.Add(time.Hour),
 			kUsualTimeStamp.Add(3 * time.Hour)},
-		aslice)
+		aSlice)
 	assertValueEquals(t, kUsualTimeStamp, ts)
 	assertValueEquals(t, types.GoTime, alist.SubType())
 	assertValueDeepEquals(
@@ -1645,13 +1645,13 @@ func TestIntList(t *testing.T) {
 		[]int{-36, -49},
 		ImmutableSlice,
 		kUsualTimeStamp.Add(time.Hour))
-	aslice, ts := alist.AsSlice()
-	switch aslice.(type) {
+	aSlice, ts := alist.AsSlice()
+	switch aSlice.(type) {
 	case []int32:
-		assertValueDeepEquals(t, []int32{-36, -49}, aslice)
+		assertValueDeepEquals(t, []int32{-36, -49}, aSlice)
 		assertValueEquals(t, types.Int32, alist.SubType())
 	case []int64:
-		assertValueDeepEquals(t, []int64{-36, -49}, aslice)
+		assertValueDeepEquals(t, []int64{-36, -49}, aSlice)
 		assertValueEquals(t, types.Int64, alist.SubType())
 	default:
 		t.Fatal("Expected int32 or int64")
@@ -1661,13 +1661,13 @@ func TestIntList(t *testing.T) {
 		[]int{-100, -121, -144},
 		ImmutableSlice,
 		kUsualTimeStamp.Add(4*time.Hour))
-	aslice, ts = alist.AsSlice()
-	switch aslice.(type) {
+	aSlice, ts = alist.AsSlice()
+	switch aSlice.(type) {
 	case []int32:
-		assertValueDeepEquals(t, []int32{-100, -121, -144}, aslice)
+		assertValueDeepEquals(t, []int32{-100, -121, -144}, aSlice)
 		assertValueEquals(t, types.Int32, alist.SubType())
 	case []int64:
-		assertValueDeepEquals(t, []int64{-100, -121, -144}, aslice)
+		assertValueDeepEquals(t, []int64{-100, -121, -144}, aSlice)
 		assertValueEquals(t, types.Int64, alist.SubType())
 	default:
 		t.Fatal("Expected int32 or int64")
@@ -1692,13 +1692,13 @@ func TestUintList(t *testing.T) {
 		[]uint{89, 144, 233, 377, 610},
 		ImmutableSlice,
 		kUsualTimeStamp.Add(7*time.Hour))
-	aslice, ts := alist.AsSlice()
-	switch aslice.(type) {
+	aSlice, ts := alist.AsSlice()
+	switch aSlice.(type) {
 	case []uint32:
-		assertValueDeepEquals(t, []uint32{89, 144, 233, 377, 610}, aslice)
+		assertValueDeepEquals(t, []uint32{89, 144, 233, 377, 610}, aSlice)
 		assertValueEquals(t, types.Uint32, alist.SubType())
 	case []uint64:
-		assertValueDeepEquals(t, []uint64{89, 144, 233, 377, 610}, aslice)
+		assertValueDeepEquals(t, []uint64{89, 144, 233, 377, 610}, aSlice)
 		assertValueEquals(t, types.Uint64, alist.SubType())
 	default:
 		t.Fatal("Expected uint32 or uint64")

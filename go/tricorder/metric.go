@@ -553,7 +553,7 @@ type listType struct {
 	groupId   int
 	subType   types.Type
 	lock      sync.RWMutex
-	aslice    reflect.Value
+	aSlice    reflect.Value
 	timeStamp time.Time
 }
 
@@ -598,13 +598,13 @@ func convertFromIntOrUintSlice(
 	return defensiveCopy
 }
 
-// Returns aslice as a value and its type. If aSliceMutable is true,
-// always makes a defensive copy of aslice. If aSliceMutable is false,
-// may or may not make a defensive copy of aslice. If aslice is an []int
+// Returns aSlice as a value and its type. If sliceIsMutable is true,
+// always makes a defensive copy of aSlice. If sliceIsMutable is false,
+// may or may not make a defensive copy of aSlice. If aSlice is an []int
 // or []uint, returned value will be size specific, e.g []int64.
-func asSliceValue(aslice interface{}, aSliceMutable bool) (
+func asSliceValue(aSlice interface{}, sliceIsMutable bool) (
 	value reflect.Value, t types.Type) {
-	value = reflect.ValueOf(aslice)
+	value = reflect.ValueOf(aSlice)
 	if value.Kind() != reflect.Slice {
 		panic("Slice expected")
 	}
@@ -616,42 +616,42 @@ func asSliceValue(aslice interface{}, aSliceMutable bool) (
 	elemKind := elemType.Kind()
 	if elemKind == reflect.Int || elemKind == reflect.Uint {
 		value = convertFromIntOrUintSlice(value, t)
-	} else if aSliceMutable {
+	} else if sliceIsMutable {
 		value = copySlice(value)
 	}
 	return
 }
 
 func newListWithTimeStamp(
-	aslice interface{},
-	aSliceMutable bool,
+	aSlice interface{},
+	sliceIsMutable bool,
 	ts time.Time) *listType {
-	value, subType := asSliceValue(aslice, aSliceMutable)
+	value, subType := asSliceValue(aSlice, sliceIsMutable)
 	return &listType{
 		groupId:   <-idGenerator,
 		subType:   subType,
-		aslice:    value,
+		aSlice:    value,
 		timeStamp: ts}
 }
 
 func (l *listType) ChangeWithTimeStamp(
-	aslice interface{},
-	aSliceMutable bool,
+	aSlice interface{},
+	sliceIsMutable bool,
 	ts time.Time) {
-	value, subType := asSliceValue(aslice, aSliceMutable)
+	value, subType := asSliceValue(aSlice, sliceIsMutable)
 	if subType != l.subType {
 		panic("Sub-type in list cannot change.")
 	}
 	l.lock.Lock()
 	defer l.lock.Unlock()
-	l.aslice = value
+	l.aSlice = value
 	l.timeStamp = ts
 }
 
 func (l *listType) get() (value reflect.Value, ts time.Time) {
 	l.lock.RLock()
 	defer l.lock.RUnlock()
-	return l.aslice, l.timeStamp
+	return l.aSlice, l.timeStamp
 }
 
 func (l *listType) TextStrings(unit units.Unit) []string {
