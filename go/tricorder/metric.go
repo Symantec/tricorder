@@ -23,6 +23,7 @@ const (
 	panicIncompatibleTypes      = "Wrong AsXXX function called on value."
 	panicTypeMismatch           = "Wrong type passed to method."
 	panicDirectoryUnregistered  = "Directory is unregistered."
+	panicSingleValueExpected    = "Trying to use an aggregate value in a single value context"
 )
 
 var (
@@ -520,11 +521,151 @@ func (d *distribution) Snapshot() *snapshot {
 
 }
 
+type listType struct {
+	groupId   int
+	subType   types.Type
+	lock      sync.RWMutex
+	aSlice    reflect.Value
+	timeStamp time.Time
+}
+
+func copySlice(value reflect.Value) reflect.Value {
+	result := reflect.MakeSlice(value.Type(), value.Len(), value.Len())
+	reflect.Copy(result, value)
+	return result
+}
+
+// Converts []int or []uint slice to a slice having element type t.
+// If value is an []int, t has to be types.Int32 or types.Int64.
+// If value is an []uint, t has to be types.Uint32 or types.Uint64.
+func convertFromIntOrUintSlice(
+	value reflect.Value, t types.Type) reflect.Value {
+	var newType reflect.Type
+	switch t {
+	case types.Int32:
+		var unused []int32
+		newType = reflect.TypeOf(unused)
+	case types.Int64:
+		var unused []int64
+		newType = reflect.TypeOf(unused)
+	case types.Uint32:
+		var unused []uint32
+		newType = reflect.TypeOf(unused)
+	case types.Uint64:
+		var unused []uint64
+		newType = reflect.TypeOf(unused)
+	default:
+		panic("t is not compatible with int or uint")
+	}
+	length := value.Len()
+	defensiveCopy := reflect.MakeSlice(newType, length, length)
+	for i := 0; i < length; i++ {
+		defensiveCopy.Index(i).Set(
+			reflect.ValueOf(
+				valueToInterface(
+					value.Index(i),
+					t,
+					false)))
+	}
+	return defensiveCopy
+}
+
+// Returns aSlice as a value and its type. If sliceIsMutable is true,
+// always makes a defensive copy of aSlice. If sliceIsMutable is false,
+// may or may not make a defensive copy of aSlice. If aSlice is an []int
+// or []uint, returned value will be size specific, e.g []int64.
+func asSliceValue(aSlice interface{}, sliceIsMutable bool) (
+	value reflect.Value, t types.Type) {
+	value = reflect.ValueOf(aSlice)
+	if value.Kind() != reflect.Slice {
+		panic("Slice expected")
+	}
+	elemType := value.Type().Elem()
+	t, isPtr := mustGetPrimitiveType(elemType)
+	if isPtr {
+		panic("Lists cannot contain slices of pointrs.")
+	}
+	elemKind := elemType.Kind()
+	if elemKind == reflect.Int || elemKind == reflect.Uint {
+		value = convertFromIntOrUintSlice(value, t)
+	} else if sliceIsMutable {
+		value = copySlice(value)
+	}
+	return
+}
+
+func newListWithTimeStamp(
+	aSlice interface{},
+	sliceIsMutable bool,
+	ts time.Time) *listType {
+	value, subType := asSliceValue(aSlice, sliceIsMutable)
+	return &listType{
+		groupId:   <-idGenerator,
+		subType:   subType,
+		aSlice:    value,
+		timeStamp: ts}
+}
+
+func (l *listType) ChangeWithTimeStamp(
+	aSlice interface{},
+	sliceIsMutable bool,
+	ts time.Time) {
+	value, subType := asSliceValue(aSlice, sliceIsMutable)
+	if subType != l.subType {
+		panic("Sub-type in list cannot change.")
+	}
+	l.lock.Lock()
+	defer l.lock.Unlock()
+	l.aSlice = value
+	l.timeStamp = ts
+}
+
+func (l *listType) get() (value reflect.Value, ts time.Time) {
+	l.lock.RLock()
+	defer l.lock.RUnlock()
+	return l.aSlice, l.timeStamp
+}
+
+func (l *listType) TextStrings(unit units.Unit) []string {
+	value, _ := l.get()
+	result := make([]string, value.Len())
+	for i := range result {
+		result[i] = valueToTextString(
+			value.Index(i), l.subType, unit, false)
+	}
+	return result
+}
+
+func (l *listType) HtmlStrings(unit units.Unit) []string {
+	value, _ := l.get()
+	result := make([]string, value.Len())
+	for i := range result {
+		result[i] = valueToHtmlString(
+			value.Index(i), l.subType, unit, false)
+	}
+	return result
+}
+
+// Callers must never modify returned slice in place.
+func (l *listType) AsSlice() (interface{}, time.Time) {
+	value, ts := l.get()
+	return value.Interface(), ts
+}
+
+func (l *listType) GroupId() int {
+	return l.groupId
+}
+
+func (l *listType) SubType() types.Type {
+	return l.subType
+}
+
 // value represents the value of a metric.
 type value struct {
 	val           reflect.Value
 	region        *region
 	dist          *distribution
+	alist         *listType
 	valType       types.Type
 	isValAPointer bool
 	isfunc        bool
@@ -627,6 +768,13 @@ func newValue(spec interface{}, region *region, unit units.Unit) *value {
 		dist.unit = unit
 		return &value{dist: dist, unit: unit, valType: types.Dist}
 	}
+	if someList, ok := spec.(*List); ok {
+		alist := (*listType)(someList)
+		return &value{alist: alist, unit: unit, valType: types.List}
+	}
+	if alist, ok := spec.(*listType); ok {
+		return &value{alist: alist, unit: unit, valType: types.List}
+	}
 	flagValue, ok := spec.(flag.Value)
 	if ok {
 		flagGetter := toFlagGetter(flagValue)
@@ -681,15 +829,32 @@ func (v *value) Type() types.Type {
 	return v.valType
 }
 
+// SubType returns the sub type of this value when this value is a
+// list or types.Unknown if this value is not a list.
+func (v *value) SubType() types.Type {
+	if v.valType == types.List {
+		return v.alist.SubType()
+	}
+	return types.Unknown
+}
+
 // Unit returns the unit of this value.
 func (v *value) Unit() units.Unit {
 	return v.unit
 }
 
 // Bits returns the size in bits if the type is an Int, Uint, or Float.
-// Otherwise Bits returns 0.
+// Otherwise Bits returns 0. If this value represents a list,
+// returns the size in bits of the sub type.
 func (v *value) Bits() int {
+	if v.valType == types.List {
+		return v.alist.SubType().Bits()
+	}
 	return v.valType.Bits()
+}
+
+func (v *value) canEvaluate() bool {
+	return v.val.IsValid()
 }
 
 func (v *value) evaluate(s *session) reflect.Value {
@@ -750,32 +915,46 @@ func (v *value) AsString(s *session) string {
 	return v.evaluate(s).String()
 }
 
-func (v *value) AsTime(s *session) (result time.Time) {
-	if v.valType != types.GoTime {
-		panic(panicIncompatibleTypes)
-	}
-	val := v.evaluate(s)
-	if v.isValAPointer {
-		p := val.Interface().(*time.Time)
+func valueToTime(
+	value reflect.Value, isValueAPointer bool) (result time.Time) {
+	if isValueAPointer {
+		p := value.Interface().(*time.Time)
 		if p == nil {
 			return
 		}
 		return *p
 	}
-	return val.Interface().(time.Time)
+	return value.Interface().(time.Time)
+}
+
+func valueToGoDuration(value reflect.Value) time.Duration {
+	return time.Duration(value.Int())
+}
+
+func timeToDuration(t time.Time) (result duration.Duration) {
+	if t.IsZero() {
+		return
+	}
+	return duration.SinceEpoch(t)
+}
+
+func (v *value) AsTime(s *session) (result time.Time) {
+	if v.valType != types.GoTime {
+		panic(panicIncompatibleTypes)
+	}
+	return valueToTime(v.evaluate(s), v.isValAPointer)
 }
 
 func (v *value) AsGoDuration(s *session) time.Duration {
-	return time.Duration(v.evaluate(s).Int())
+	if v.valType != types.GoDuration {
+		panic(panicIncompatibleTypes)
+	}
+	return valueToGoDuration(v.evaluate(s))
 }
 
-func (v *value) AsDuration(s *session) (result duration.Duration) {
+func (v *value) AsDuration(s *session) duration.Duration {
 	if v.valType == types.GoTime {
-		t := v.AsTime(s)
-		if t.IsZero() {
-			return
-		}
-		return duration.SinceEpoch(t)
+		return timeToDuration(v.AsTime(s))
 	}
 	if v.valType == types.GoDuration {
 		return duration.New(v.AsGoDuration(s))
@@ -783,34 +962,47 @@ func (v *value) AsDuration(s *session) (result duration.Duration) {
 	panic(panicIncompatibleTypes)
 }
 
-func (v *value) AsInterface(s *session) (result interface{}) {
+func valueToInterface(
+	value reflect.Value,
+	t types.Type,
+	isValueAPointer bool) interface{} {
 	// Int32, Int64, Uint32, and Uint64 cases are necessary in case
 	// client passed an int or uint pointer to RegisterMetric.
 	// If we were to just call v.evaluate(s).Interface() we would return
 	// that plain int or uint instead of a sized int or uint and violate
 	// the contract of the API which specifies that the value is always
 	// a sized int or uint.
-	switch v.valType {
-	case types.Int32:
-		return int32(v.AsInt(s))
-	case types.Int64:
-		return int64(v.AsInt(s))
-	case types.Uint32:
-		return uint32(v.AsUint(s))
-	case types.Uint64:
-		return uint64(v.AsUint(s))
-	case types.GoTime:
-		return v.AsTime(s)
-	case types.GoDuration:
-		return v.AsGoDuration(s)
+	switch {
+	case t == types.Int32 && !isValueAPointer:
+		return int32(value.Int())
+	case t == types.Int64 && !isValueAPointer:
+		return int64(value.Int())
+	case t == types.Uint32 && !isValueAPointer:
+		return uint32(value.Uint())
+	case t == types.Uint64 && !isValueAPointer:
+		return uint64(value.Uint())
+	case t == types.GoTime:
+		return valueToTime(value, isValueAPointer)
+	case t == types.GoDuration:
+		return valueToGoDuration(value)
+	case !isValueAPointer:
+		return value.Interface()
 	default:
-		return v.evaluate(s).Interface()
+		panic(panicIncompatibleTypes)
 	}
+
+}
+
+func (v *value) AsInterface(s *session) (result interface{}) {
+	if !v.canEvaluate() {
+		panic(panicSingleValueExpected)
+	}
+	return valueToInterface(v.evaluate(s), v.valType, v.isValAPointer)
 }
 
 // RegionId returns the region id for the timestamps of this value.
-// RegionId panics if called on a distribution value since distributions
-// are updated continually and have no timestamp.
+// RegionId panics if called on an aggregate value such as a distrubtion or
+// list since they are updated continually.
 func (v *value) RegionId() int {
 	if v.region == nil {
 		panic("Cannot all RegionId on a distribution value.")
@@ -822,11 +1014,11 @@ func (v *value) RegionId() int {
 // s must be non-nil and must be the same session passed to an AsXXX method
 // to fetch the value. The caller may call this method and the AsXXX method
 // in any order as long as it passes the same session to both.
-// TimeStamp panics if called on a distribution value since distributions
-// are updated continually and have no timestamp.
+// TimeStamp panics if called on an aggregat value such as a  distribution
+// or list since they are updated continually and have no timestamp.
 func (v *value) TimeStamp(s *session) time.Time {
 	if v.region == nil {
-		panic("Cannot call TimeStamp on a distribution value.")
+		panic("Cannot call TimeStamp on an aggregate value.")
 	}
 	return s.Visit(v.region)
 }
@@ -846,6 +1038,7 @@ func (v *value) updateJsonOrRpcMetric(
 	s *session, metric *messages.Metric, encoding rpcEncoding) {
 	t := v.Type()
 	metric.Kind = t
+	metric.SubType = v.SubType()
 	metric.Bits = v.Bits()
 	metric.Unit = v.Unit()
 	switch t {
@@ -861,6 +1054,10 @@ func (v *value) updateJsonOrRpcMetric(
 			Generation:      snapshot.Generation,
 			IsNotCumulative: snapshot.IsNotCumulative,
 			Ranges:          asRanges(snapshot.Breakdown)}
+	case types.List:
+		alist := v.AsList()
+		metric.Value, metric.TimeStamp = alist.AsSlice()
+		metric.GroupId = alist.GroupId()
 	default:
 		if s == nil {
 			s = newSession()
@@ -885,33 +1082,49 @@ func (v *value) UpdateRpcMetric(s *session, metric *messages.Metric) {
 	v.updateJsonOrRpcMetric(s, metric, goRpcEncoding)
 }
 
+func valueToTextString(
+	value reflect.Value,
+	t types.Type,
+	u units.Unit,
+	isValueAPointer bool) string {
+	switch {
+	case t == types.Bool:
+		if value.Bool() {
+			return "true"
+		}
+		return "false"
+	case t.IsInt() && !isValueAPointer:
+		return strconv.FormatInt(value.Int(), 10)
+	case t.IsUint() && !isValueAPointer:
+		return strconv.FormatUint(value.Uint(), 10)
+	case t == types.Float32 && !isValueAPointer:
+		return strconv.FormatFloat(value.Float(), 'f', -1, 32)
+	case t == types.Float64 && !isValueAPointer:
+		return strconv.FormatFloat(value.Float(), 'f', -1, 64)
+	case t == types.String && !isValueAPointer:
+		return "\"" + value.String() + "\""
+	case t == types.GoTime:
+		return timeToDuration(
+			valueToTime(
+				value, isValueAPointer)).StringUsingUnits(u)
+	case t == types.GoDuration && !isValueAPointer:
+		return duration.New(
+			valueToGoDuration(value)).StringUsingUnits(u)
+	default:
+		panic(panicIncompatibleTypes)
+	}
+}
+
 // AsTextString returns this value as a text friendly string.
 // AsTextString panics if this value does not represent a single value.
 // For example, AsTextString panics if this value represents a distribution.
 // If caller passes a nil session, AsTextString creates its own internally.
 func (v *value) AsTextString(s *session) string {
-	t := v.Type()
-	switch {
-	case t == types.Bool:
-		if v.AsBool(s) {
-			return "true"
-		}
-		return "false"
-	case t.IsInt():
-		return strconv.FormatInt(v.AsInt(s), 10)
-	case t.IsUint():
-		return strconv.FormatUint(v.AsUint(s), 10)
-	case t == types.Float32:
-		return strconv.FormatFloat(v.AsFloat(s), 'f', -1, 32)
-	case t == types.Float64:
-		return strconv.FormatFloat(v.AsFloat(s), 'f', -1, 64)
-	case t == types.String:
-		return "\"" + v.AsString(s) + "\""
-	case t == types.GoTime, t == types.GoDuration:
-		return v.AsDuration(s).StringUsingUnits(v.unit)
-	default:
-		panic(panicIncompatibleTypes)
+	if !v.canEvaluate() {
+		panic(panicSingleValueExpected)
 	}
+	return valueToTextString(
+		v.evaluate(s), v.Type(), v.unit, v.isValAPointer)
 }
 
 func iCompactForm(x int64, radix uint, suffixes []string) string {
@@ -956,49 +1169,61 @@ func uCompactForm(x uint64, radix uint, suffixes []string) string {
 	}
 }
 
+func valueToHtmlString(
+	value reflect.Value,
+	t types.Type,
+	u units.Unit,
+	isValueAPointer bool) string {
+	switch {
+	case t.IsInt() && !isValueAPointer:
+		switch u {
+		case units.Byte:
+			return iCompactForm(
+				value.Int(), 1024, byteSuffixes)
+		case units.BytePerSecond:
+			return iCompactForm(
+				value.Int(), 1024, bytePerSecondSuffixes)
+		default:
+			return iCompactForm(
+				value.Int(), 1000, suffixes)
+		}
+	case t.IsUint() && !isValueAPointer:
+		switch u {
+		case units.Byte:
+			return uCompactForm(
+				value.Uint(), 1024, byteSuffixes)
+		case units.BytePerSecond:
+			return uCompactForm(
+				value.Uint(), 1024, bytePerSecondSuffixes)
+		default:
+			return uCompactForm(
+				value.Uint(), 1000, suffixes)
+		}
+	case t == types.GoDuration && !isValueAPointer:
+		d := duration.New(valueToGoDuration(value))
+		if d.IsNegative() {
+			return valueToTextString(
+				value, t, u, isValueAPointer)
+		}
+		return d.PrettyFormat()
+	case t == types.GoTime:
+		t := valueToTime(value, isValueAPointer).UTC()
+		return t.Format("2006-01-02T15:04:05.999999999Z")
+	default:
+		return valueToTextString(value, t, u, isValueAPointer)
+	}
+}
+
 // AsHtmlString returns this value as an html friendly string.
 // AsHtmlString panics if this value does not represent a single value.
 // For example, AsHtmlString panics if this value represents a distribution.
 // If caller passes a nil session, AsHtmlString creates its own internally.
 func (v *value) AsHtmlString(s *session) string {
-	t := v.Type()
-	switch {
-	case t.IsInt():
-		switch v.unit {
-		case units.Byte:
-			return iCompactForm(v.AsInt(s), 1024, byteSuffixes)
-		case units.BytePerSecond:
-			return iCompactForm(
-				v.AsInt(s), 1024, bytePerSecondSuffixes)
-		default:
-			return iCompactForm(v.AsInt(s), 1000, suffixes)
-		}
-	case t.IsUint():
-		switch v.unit {
-		case units.Byte:
-			return uCompactForm(v.AsUint(s), 1024, byteSuffixes)
-		case units.BytePerSecond:
-			return uCompactForm(
-				v.AsUint(s), 1024, bytePerSecondSuffixes)
-		default:
-			return uCompactForm(v.AsUint(s), 1000, suffixes)
-		}
-	case t == types.GoDuration:
-		if s == nil {
-			s = newSession()
-			defer s.Close()
-		}
-		d := v.AsDuration(s)
-		if d.IsNegative() {
-			return v.AsTextString(s)
-		}
-		return d.PrettyFormat()
-	case t == types.GoTime:
-		t := v.AsTime(s).UTC()
-		return t.Format("2006-01-02T15:04:05.999999999Z")
-	default:
-		return v.AsTextString(s)
+	if !v.canEvaluate() {
+		panic(panicSingleValueExpected)
 	}
+	return valueToHtmlString(
+		v.evaluate(s), v.Type(), v.unit, v.isValAPointer)
 }
 
 // AsDistribution returns this value as a Distribution.
@@ -1008,6 +1233,13 @@ func (v *value) AsDistribution() *distribution {
 		panic(panicIncompatibleTypes)
 	}
 	return v.dist
+}
+
+func (v *value) AsList() *listType {
+	if v.valType != types.List {
+		panic(panicIncompatibleTypes)
+	}
+	return v.alist
 }
 
 // metric represents a single metric.
