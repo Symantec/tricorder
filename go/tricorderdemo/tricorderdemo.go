@@ -10,13 +10,24 @@ import (
 	"time"
 )
 
+var kAnIntList *tricorder.List
+
 func registerMetrics() {
 	var temperature float64
 	var someBool bool
 	var someDuration time.Duration
 
 	rpcDistribution := tricorder.PowersOfTen.NewCumulativeDistribution()
+	var sample []int
+	kAnIntList = tricorder.NewList(sample, tricorder.MutableSlice)
 
+	if err := tricorder.RegisterMetric(
+		"/list/squares",
+		kAnIntList,
+		units.None,
+		"Squares"); err != nil {
+		log.Fatalf("Got error %v registering metric", err)
+	}
 	if err := tricorder.RegisterMetric(
 		"/proc/rpc-latency",
 		rpcDistribution,
@@ -70,6 +81,19 @@ func registerMetrics() {
 	// 156.25 - 390.625: 234
 	for i := 0; i < 500; i++ {
 		rpcDistribution.Add(float64(i))
+	}
+	go updateList()
+}
+
+func updateList() {
+	time.Sleep(30 * time.Second)
+	for i := 1; i < 100; i++ {
+		aslice := make([]int, i)
+		for j := 1; j <= i; j++ {
+			aslice[j-1] = j * j
+		}
+		kAnIntList.Change(aslice, tricorder.ImmutableSlice)
+		time.Sleep(time.Second)
 	}
 }
 

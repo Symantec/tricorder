@@ -250,6 +250,59 @@ func (d *NonCumulativeDistribution) Count() uint64 {
 	return (*distribution)(d).Count()
 }
 
+const (
+	// Indicates that passed slice may change.
+	MutableSlice = true
+	// Indicates that passed slice will never change.
+	ImmutableSlice = false
+)
+
+// List represents a metric that is a list of values of the same type.
+// List instances are safe to use with multiple goroutines.
+type List listType
+
+// NewList returns a new list containing the values in aSlice.
+//
+// aSlice must be a slice of any type that tricorder supports that
+// represents a single value. For example aSlice can be an []int32,
+// []int64, or []time.Time, but it cannot be a []*tricorder.List.
+// Moreover, aSlice cannot be a slice of pointers such as []*int64.
+// NewList panics if aSlice is not a slice or is a slice of an
+// unsupported type.
+//
+// If caller passes an []int or []uint for aSlice, NewList converts it
+// internally to either an []int32, []int64, []uint32, []uint64 depending
+// on whether or not the architecture is 32 or 64 bit. This conversion happens
+// even if sliceIsMutable is false and requires creating a copy of the slice.
+// Therefore, we recommend that for aSlice caller always use
+// either []int32 or []int64 instead []int or either []uint32 or []uint64
+// instead of []uint.
+//
+// sliceIsMutable lets tricorder know whether or not caller plans to
+// modify aSlice in the future. If caller passes ImmutableSlice or
+// false for sliceIsMutable and later modifies aSlice, the results
+// are undefined. If caller passes MutableSlice or true and later
+// modifies aSlice, tricorder will continue to report the original
+// values in aSlice.
+//
+// To change the values in a List, caller must use the Change method.
+func NewList(aSlice interface{}, sliceIsMutable bool) *List {
+	return (*List)(newListWithTimeStamp(aSlice, sliceIsMutable, time.Now()))
+}
+
+// Change updates this instance so that it contains only the values
+// found in aSlice.
+//
+// Change panics if it would change the type of elements this instance
+// contains. For instance, creating a list with a []int64 and then calling
+// Change with a []string panics.
+//
+// The parameters aSlice and sliceIsMutable work the same way as in
+// NewList.
+func (l *List) Change(aSlice interface{}, sliceIsMutable bool) {
+	(*listType)(l).ChangeWithTimeStamp(aSlice, sliceIsMutable, time.Now())
+}
+
 // DirectorySpec represents a specific directory in the heirarchy of
 // metrics.
 type DirectorySpec directory
