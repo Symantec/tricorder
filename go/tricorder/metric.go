@@ -314,33 +314,51 @@ type snapshot struct {
 	Count           uint64
 	Generation      uint64
 	IsNotCumulative bool
+	TimeStamp       time.Time
 	Breakdown       breakdown
 }
 
 // distribution represents a distribution of values same as Distribution
 type distribution struct {
+	pieces          []*bucketPiece
+	unit            units.Unit
+	isNotCumulative bool
+	groupId         int
 	// Protects all fields except pieces whose contents never changes,
 	// isNotCumulative, and unit which never changes after
 	// RegisterMetric sets it.
-	lock            sync.RWMutex
-	pieces          []*bucketPiece
-	unit            units.Unit
-	counts          []uint64
-	total           float64
-	min             float64
-	max             float64
-	count           uint64
-	generation      uint64
-	isNotCumulative bool
+	lock       sync.RWMutex
+	counts     []uint64
+	total      float64
+	min        float64
+	max        float64
+	count      uint64
+	generation uint64
+	timeStamp  time.Time
 }
 
 func newDistribution(bucketer *Bucketer, isNotCumulative bool) *distribution {
+	// TODO: See about getting rid of newDistribution method.
+	return newDistributionWithTimeStamp(
+		bucketer, isNotCumulative, time.Now())
+}
+
+func newDistributionWithTimeStamp(
+	bucketer *Bucketer,
+	isNotCumulative bool,
+	ts time.Time) *distribution {
 	return &distribution{
 		pieces:          bucketer.pieces,
 		unit:            units.None,
 		counts:          make([]uint64, len(bucketer.pieces)),
 		isNotCumulative: isNotCumulative,
+		timeStamp:       ts,
+		groupId:         <-idGenerator,
 	}
+}
+
+func (d *distribution) GroupId() int {
+	return d.groupId
 }
 
 func (d *distribution) Sum() float64 {
@@ -356,21 +374,25 @@ func (d *distribution) Count() uint64 {
 }
 
 func (d *distribution) Add(value interface{}) {
-	d.add(d.valueToFloat(value))
+	d.add(d.valueToFloat(value), time.Now())
 }
 
 func (d *distribution) Update(oldValue, newValue interface{}) {
-	d.update(d.valueToFloat(oldValue), d.valueToFloat(newValue))
+	d.update(
+		d.valueToFloat(oldValue),
+		d.valueToFloat(newValue),
+		time.Now())
 }
 
 func (d *distribution) Remove(valueToBeRemoved interface{}) {
-	d.remove(d.valueToFloat(valueToBeRemoved))
+	d.remove(d.valueToFloat(valueToBeRemoved), time.Now())
 }
 
-func (d *distribution) add(value float64) {
+func (d *distribution) add(value float64, ts time.Time) {
 	idx := findDistributionIndex(d.pieces, value)
 	d.lock.Lock()
 	defer d.lock.Unlock()
+	d.timeStamp = ts
 	d.counts[idx]++
 	d.total += value
 	if d.count == 0 {
@@ -385,7 +407,8 @@ func (d *distribution) add(value float64) {
 	d.generation++
 }
 
-func (d *distribution) update(oldValue, newValue float64) {
+func (d *distribution) update(
+	oldValue, newValue float64, ts time.Time) {
 	if !d.isNotCumulative {
 		panic("Cannot call update on a cumulative distribution.")
 	}
@@ -394,6 +417,7 @@ func (d *distribution) update(oldValue, newValue float64) {
 	if d.count == 0 {
 		panic("Can't call update on an empty distribution.")
 	}
+	d.timeStamp = ts
 	oldIdx := findDistributionIndex(d.pieces, oldValue)
 	newIdx := findDistributionIndex(d.pieces, newValue)
 	d.counts[newIdx]++
@@ -407,7 +431,8 @@ func (d *distribution) update(oldValue, newValue float64) {
 	d.generation++
 }
 
-func (d *distribution) remove(valueToBeRemoved float64) {
+func (d *distribution) remove(
+	valueToBeRemoved float64, ts time.Time) {
 	if !d.isNotCumulative {
 		panic("Cannot call remove on a cumulative distribution.")
 	}
@@ -416,6 +441,7 @@ func (d *distribution) remove(valueToBeRemoved float64) {
 	if d.count == 0 {
 		panic("Can't call remove on an empty distribution.")
 	}
+	d.timeStamp = ts
 	idx := findDistributionIndex(d.pieces, valueToBeRemoved)
 	d.counts[idx]--
 	d.total -= valueToBeRemoved
@@ -504,6 +530,7 @@ func (d *distribution) Snapshot() *snapshot {
 		return &snapshot{
 			Count:     d.count,
 			Breakdown: bdn,
+			TimeStamp: d.timeStamp,
 		}
 	}
 	return &snapshot{
@@ -515,6 +542,7 @@ func (d *distribution) Snapshot() *snapshot {
 		Count:           d.count,
 		Generation:      d.generation,
 		IsNotCumulative: d.isNotCumulative,
+		TimeStamp:       d.timeStamp,
 		Breakdown:       bdn,
 	}
 
@@ -850,7 +878,8 @@ func (v *value) updateJsonOrRpcMetric(
 	metric.Unit = v.Unit()
 	switch t {
 	case types.Dist:
-		snapshot := v.AsDistribution().Snapshot()
+		dist := v.AsDistribution()
+		snapshot := dist.Snapshot()
 		metric.Value = &messages.Distribution{
 			Min:             snapshot.Min,
 			Max:             snapshot.Max,
@@ -861,6 +890,8 @@ func (v *value) updateJsonOrRpcMetric(
 			Generation:      snapshot.Generation,
 			IsNotCumulative: snapshot.IsNotCumulative,
 			Ranges:          asRanges(snapshot.Breakdown)}
+		metric.GroupId = dist.GroupId()
+		metric.TimeStamp = snapshot.TimeStamp
 	default:
 		if s == nil {
 			s = newSession()

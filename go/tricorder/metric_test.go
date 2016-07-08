@@ -872,6 +872,14 @@ func TestAPI(t *testing.T) {
 		t,
 		rpcLatency, "/proc/rpc-latency",
 		"RPC latency", units.Millisecond)
+	var rpcLatencyForRpc messages.Metric
+	rpcLatency.InitRpcMetric(nil, &rpcLatencyForRpc)
+	if rpcLatencyForRpc.TimeStamp == nil {
+		t.Error("Expect a timestamp for distributions")
+	}
+	if rpcLatencyForRpc.GroupId == 0 {
+		t.Error("Expect non-zero groupId for distributions")
+	}
 
 	var actual messages.Metric
 	rpcLatency.UpdateJsonMetric(nil, &actual)
@@ -885,6 +893,7 @@ func TestAPI(t *testing.T) {
 		Unit:        units.Millisecond,
 		Description: "RPC latency",
 		Kind:        types.Dist,
+
 		Value: &messages.Distribution{
 			Min:        0.0,
 			Max:        499.0,
@@ -926,6 +935,9 @@ func TestAPI(t *testing.T) {
 		},
 		TimeStamp: "",
 	}
+	// Make timestamps and group id equal for now to do compare
+	actual.TimeStamp = expected.TimeStamp
+	actual.GroupId = expected.GroupId
 	assertValueDeepEquals(t, expected, &actual)
 
 	var actualRpc messages.Metric
@@ -980,6 +992,9 @@ func TestAPI(t *testing.T) {
 			},
 		},
 	}
+	// Make timestamps and group id equal for compare
+	actualRpc.TimeStamp = expectedRpc.TimeStamp
+	actualRpc.GroupId = expectedRpc.GroupId
 	assertValueDeepEquals(t, expectedRpc, &actualRpc)
 
 	// test PathFrom
@@ -1171,20 +1186,29 @@ func TestGeometricDistribution(t *testing.T) {
 func TestArbitraryDistribution(t *testing.T) {
 	bucketer := NewArbitraryBucketer(10, 22, 50)
 	verifyBucketer(t, bucketer, 10.0, 22.0, 50.0)
-	dist := newDistribution(bucketer, true)
+	dist := newDistributionWithTimeStamp(bucketer, true, kUsualTimeStamp)
+	assertValueEquals(t, kUsualTimeStamp, dist.Snapshot().TimeStamp)
 	for i := 100; i >= 1; i-- {
-		dist.Add(100.0)
+		dist.add(100.0, kUsualTimeStamp.Add(
+			time.Duration(i)*time.Minute))
 	}
 	actual := dist.Snapshot()
+	assertValueEquals(
+		t, kUsualTimeStamp.Add(time.Minute), actual.TimeStamp)
 	if actual.Median != 100.0 {
 		t.Errorf("Expected median to be 100: %f", actual.Median)
 	}
 	for i := 100; i >= 1; i-- {
-		dist.Update(100.0, float64(i))
+		dist.update(
+			100.0,
+			float64(i),
+			kUsualTimeStamp.Add(time.Hour+time.Duration(i)*time.Minute))
 	}
 	for i := 0; i < 100; i++ {
-		dist.Add(100.0)
-		dist.Remove(100.0)
+		dist.add(100.0, kUsualTimeStamp.Add(
+			time.Duration(i)*time.Minute))
+		dist.remove(100.0, kUsualTimeStamp.Add(
+			time.Duration(i)*time.Minute))
 	}
 	actual = dist.Snapshot()
 	if actual.Median < 49.5 || actual.Median >= 51.5 {
@@ -1200,6 +1224,7 @@ func TestArbitraryDistribution(t *testing.T) {
 		Count:           100,
 		Generation:      400,
 		IsNotCumulative: true,
+		TimeStamp:       kUsualTimeStamp.Add(99 * time.Minute),
 		Breakdown: breakdown{
 			{
 				bucketPiece: &bucketPiece{
