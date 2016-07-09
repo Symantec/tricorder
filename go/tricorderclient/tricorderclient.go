@@ -55,6 +55,14 @@ func main() {
 	} else {
 		printAsJson("/proc/foo/ddd metric", single)
 	}
+
+	err = client.Call("MetricsServer.GetMetric", "/list/squares", &single)
+	if err != nil {
+		log.Println("Got error for /list/squares:", err)
+	} else {
+		printAsJson("/list/squares metric", single)
+	}
+
 	time.Sleep(5 * time.Second)
 
 }

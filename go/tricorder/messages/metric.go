@@ -4,30 +4,46 @@ import (
 	"github.com/Symantec/tricorder/go/tricorder/duration"
 	"github.com/Symantec/tricorder/go/tricorder/types"
 	"github.com/Symantec/tricorder/go/tricorder/units"
+	"reflect"
 	"time"
 )
 
-func isJson(kind types.Type) bool {
-	switch kind {
-	case types.GoDuration, types.GoTime:
-		return false
-	default:
-		return true
-	}
-}
-
-func asJson(value interface{}, kind types.Type, unit units.Unit) (
-	jsonValue interface{}, jsonKind types.Type) {
+func asJson(value interface{}, kind, subType types.Type, unit units.Unit) (
+	jsonValue interface{}, jsonKind, jsonSubType types.Type) {
 	switch kind {
 	case types.GoDuration:
 		jsonKind = types.Duration
-		if value != nil {
-			jsonValue = durationAsString(value.(time.Duration), unit)
-		}
+		jsonValue = durationAsString(value.(time.Duration), unit)
 	case types.GoTime:
 		jsonKind = types.Time
-		if value != nil {
-			jsonValue = timeAsString(value.(time.Time), unit)
+		jsonValue = timeAsString(value.(time.Time), unit)
+	case types.List:
+		jsonKind = types.List
+		switch subType {
+		case types.GoDuration:
+			jsonSubType = types.Duration
+			durations := value.([]time.Duration)
+			jsonDurations := make([]string, len(durations))
+			for i := range jsonDurations {
+				jsonDurations[i] = durationAsString(
+					durations[i], unit)
+			}
+			jsonValue = jsonDurations
+		case types.GoTime:
+			jsonSubType = types.Time
+			times := value.([]time.Time)
+			jsonTimes := make([]string, len(times))
+			for i := range jsonTimes {
+				jsonTimes[i] = timeAsString(times[i], unit)
+			}
+			jsonValue = jsonTimes
+		default:
+			jsonSubType = subType
+			if reflect.ValueOf(value).IsNil() {
+				jsonValue = []int{}
+			} else {
+				jsonValue = value
+			}
 		}
 	default:
 		jsonKind = kind
@@ -37,30 +53,12 @@ func asJson(value interface{}, kind types.Type, unit units.Unit) (
 }
 
 func (m *Metric) convertToJson() {
-	m.Value, m.Kind = asJson(m.Value, m.Kind, m.Unit)
+	m.Value, m.Kind, m.SubType = asJson(m.Value, m.Kind, m.SubType, m.Unit)
 	if m.TimeStamp == nil {
 		m.TimeStamp = ""
 	} else {
 		m.TimeStamp = duration.SinceEpoch(m.TimeStamp.(time.Time)).String()
 	}
-}
-
-func (m MetricList) asJson() (result MetricList) {
-	result = m
-	resultSameAsM := true
-	for i := range m {
-		if !m[i].IsJson() {
-			if resultSameAsM {
-				result = make(MetricList, len(m))
-				copy(result, m)
-				resultSameAsM = false
-			}
-			metric := *m[i]
-			metric.ConvertToJson()
-			result[i] = &metric
-		}
-	}
-	return
 }
 
 func timeAsString(gotime time.Time, unit units.Unit) string {

@@ -199,5 +199,21 @@ add values. Distribution instances are safe to use from multiple goroutines.
 		globalDist.Add(getSomeFloatValue())
 		globalDist.Add(getAnotherFloatValue())
 	}
+
+Tricorder can store a list of values in a metric. In lists,
+values are always of the same type.
+List instances are safe to use from multiple goroutines.
+
+	globalList := tricorder.NewList(
+		[]int{2,3,5,7}, tricorder.ImmutableSlice)
+	tricorder.RegisterMetric(
+		"path/to/list",
+		globalList,
+		tricorder.None,
+		"A list description")
+
+	func doSomethingDuringProgram() {
+		globalList.Change([]int{1,4,9,16}, tricorder.ImmutableSlice)
+	}
 */
 package tricorder
