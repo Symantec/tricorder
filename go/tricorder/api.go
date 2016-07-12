@@ -9,6 +9,8 @@ import (
 var (
 	// RegisterMetric returns this if given path is already in use.
 	ErrPathInUse = errors.New("tricorder: Path in use")
+	// RegisterMetric returns this if passed unit is wrong.
+	ErrWrongUnit = errors.New("tricorder: Wrong unit")
 )
 
 // Region is deprecated: See Group.
@@ -55,12 +57,21 @@ func (g *Group) RegisterUpdateFunc(updateFunc func() time.Time) {
 
 // RegisterMetric registers a single metric with the health system in the
 // default group.
+//
+// If metric is a distribution type such as *CumulativeDistribution or
+// *NonCumulativeDistribution that has no assigned unit, then RegisterMetric
+// makes unit be the assigned unit of the distribution being registered.
+//
 // path is the absolute path of the metric e.g "/proc/rpc";
 // metric is the metric to register;
 // unit is the unit of measurement for the metric;
 // description is the description of the metric.
+//
 // RegisterMetric returns ErrPathInUse if path already represents a metric
 // or a directory.
+// RegisterMetric returns ErrWrongUnit if metric is a distribution type
+// such as *CumulativeDistribution or *NonCumulativeDistribution that already
+// has an assigned unit and unit does not match that assigned unit.
 // RegisterMetric panics if metric is not of a valid type.
 func RegisterMetric(
 	path string,
@@ -174,8 +185,9 @@ type CumulativeDistribution distribution
 
 // Add adds a single value to this CumulativeDistribution instance.
 // value can be a float32, float64, or a time.Duration.
-// If a time.Duration, Add converts it to the same unit of time specified in
-// the RegisterMetric call made to register this instance.
+// If a time.Duration, Add converts it to this instance's assigned unit.
+// Add panics if value is not a float32, float64, or time.Duration or
+// this instance has no assigned unit.
 func (c *CumulativeDistribution) Add(value interface{}) {
 	(*distribution)(c).Add(value)
 }
@@ -186,16 +198,16 @@ type NonCumulativeDistribution distribution
 
 // Add adds a single value to this NonCumulativeDistribution instance.
 // value can be a float32, float64, or a time.Duration.
-// If a time.Duration, Add converts it to the same unit of time specified in
-// the RegisterMetric call made to register this instance.
+// If a time.Duration, Add converts it to this instance's assigned unit.
+// Add panics if value is not a float32, float64, or time.Duration or
+// this instance has no assigned unit.
 func (c *NonCumulativeDistribution) Add(value interface{}) {
 	(*distribution)(c).Add(value)
 }
 
 // Update updates a value in this NonCumulativeDistribution instance.
 // oldValue and newValue can be a float32, float64, or a time.Duration.
-// If a time.Duration, Update converts them to the same unit of time specified
-// in the RegisterMetric call made to register this instance.
+// If a time.Duration, Update converts them this instance's assigned unit.
 // The reliability of Update() depends on the caller providing the correct
 // old value of what is being changed. Failure to do this results in
 // undefined behavior.
@@ -205,6 +217,8 @@ func (c *NonCumulativeDistribution) Add(value interface{}) {
 // range than before, min and max remain unchanged to indicate the all-time
 // min and all-time max. To have min and max reflect the current min and max
 // instead of the all-time min and max, see UpdateMinMax().
+// Update panics if oldValue and newValue are not a float32, float64,
+// or time.Duration or this instance has no assigned unit.
 func (d *NonCumulativeDistribution) Update(oldValue, newValue interface{}) {
 	(*distribution)(d).Update(oldValue, newValue)
 }
@@ -227,8 +241,7 @@ func (d *NonCumulativeDistribution) UpdateMinMax() {
 
 // Remove removes a value from this NonCumulativeDistribution instance.
 // valueToBeRemoved can be a float32, float64, or a time.Duration.
-// If a time.Duration, Remove converts it to the same unit of time
-// specified in the RegisterMetric call made to register this instance.
+// If a time.Duration, Remove converts it to this instance's assigned unit.
 // The reliability of Remove() depends on the caller providing a value
 // already in the distribution. Failure to do this results in
 // undefined behavior.
@@ -236,6 +249,8 @@ func (d *NonCumulativeDistribution) UpdateMinMax() {
 // it leaves min and max unchanged.
 // To have min and max reflect the current min and max
 // instead of the all-time min and max, see UpdateMinMax().
+// Remove panics if oldValue and newValue are not a float32, float64,
+// or time.Duration or this instance has no assigned unit.
 func (d *NonCumulativeDistribution) Remove(valueToBeRemoved interface{}) {
 	(*distribution)(d).Remove(valueToBeRemoved)
 }

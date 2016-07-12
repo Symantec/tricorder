@@ -421,6 +421,20 @@ func TestAPI(t *testing.T) {
 		t.Fatalf("Got error %v registering metric", err)
 	}
 	if err := RegisterMetric(
+		"/proc/rpc-latency-again",
+		rpcDistribution,
+		units.Millisecond,
+		"RPC latency again"); err != nil {
+		t.Fatalf("Got error %v registering metric", err)
+	}
+	if err := RegisterMetric(
+		"/proc/rpc-latency-wrong",
+		rpcDistribution,
+		units.Second,
+		"RPC latency wrong units"); err != ErrWrongUnit {
+		t.Error("Expected to get ErrWrongUnit registering same distribution with different units.")
+	}
+	if err := RegisterMetric(
 		"/proc/rpc-count",
 		rpcCountCallback,
 		units.None,
@@ -627,6 +641,7 @@ func TestAPI(t *testing.T) {
 		"name",
 		"rpc-count",
 		"rpc-latency",
+		"rpc-latency-again",
 		"scheduler",
 		"signals",
 		"some-time",
@@ -999,6 +1014,20 @@ func TestAPI(t *testing.T) {
 		"empty list", units.None, types.List, 32,
 		[]uint32{})
 
+	// Check /proc/rpc-latency-again
+	rpcLatencyAgain := root.GetMetric("/proc/rpc-latency-again")
+	verifyMetric(
+		t,
+		rpcLatencyAgain, "/proc/rpc-latency-again",
+		"RPC latency again", units.Millisecond)
+
+	var actual messages.Metric
+	rpcLatencyAgain.UpdateJsonMetric(nil, &actual)
+
+	if actual.Value.(*messages.Distribution).Median < 249 || actual.Value.(*messages.Distribution).Median >= 250 {
+		t.Errorf("Median out of range: %f", actual.Value.(*messages.Distribution).Median)
+	}
+
 	// Check /proc/rpc-latency
 	rpcLatency := root.GetMetric("/proc/rpc-latency")
 	verifyMetric(
@@ -1014,7 +1043,6 @@ func TestAPI(t *testing.T) {
 		t.Error("Expect non-zero groupId for distributions")
 	}
 
-	var actual messages.Metric
 	rpcLatency.UpdateJsonMetric(nil, &actual)
 
 	if actual.Value.(*messages.Distribution).Median < 249 || actual.Value.(*messages.Distribution).Median >= 250 {
@@ -1188,6 +1216,7 @@ func TestAPI(t *testing.T) {
 		"name",
 		"rpc-count",
 		"rpc-latency",
+		"rpc-latency-again",
 		"scheduler",
 		"signals",
 		"some-time",
@@ -1323,9 +1352,10 @@ func TestArbitraryDistribution(t *testing.T) {
 	bucketer := NewArbitraryBucketer(10, 22, 50)
 	verifyBucketer(t, bucketer, 10.0, 22.0, 50.0)
 	dist := newDistributionWithTimeStamp(bucketer, true, kUsualTimeStamp)
+	dist.SetUnit(units.None)
 	assertValueEquals(t, kUsualTimeStamp, dist.Snapshot().TimeStamp)
 	for i := 100; i >= 1; i-- {
-		dist.add(100.0, kUsualTimeStamp.Add(
+		dist.AddWithTs(100.0, kUsualTimeStamp.Add(
 			time.Duration(i)*time.Minute))
 	}
 	actual := dist.Snapshot()
@@ -1335,15 +1365,15 @@ func TestArbitraryDistribution(t *testing.T) {
 		t.Errorf("Expected median to be 100: %f", actual.Median)
 	}
 	for i := 100; i >= 1; i-- {
-		dist.update(
+		dist.UpdateWithTs(
 			100.0,
 			float64(i),
 			kUsualTimeStamp.Add(time.Hour+time.Duration(i)*time.Minute))
 	}
 	for i := 0; i < 100; i++ {
-		dist.add(100.0, kUsualTimeStamp.Add(
+		dist.AddWithTs(100.0, kUsualTimeStamp.Add(
 			time.Duration(i)*time.Minute))
-		dist.remove(100.0, kUsualTimeStamp.Add(
+		dist.RemoveWithTs(100.0, kUsualTimeStamp.Add(
 			time.Duration(i)*time.Minute))
 	}
 	actual = dist.Snapshot()
@@ -1400,6 +1430,7 @@ func TestArbitraryDistribution(t *testing.T) {
 func TestMedianDataAllLow(t *testing.T) {
 	bucketer := NewArbitraryBucketer(1000.0)
 	dist := newDistribution(bucketer, false)
+	dist.SetUnit(units.None)
 	dist.Add(200.0)
 	dist.Add(300.0)
 	snapshot := dist.Snapshot()
@@ -1410,6 +1441,7 @@ func TestMedianDataAllLow(t *testing.T) {
 func TestMedianDataAllHigh(t *testing.T) {
 	bucketer := NewArbitraryBucketer(1000.0)
 	dist := newDistribution(bucketer, false)
+	dist.SetUnit(units.None)
 	dist.Add(3000.0)
 	dist.Add(3000.0)
 	dist.Add(7000.0)
@@ -1422,14 +1454,17 @@ func TestMedianDataAllHigh(t *testing.T) {
 func TestMedianSingleData(t *testing.T) {
 	bucketer := NewArbitraryBucketer(1000.0, 3000.0)
 	dist := newDistribution(bucketer, false)
+	dist.SetUnit(units.None)
 	dist.Add(7000.0)
 	assertValueEquals(t, 7000.0, dist.Snapshot().Median)
 
 	dist1 := newDistribution(bucketer, false)
+	dist1.SetUnit(units.None)
 	dist1.Add(1700.0)
 	assertValueEquals(t, 1700.0, dist1.Snapshot().Median)
 
 	dist2 := newDistribution(bucketer, false)
+	dist2.SetUnit(units.None)
 	dist2.Add(350.0)
 	assertValueEquals(t, 350.0, dist2.Snapshot().Median)
 }
@@ -1437,6 +1472,7 @@ func TestMedianSingleData(t *testing.T) {
 func TestMedianAllDataInBetween(t *testing.T) {
 	bucketer := NewArbitraryBucketer(500.0, 700.0, 1000.0, 3000.0)
 	dist := newDistribution(bucketer, false)
+	dist.SetUnit(units.None)
 	dist.Add(1000.0)
 	dist.Add(1000.0)
 	dist.Add(1000.0)
@@ -1448,6 +1484,7 @@ func TestMedianAllDataInBetween(t *testing.T) {
 
 func TestMedianDataSkewedLow(t *testing.T) {
 	dist := newDistribution(PowersOfTen, false)
+	dist.SetUnit(units.None)
 	for i := 0; i < 500; i++ {
 		dist.Add(float64(i))
 	}
@@ -1459,6 +1496,7 @@ func TestMedianDataSkewedLow(t *testing.T) {
 
 func TestMedianDataSkewedHigh(t *testing.T) {
 	dist := newDistribution(PowersOfTen, false)
+	dist.SetUnit(units.None)
 	for i := 0; i < 500; i++ {
 		dist.Add(float64(i + 500))
 	}
@@ -1735,6 +1773,16 @@ func TestListNoChangeSubType(t *testing.T) {
 		ImmutableSlice,
 		kUsualTimeStamp)
 	t.Error("panic expected")
+}
+
+func TestNoAssignedUnitNoAdd(t *testing.T) {
+	bucketer := NewGeometricBucketer(1, 1000)
+	dist := newDistribution(bucketer, false)
+	defer func() {
+		recover()
+	}()
+	dist.Add(37.0)
+	t.Fatal("Expected panic adding to distribution with no assigned unit")
 }
 
 func rpcCountCallback() uint {

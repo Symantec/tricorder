@@ -322,13 +322,12 @@ type snapshot struct {
 // distribution represents a distribution of values same as Distribution
 type distribution struct {
 	pieces          []*bucketPiece
-	unit            units.Unit
 	isNotCumulative bool
 	groupId         int
-	// Protects all fields except pieces whose contents never changes,
-	// isNotCumulative, and unit which never changes after
-	// RegisterMetric sets it.
+	// Protects all fields below it
 	lock       sync.RWMutex
+	unit       units.Unit
+	unitSet    bool
 	counts     []uint64
 	total      float64
 	min        float64
@@ -350,12 +349,29 @@ func newDistributionWithTimeStamp(
 	ts time.Time) *distribution {
 	return &distribution{
 		pieces:          bucketer.pieces,
-		unit:            units.None,
 		counts:          make([]uint64, len(bucketer.pieces)),
 		isNotCumulative: isNotCumulative,
 		timeStamp:       ts,
 		groupId:         <-idGenerator,
 	}
+}
+
+func (d *distribution) SetUnit(unit units.Unit) bool {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	// Always set unit on first call
+	if !d.unitSet {
+		d.unitSet = true
+		d.unit = unit
+		return true
+	}
+	if unit == d.unit {
+		// unit already set to what we want just return success
+		return true
+	}
+	// Oops, unit already set to something other than what we want
+	// return failure
+	return false
 }
 
 func (d *distribution) GroupId() int {
@@ -375,24 +391,42 @@ func (d *distribution) Count() uint64 {
 }
 
 func (d *distribution) Add(value interface{}) {
-	d.add(d.valueToFloat(value), time.Now())
+	d.AddWithTs(value, time.Now())
+}
+
+func (d *distribution) AddWithTs(value interface{}, ts time.Time) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	d.add(d.valueToFloat(value), ts)
 }
 
 func (d *distribution) Update(oldValue, newValue interface{}) {
+	d.UpdateWithTs(oldValue, newValue, time.Now())
+}
+
+func (d *distribution) UpdateWithTs(
+	oldValue, newValue interface{}, ts time.Time) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
 	d.update(
 		d.valueToFloat(oldValue),
 		d.valueToFloat(newValue),
-		time.Now())
+		ts)
 }
 
 func (d *distribution) Remove(valueToBeRemoved interface{}) {
-	d.remove(d.valueToFloat(valueToBeRemoved), time.Now())
+	d.RemoveWithTs(valueToBeRemoved, time.Now())
+}
+
+func (d *distribution) RemoveWithTs(
+	valueToBeRemoved interface{}, ts time.Time) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	d.remove(d.valueToFloat(valueToBeRemoved), ts)
 }
 
 func (d *distribution) add(value float64, ts time.Time) {
 	idx := findDistributionIndex(d.pieces, value)
-	d.lock.Lock()
-	defer d.lock.Unlock()
 	d.timeStamp = ts
 	d.counts[idx]++
 	d.total += value
@@ -413,8 +447,6 @@ func (d *distribution) update(
 	if !d.isNotCumulative {
 		panic("Cannot call update on a cumulative distribution.")
 	}
-	d.lock.Lock()
-	defer d.lock.Unlock()
 	if d.count == 0 {
 		panic("Can't call update on an empty distribution.")
 	}
@@ -437,8 +469,6 @@ func (d *distribution) remove(
 	if !d.isNotCumulative {
 		panic("Cannot call remove on a cumulative distribution.")
 	}
-	d.lock.Lock()
-	defer d.lock.Unlock()
 	if d.count == 0 {
 		panic("Can't call remove on an empty distribution.")
 	}
@@ -451,6 +481,9 @@ func (d *distribution) remove(
 }
 
 func (d *distribution) valueToFloat(value interface{}) float64 {
+	if !d.unitSet {
+		panic("Operation requires that distribution has assigned unit")
+	}
 	switch v := value.(type) {
 	case time.Duration:
 		return d.goDurationToFloat(v)
@@ -779,29 +812,36 @@ func mustGetPrimitiveType(t reflect.Type) (
 	return
 }
 
+func newValueForDist(dist *distribution, unit units.Unit) (
+	*value, error) {
+	if !dist.SetUnit(unit) {
+		return nil, ErrWrongUnit
+	}
+	return &value{dist: dist, unit: unit, valType: types.Dist}, nil
+
+}
+
 // unit parameter only used if spec is a *Distribution
 // In that case, it sets the unit of the *Distribution in place.
-func newValue(spec interface{}, region *region, unit units.Unit) *value {
+func newValue(spec interface{}, region *region, unit units.Unit) (
+	*value, error) {
 	if someDist, ok := spec.(*NonCumulativeDistribution); ok {
 		dist := (*distribution)(someDist)
-		dist.unit = unit
-		return &value{dist: dist, unit: unit, valType: types.Dist}
+		return newValueForDist(dist, unit)
 	}
 	if someDist, ok := spec.(*CumulativeDistribution); ok {
 		dist := (*distribution)(someDist)
-		dist.unit = unit
-		return &value{dist: dist, unit: unit, valType: types.Dist}
+		return newValueForDist(dist, unit)
 	}
 	if dist, ok := spec.(*distribution); ok {
-		dist.unit = unit
-		return &value{dist: dist, unit: unit, valType: types.Dist}
+		return newValueForDist(dist, unit)
 	}
 	if someList, ok := spec.(*List); ok {
 		alist := (*listType)(someList)
-		return &value{alist: alist, unit: unit, valType: types.List}
+		return &value{alist: alist, unit: unit, valType: types.List}, nil
 	}
 	if alist, ok := spec.(*listType); ok {
-		return &value{alist: alist, unit: unit, valType: types.List}
+		return &value{alist: alist, unit: unit, valType: types.List}, nil
 	}
 	flagValue, ok := spec.(flag.Value)
 	if ok {
@@ -822,7 +862,7 @@ func newValue(spec interface{}, region *region, unit units.Unit) *value {
 			region:        region,
 			valType:       valType,
 			isfunc:        true,
-			isValAPointer: isValAPointer}
+			isValAPointer: isValAPointer}, nil
 	}
 	v := reflect.ValueOf(spec)
 	t := v.Type()
@@ -840,7 +880,7 @@ func newValue(spec interface{}, region *region, unit units.Unit) *value {
 			region:        region,
 			valType:       valType,
 			isfunc:        true,
-			isValAPointer: isValAPointer}
+			isValAPointer: isValAPointer}, nil
 	}
 	v = v.Elem()
 	valType, isValAPointer := mustGetPrimitiveType(v.Type())
@@ -849,7 +889,7 @@ func newValue(spec interface{}, region *region, unit units.Unit) *value {
 		unit:          unit,
 		region:        region,
 		valType:       valType,
-		isValAPointer: isValAPointer}
+		isValAPointer: isValAPointer}, nil
 }
 
 // Type returns the type of this value: Int, Float, Uint, String, or Dist
@@ -1606,9 +1646,13 @@ func (d *directory) registerMetric(
 	if err != nil {
 		return
 	}
+	avalue, err := newValue(value, region, unit)
+	if err != nil {
+		return
+	}
 	metric := &metric{
 		Description: description,
-		value:       newValue(value, region, unit)}
+		value:       avalue}
 	return current.storeMetric(path.Base(), metric)
 }
 

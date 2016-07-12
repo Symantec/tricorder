@@ -184,9 +184,19 @@ If code generates a metric's value, register the callback function like so
 		tricorder.None,
 		"generated int description")
 
-Tricorder can collect a distribution of values in a metric. In distributions,
-values are always floats. With distributions, the client program must manually
-add values. Distribution instances are safe to use from multiple goroutines.
+Tricorder can collect a distribution of values in a metric.
+With distributions, the client program must manually add values.
+Although Distributions store values internally as floats, they can
+accept time.Duration instances as well as float32 or float64. Each
+distribution has associated with it a particular measurement unit to allow
+it to internally convert non floating point values such as time.Duration
+to the correct floating point equivalent. For example, if the unit is
+units.Second, the distribution converts an added time.Duration to a floating
+point value expressed in seconds.
+The distribution's unit is set when the distribution is first registered.
+Once set, the unit of a distribution may not be changed. A distribution will
+panic if a caller tries to add values to an unregistered distribution that has
+no assigned unit. Distributions are safe to use from multiple goroutines.
 
 	globalDist := tricorder.PowersOfTen.NewCumulativeDistribution()
 	tricorder.RegisterMetric(
