@@ -11,6 +11,8 @@ var (
 	ErrPathInUse = errors.New("tricorder: Path in use")
 	// RegisterMetric returns this if passed unit is wrong.
 	ErrWrongUnit = errors.New("tricorder: Wrong unit")
+	// RegisterMetric returns this if passed metric type is not supported.
+	ErrWrongType = errors.New("tricorder: Metric not of a valid type")
 )
 
 // Region is deprecated: See Group.
@@ -72,7 +74,7 @@ func (g *Group) RegisterUpdateFunc(updateFunc func() time.Time) {
 // RegisterMetric returns ErrWrongUnit if metric is a distribution type
 // such as *CumulativeDistribution or *NonCumulativeDistribution that already
 // has an assigned unit and unit does not match that assigned unit.
-// RegisterMetric panics if metric is not of a valid type.
+// RegisterMetric returns ErrWrongType if metric is not of a valid type.
 func RegisterMetric(
 	path string,
 	metric interface{},

@@ -873,7 +873,10 @@ func newValue(spec interface{}, region *region, unit units.Unit) (
 		if funcArgCount != 1 {
 			panic(panicBadFunctionReturnTypes)
 		}
-		valType, isValAPointer := mustGetPrimitiveType(t.Out(0))
+		valType, isValAPointer, ok := getPrimitiveType(t.Out(0))
+		if !ok {
+			return nil, ErrWrongType
+		}
 		return &value{
 			val:           v,
 			unit:          unit,
@@ -883,7 +886,10 @@ func newValue(spec interface{}, region *region, unit units.Unit) (
 			isValAPointer: isValAPointer}, nil
 	}
 	v = v.Elem()
-	valType, isValAPointer := mustGetPrimitiveType(v.Type())
+	valType, isValAPointer, ok := getPrimitiveType(v.Type())
+	if !ok {
+		return nil, ErrWrongType
+	}
 	return &value{
 		val:           v,
 		unit:          unit,

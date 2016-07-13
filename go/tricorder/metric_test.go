@@ -1785,6 +1785,30 @@ func TestNoAssignedUnitNoAdd(t *testing.T) {
 	t.Fatal("Expected panic adding to distribution with no assigned unit")
 }
 
+func TestErrWrongType(t *testing.T) {
+	var c complex128
+	if err := RegisterMetric(
+		"/a/metric/with/a/bad/type",
+		&c,
+		units.None,
+		"Should not get registered, unsupported"); err != ErrWrongType {
+		t.Error("Expected ErrWrongType")
+	}
+}
+
+func TestErrWrongTypeFunc(t *testing.T) {
+	c := func() (result complex128) {
+		return
+	}
+	if err := RegisterMetric(
+		"/a/metric/with/a/bad/type/again",
+		c,
+		units.None,
+		"Should not get registered, unsupported"); err != ErrWrongType {
+		t.Error("Expected ErrWrongType")
+	}
+}
+
 func rpcCountCallback() uint {
 	return 500
 }
