@@ -4,7 +4,12 @@ The metrics are made available via HTTP, using the same port as the webserver
 for the application. There is a browsable, human-friendly interface as well
 as machine-friendly interfaces.
 
-Please see the [design document](https://docs.google.com/document/d/1sj5xtcfRTbnl49W1F2a1yXfyafiIMETlCdr9bPcTX7I/pub) for more information.
+Please see the
+[design document](https://docs.google.com/document/d/142Llj30LplgxWhOLOprqH59hS01EJ9iC1THV3no5oy0/pub)
+and the
+[public Go API documentation]
+(https://godoc.org/github.com/Symantec/tricorder/go/tricorder)
+for more information.
 
 ## Contributions
 
