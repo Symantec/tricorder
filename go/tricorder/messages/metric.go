@@ -40,7 +40,7 @@ func asJson(value interface{}, kind, subType types.Type, unit units.Unit) (
 		default:
 			jsonSubType = subType
 			if reflect.ValueOf(value).IsNil() {
-				jsonValue = []int{}
+				jsonValue = reflect.MakeSlice(reflect.TypeOf(value), 0, 0).Interface()
 			} else {
 				jsonValue = value
 			}

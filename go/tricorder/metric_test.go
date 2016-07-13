@@ -993,7 +993,7 @@ func TestAPI(t *testing.T) {
 		t,
 		nilListMetric, "/list/nil",
 		"nil list", units.None, types.List, 32,
-		[]int{})
+		[]uint32{})
 	var nilUint32Slice []uint32
 	verifyRpc(
 		t,

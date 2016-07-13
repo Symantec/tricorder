@@ -60,25 +60,42 @@ func (d *Distribution) Type() types.Type {
 // value of the Kind field.
 //
 // The chart below lists what type Value contains for each value of the
-// Kind field:
+// Kind and Subtype field:
 //
-// 	types.Bool	bool
-//	types.Int8	int8
-//	types.Int16	int16
-//	types.Int32	int32
-//	types.Int64	int64
-//	types.Uint8	uint8
-//	types.Uint16	uint16
-//	types.Uint32	uint32
-//	types.Uint64	uint64
-//	types.Float32	float32
-//	types.Float64	float64
-//	types.String	string
-//	types.Dist	*messages.Distribution
-//	types.Time	string: Seconds since Jan 1, 1970 GMT. 9 digits after the decimal point.
-//	types.Duration	string: Seconds with 9 digits after the decimal point.
-//	types.GoTime	time.Time (Go RPC only)
-//	types.GoDuration	time.Duration (Go RPC only)
+//	Kind		SubType			Actual type
+// 	types.Bool				bool
+//	types.Int8				int8
+//	types.Int16				int16
+//	types.Int32				int32
+//	types.Int64				int64
+//	types.Uint8				uint8
+//	types.Uint16				uint16
+//	types.Uint32				uint32
+//	types.Uint64				uint64
+//	types.Float32				float32
+//	types.Float64				float64
+//	types.String				string
+//	types.Dist				*messages.Distribution
+//	types.Time				string: Seconds since Jan 1, 1970 GMT. 9 digits after the decimal point.
+//	types.Duration				string: Seconds with 9 digits after the decimal point.
+//	types.GoTime				time.Time (Go RPC only)
+//	types.GoDuration			time.Duration (Go RPC only)
+//	types.List	types.Bool		[]bool
+//	types.List	types.Int8		[]int8
+//	types.List	types.Int16		[]int16
+//	types.List	types.Int32		[]int32
+//	types.List	types.Int64		[]int64
+//	types.List	types.Uint8		[]uint8
+//	types.List	types.Uint16		[]uint16
+//	types.List	types.Uint32		[]uint32
+//	types.List	types.Uint64		[]uint64
+//	types.List	types.Float32		[]float32
+//	types.List	types.Float64		[]float64
+//	types.List	types.String		[]string
+//	types.List	types.Time		[]string
+//	types.List	types.Duration		[]string
+//	types.List	types.GoTime		[]time.Time (Go RPC only)
+//	types.List	types.GoDuration	[]time.Duration (Go RPC only)
 type Metric struct {
 	// The absolute path to this metric
 	Path string `json:"path"`
@@ -116,15 +133,6 @@ func (m *Metric) ConvertToJson() {
 // instances as immutable. In particular, clients should not modify contained
 // Metric instances in place.
 type MetricList []*Metric
-
-// Deprecated. See AsJsonWithSubType.
-// Equivalent to IsJsonWithSubType(value, kind, types.Unknown, unit) except
-// does not return a sub type.
-func AsJson(value interface{}, kind types.Type, unit units.Unit) (
-	jsonValue interface{}, jsonKind types.Type) {
-	jsonValue, jsonKind, _ = asJson(value, kind, types.Unknown, unit)
-	return
-}
 
 // AsJsonWithSubType takes a metric value, kind, subtype, and unit and returns
 // an acceptable JSON value, kind, and subType for given unit.
