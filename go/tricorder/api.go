@@ -15,14 +15,6 @@ var (
 	ErrWrongType = errors.New("tricorder: Metric not of a valid type")
 )
 
-// Region is deprecated: See Group.
-type Region region
-
-// RegisterRegion is Deprecated: See NewGroup
-func RegisterRegion(updateFunc func()) *Region {
-	return (*Region)(newRegion(fixUpdateFunc(updateFunc)))
-}
-
 // A group represents a collection of variables for metrics that are all
 // updated by a common function. Each time a client sends a request for one or
 // more metrics backed by variables within a particular group, tricorder
@@ -98,16 +90,6 @@ func RegisterMetricInGroup(
 	unit units.Unit,
 	description string) error {
 	return root.registerMetric(newPathSpec(path), metric, (*region)(g), unit, description)
-}
-
-// RegisterMetricInRegion is deprecated: See RegisterMetricInGroup.
-func RegisterMetricInRegion(
-	path string,
-	metric interface{},
-	r *Region,
-	unit units.Unit,
-	description string) error {
-	return root.registerMetric(newPathSpec(path), metric, (*region)(r), unit, description)
 }
 
 // UnregisterPath unregisters the metric or DirectorySpec at the given path.
@@ -359,16 +341,6 @@ func (d *DirectorySpec) RegisterMetricInGroup(
 	unit units.Unit,
 	description string) error {
 	return (*directory)(d).registerMetric(newPathSpec(path), metric, (*region)(g), unit, description)
-}
-
-// RegisterMetricInRegion is deprecated: See RegisterMetricInGroup.
-func (d *DirectorySpec) RegisterMetricInRegion(
-	path string,
-	metric interface{},
-	r *Region,
-	unit units.Unit,
-	description string) error {
-	return (*directory)(d).registerMetric(newPathSpec(path), metric, (*region)(r), unit, description)
 }
 
 // RegisterDirectory works just like the package level RegisterDirectory
