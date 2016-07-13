@@ -1228,7 +1228,7 @@ func TestAPI(t *testing.T) {
 	// Regisering metrics using fooDir should cause panic
 	func() {
 		defer func() {
-			if recover() == nil {
+			if recover() != panicDirectoryUnregistered {
 				t.Error("Expected registring a metric on unregistered directory to panic.")
 			}
 		}()
@@ -1241,7 +1241,7 @@ func TestAPI(t *testing.T) {
 
 	func() {
 		defer func() {
-			if recover() == nil {
+			if recover() != panicDirectoryUnregistered {
 				t.Error("Expected registring a short metric on unregistered directory to panic.")
 			}
 		}()
@@ -1766,23 +1766,25 @@ func TestListNoChangeSubType(t *testing.T) {
 		ImmutableSlice,
 		kUsualTimeStamp)
 	defer func() {
-		recover()
+		if recover() != panicListSubTypeChanging {
+			t.Error("Expected panic trying to change list sub-type")
+		}
 	}()
 	alist.ChangeWithTimeStamp(
 		[]int32{2, 3, 5, 7},
 		ImmutableSlice,
 		kUsualTimeStamp)
-	t.Error("panic expected")
 }
 
 func TestNoAssignedUnitNoAdd(t *testing.T) {
 	bucketer := NewGeometricBucketer(1, 1000)
 	dist := newDistribution(bucketer, false)
 	defer func() {
-		recover()
+		if recover() != panicNoAssignedUnit {
+			t.Error("Expected panicNoAssignedUnit adding to distribution with no assigned unit")
+		}
 	}()
 	dist.Add(37.0)
-	t.Fatal("Expected panic adding to distribution with no assigned unit")
 }
 
 func TestErrWrongType(t *testing.T) {
