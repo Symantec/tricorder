@@ -24,6 +24,8 @@ const (
 	panicTypeMismatch           = "Wrong type passed to method."
 	panicDirectoryUnregistered  = "Directory is unregistered."
 	panicSingleValueExpected    = "Trying to use an aggregate value in a single value context"
+	panicNoAssignedUnit         = "Operation requires that distribution has assigned unit"
+	panicListSubTypeChanging    = "Sub-type in list cannot change"
 )
 
 var (
@@ -482,7 +484,7 @@ func (d *distribution) remove(
 
 func (d *distribution) valueToFloat(value interface{}) float64 {
 	if !d.unitSet {
-		panic("Operation requires that distribution has assigned unit")
+		panic(panicNoAssignedUnit)
 	}
 	switch v := value.(type) {
 	case time.Duration:
@@ -673,7 +675,7 @@ func (l *listType) ChangeWithTimeStamp(
 	ts time.Time) {
 	value, subType := asSliceValue(aSlice, sliceIsMutable)
 	if subType != l.subType {
-		panic("Sub-type in list cannot change.")
+		panic(panicListSubTypeChanging)
 	}
 	l.lock.Lock()
 	defer l.lock.Unlock()

@@ -186,7 +186,7 @@ If code generates a metric's value, register the callback function like so
 
 Tricorder can collect a distribution of values in a metric.
 With distributions, the client program must manually add values.
-Although Distributions store values internally as floats, they can
+Although Distributions store values internally as float64, they can
 accept time.Duration instances as well as float32 or float64. Each
 distribution has associated with it a particular measurement unit to allow
 it to internally convert non floating point values such as time.Duration
