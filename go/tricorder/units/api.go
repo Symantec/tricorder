@@ -5,6 +5,7 @@ package units
 type Unit string
 
 const (
+	Unknown       Unit = ""
 	None          Unit = "None"
 	Millisecond   Unit = "Milliseconds"
 	Second        Unit = "Seconds"
@@ -12,6 +13,13 @@ const (
 	Byte          Unit = "Bytes"
 	BytePerSecond Unit = "BytesPerSecond"
 )
+
+func (u Unit) String() string {
+	if u == Unknown {
+		return "Unknown"
+	}
+	return string(u)
+}
 
 // Returns the conversion factor between seconds and u.
 // For example FromSeconds(Millisecond) returns 1000.

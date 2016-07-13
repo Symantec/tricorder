@@ -102,7 +102,7 @@ type Metric struct {
 	// The description of this metric
 	Description string `json:"description"`
 	// The unit of measurement this metric represents
-	Unit units.Unit `json:"unit"`
+	Unit units.Unit `json:"unit,omitempty"`
 	// The metric's type
 	Kind types.Type `json:"kind"`
 	// The sub-type if type is an aggregate such as List.

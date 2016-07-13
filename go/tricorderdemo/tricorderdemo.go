@@ -38,7 +38,7 @@ func registerMetrics() {
 	if err := tricorder.RegisterMetric(
 		"/proc/rpc-count",
 		rpcCountCallback,
-		units.None,
+		units.Unknown,
 		"RPC count"); err != nil {
 		log.Fatalf("Got error %v registering metric", err)
 	}
