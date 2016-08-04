@@ -26,6 +26,7 @@ const (
 	panicSingleValueExpected    = "Trying to use an aggregate value in a single value context"
 	panicNoAssignedUnit         = "Operation requires that distribution has assigned unit"
 	panicListSubTypeChanging    = "Sub-type in list cannot change"
+	panicBadValue               = "Value does not exist in distribution"
 )
 
 var (
@@ -444,6 +445,13 @@ func (d *distribution) add(value float64, ts time.Time) {
 	d.generation++
 }
 
+func decrementCount(count *uint64) {
+	if *count == 0 {
+		panic(panicBadValue)
+	}
+	(*count)--
+}
+
 func (d *distribution) update(
 	oldValue, newValue float64, ts time.Time) {
 	if !d.isNotCumulative {
@@ -456,7 +464,7 @@ func (d *distribution) update(
 	oldIdx := findDistributionIndex(d.pieces, oldValue)
 	newIdx := findDistributionIndex(d.pieces, newValue)
 	d.counts[newIdx]++
-	d.counts[oldIdx]--
+	decrementCount(&d.counts[oldIdx])
 	d.total += (newValue - oldValue)
 	if newValue < d.min {
 		d.min = newValue
@@ -476,7 +484,7 @@ func (d *distribution) remove(
 	}
 	d.timeStamp = ts
 	idx := findDistributionIndex(d.pieces, valueToBeRemoved)
-	d.counts[idx]--
+	decrementCount(&d.counts[idx])
 	d.total -= valueToBeRemoved
 	d.count--
 	d.generation++
