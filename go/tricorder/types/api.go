@@ -128,7 +128,7 @@ func FromGoValueWithSubType(value interface{}) (kind, subType Type) {
 }
 
 // ZeroValue returns the zero value for this type.
-// ZeroValue panics if this type is Dist or List.
+// ZeroValue panics if this type is Dist, List, or Unknown.
 func (t Type) ZeroValue() interface{} {
 	switch t {
 	case Bool:
@@ -156,9 +156,9 @@ func (t Type) ZeroValue() interface{} {
 	case String:
 		return ""
 	case Dist:
-		panic("Dist type cannot create new value.")
+		panic("Dist type cannot create zero value")
 	case List:
-		panic("List type cannot create new value.")
+		panic("List type cannot create zero value")
 	case Time, Duration:
 		return "0.000000000"
 	case GoTime:
@@ -171,7 +171,7 @@ func (t Type) ZeroValue() interface{} {
 }
 
 // NilSlice returns the nil slice of this type.
-// NilSlice panics if this type is Dist or List.
+// NilSlice panics if this type is Dist, List or Unknown.
 func (t Type) NilSlice() interface{} {
 	switch t {
 	case Bool:
@@ -211,9 +211,9 @@ func (t Type) NilSlice() interface{} {
 		var result []string
 		return result
 	case Dist:
-		panic("Dist type cannot create new value.")
+		panic("Dist type cannot create nil slice")
 	case List:
-		panic("List type cannot create new value.")
+		panic("List type cannot create nil slice")
 	case Time, Duration:
 		var result []string
 		return result
@@ -232,12 +232,10 @@ func (t Type) NilSlice() interface{} {
 // CanToFromFloat returns true if this type supports conversion to/from float64
 func (t Type) CanToFromFloat() bool {
 	switch t {
-	case Bool, String, Dist, List, Time, Duration:
-		return false
 	case Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64, Float32, Float64, GoTime, GoDuration:
 		return true
 	default:
-		panic("Unknown type")
+		return false
 	}
 }
 
@@ -303,7 +301,7 @@ func (t Type) ToFloat(x interface{}) float64 {
 	case GoDuration:
 		return duration.ToFloat(x.(time.Duration))
 	default:
-		panic("Type doesn't support conversion to float.")
+		panic("Type doesn't support conversion to float")
 	}
 }
 
@@ -341,5 +339,5 @@ func (t Type) UsesSubType() bool {
 
 // SupportsEquality returns true if this type supports equality.
 func (t Type) SupportsEquality() bool {
-	return t != List && t != Dist
+	return t != List && t != Dist && t != Unknown
 }
