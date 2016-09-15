@@ -124,6 +124,11 @@ type Metric struct {
 	GroupId int `json:"groupId"`
 }
 
+// ConvertToGoRPC changes this metric in place to be go rpc compatible.
+func (m *Metric) ConvertToGoRPC() error {
+	return m.convertToGoRPC()
+}
+
 // ConvertToJson changes this metric in place to be json compatible.
 func (m *Metric) ConvertToJson() {
 	m.convertToJson()
@@ -144,6 +149,17 @@ func AsJsonWithSubType(
 	value interface{}, kind, subType types.Type, unit units.Unit) (
 	jsonValue interface{}, jsonKind, jsonSubType types.Type) {
 	return asJson(value, kind, subType, unit)
+}
+
+// ZeroValue works like types.Type.SafeZeroValue, but unlike the types.Type
+// version, this method can also return zero values for types in this
+// package.
+func ZeroValue(t types.Type) (interface{}, error) {
+	if t == types.Dist {
+		return (*Distribution)(nil), nil
+	} else {
+		return t.SafeZeroValue()
+	}
 }
 
 func init() {

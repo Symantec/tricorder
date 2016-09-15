@@ -2,6 +2,7 @@
 package types
 
 import (
+	"fmt"
 	"github.com/Symantec/tricorder/go/tricorder/duration"
 	"time"
 )
@@ -127,106 +128,100 @@ func FromGoValueWithSubType(value interface{}) (kind, subType Type) {
 	return
 }
 
+// SafeZeroValue is like ZeroValue except it returns an error instead of
+// panicing
+func (t Type) SafeZeroValue() (interface{}, error) {
+	switch t {
+	case Bool:
+		return false, nil
+	case Int8:
+		return int8(0), nil
+	case Int16:
+		return int16(0), nil
+	case Int32:
+		return int32(0), nil
+	case Int64:
+		return int64(0), nil
+	case Uint8:
+		return uint8(0), nil
+	case Uint16:
+		return uint16(0), nil
+	case Uint32:
+		return uint32(0), nil
+	case Uint64:
+		return uint64(0), nil
+	case Float32:
+		return float32(0), nil
+	case Float64:
+		return float64(0), nil
+	case String:
+		return "", nil
+	case Time, Duration:
+		return "0.000000000", nil
+	case GoTime:
+		return time.Time{}, nil
+	case GoDuration:
+		return time.Duration(0), nil
+	default:
+		return nil, fmt.Errorf("Cannot create zero value for type '%s'", t)
+	}
+}
+
 // ZeroValue returns the zero value for this type.
 // ZeroValue panics if this type is Dist, List, or Unknown.
 func (t Type) ZeroValue() interface{} {
+	result, err := t.SafeZeroValue()
+	if err != nil {
+		panic(err)
+	}
+	return result
+}
+
+// SafeNilSlice is like NilSlice except it returns an error instead of
+// panicing
+func (t Type) SafeNilSlice() (interface{}, error) {
 	switch t {
 	case Bool:
-		return false
+		return ([]bool)(nil), nil
 	case Int8:
-		return int8(0)
+		return ([]int8)(nil), nil
 	case Int16:
-		return int16(0)
+		return ([]int16)(nil), nil
 	case Int32:
-		return int32(0)
+		return ([]int32)(nil), nil
 	case Int64:
-		return int64(0)
+		return ([]int64)(nil), nil
 	case Uint8:
-		return uint8(0)
+		return ([]uint8)(nil), nil
 	case Uint16:
-		return uint16(0)
+		return ([]uint16)(nil), nil
 	case Uint32:
-		return uint32(0)
+		return ([]uint32)(nil), nil
 	case Uint64:
-		return uint64(0)
+		return ([]uint64)(nil), nil
 	case Float32:
-		return float32(0)
+		return ([]float32)(nil), nil
 	case Float64:
-		return float64(0)
-	case String:
-		return ""
-	case Dist:
-		panic("Dist type cannot create zero value")
-	case List:
-		panic("List type cannot create zero value")
-	case Time, Duration:
-		return "0.000000000"
+		return ([]float64)(nil), nil
+	case String, Time, Duration:
+		return ([]string)(nil), nil
 	case GoTime:
-		return time.Time{}
+		return ([]time.Time)(nil), nil
 	case GoDuration:
-		return time.Duration(0)
+		return ([]time.Duration)(nil), nil
 	default:
-		panic("Unknown type")
+		return nil, fmt.Errorf("Cannot create nil slice of type '%s'", t)
 	}
 }
 
 // NilSlice returns the nil slice of this type.
 // NilSlice panics if this type is Dist, List or Unknown.
 func (t Type) NilSlice() interface{} {
-	switch t {
-	case Bool:
-		var result []bool
-		return result
-	case Int8:
-		var result []int8
-		return result
-	case Int16:
-		var result []int16
-		return result
-	case Int32:
-		var result []int32
-		return result
-	case Int64:
-		var result []int64
-		return result
-	case Uint8:
-		var result []uint8
-		return result
-	case Uint16:
-		var result []uint16
-		return result
-	case Uint32:
-		var result []uint32
-		return result
-	case Uint64:
-		var result []uint64
-		return result
-	case Float32:
-		var result []float32
-		return result
-	case Float64:
-		var result []float64
-		return result
-	case String:
-		var result []string
-		return result
-	case Dist:
-		panic("Dist type cannot create nil slice")
-	case List:
-		panic("List type cannot create nil slice")
-	case Time, Duration:
-		var result []string
-		return result
-	case GoTime:
-		var result []time.Time
-		return result
-	case GoDuration:
-		var result []time.Duration
-		return result
-	default:
-		panic("Unknown type")
-
+	result, err := t.SafeNilSlice()
+	if err != nil {
+		panic(err)
 	}
+	return result
 }
 
 // CanToFromFloat returns true if this type supports conversion to/from float64

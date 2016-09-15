@@ -25,10 +25,17 @@ func (u Unit) String() string {
 // For example FromSeconds(Millisecond) returns 1000.
 // Returns 1.0 if u is not a time unit.
 func FromSeconds(u Unit) float64 {
+	n, d := FromSecondsRational(u)
+	return float64(n) / float64(d)
+}
+
+// FromSecondsRational is the same as FromSeconds but returns answer as a
+// rational number.
+func FromSecondsRational(u Unit) (numerator, denominator int64) {
 	switch u {
 	case Millisecond:
-		return 1000.0
+		return 1000, 1
 	default:
-		return 1.0
+		return 1, 1
 	}
 }

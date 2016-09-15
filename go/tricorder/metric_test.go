@@ -828,7 +828,7 @@ func TestAPI(t *testing.T) {
 		t,
 		inMillisecondMetric, "/times/milliseconds",
 		"In milliseconds", units.Millisecond, types.Duration, 0,
-		"7008.000000")
+		"7008.000000000")
 	verifyRpcDefaultTsGroupId(
 		t,
 		inMillisecondMetric, "/times/milliseconds",
@@ -836,7 +836,7 @@ func TestAPI(t *testing.T) {
 		7*time.Second+8*time.Millisecond)
 
 	assertValueEquals(t, "7.008s", inMillisecondMetric.AsHtmlString(nil))
-	assertValueEquals(t, "7008.000000", inMillisecondMetric.AsTextString(nil))
+	assertValueEquals(t, "7008.000000000", inMillisecondMetric.AsTextString(nil))
 
 	// Check /proc/temperature
 	temperatureMetric := root.GetMetric("/proc/temperature")
@@ -1624,7 +1624,7 @@ func TestDurationList(t *testing.T) {
 	assertValueEquals(t, types.GoDuration, alist.SubType())
 	assertValueDeepEquals(
 		t,
-		[]string{"1000.000000", "60000.000000"},
+		[]string{"1000.000000000", "60000.000000000"},
 		alist.TextStrings(units.Millisecond))
 	assertValueDeepEquals(
 		t,
