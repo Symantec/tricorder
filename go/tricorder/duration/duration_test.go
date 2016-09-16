@@ -170,12 +170,12 @@ func TestString(t *testing.T) {
 	if out := dur.String(); out != "-53.200000000" {
 		t.Errorf("Expected -53.200000000, got %s", out)
 	}
-	if out := dur.StringUsingUnits(units.Millisecond); out != "-53200.000000" {
-		t.Errorf("Expected -53200.000000, got %s", out)
+	if out := dur.StringUsingUnits(units.Millisecond); out != "-53200.000000000" {
+		t.Errorf("Expected -53200.000000000, got %s", out)
 	}
 	dur = Duration{Seconds: 53, Nanoseconds: 123456789}
-	if out := dur.StringUsingUnits(units.Millisecond); out != "53123.456789" {
-		t.Errorf("Expected 53123.456789, got %s", out)
+	if out := dur.StringUsingUnits(units.Millisecond); out != "53123.456789000" {
+		t.Errorf("Expected 53123.456789000, got %s", out)
 	}
 }
 
@@ -216,6 +216,38 @@ func TestPrettyFormat(t *testing.T) {
 	assertStringEquals(t, "1d 0h 0m 0s", dur.PrettyFormat())
 	dur = Duration{Seconds: 200000}
 	assertStringEquals(t, "2d 7h 33m 20s", dur.PrettyFormat())
+}
+
+func TestParseWithUnit(t *testing.T) {
+	dur, err := ParseWithUnit("-4326.1601", units.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStringEquals(t, "-4326.160100000", dur.String())
+	dur, err = ParseWithUnit("8078.211436", units.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStringEquals(t, "8.078211436", dur.String())
+	_, err = ParseWithUnit("abcde", units.Second)
+	if err == nil {
+		t.Error("Expected error")
+	}
+	dur, err = ParseWithUnit("793", units.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStringEquals(t, "793.000000000", dur.String())
+	dur, err = ParseWithUnit("-8", units.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStringEquals(t, "-0.008000000", dur.String())
+	dur, err = ParseWithUnit("0", units.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStringEquals(t, "0.000000000", dur.String())
 }
 
 func assertStringEquals(t *testing.T, expected, actual string) {

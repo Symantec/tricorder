@@ -1,14 +1,17 @@
 package duration
 
 import (
+	"errors"
 	"fmt"
 	"github.com/Symantec/tricorder/go/tricorder/units"
 	"math"
+	"strconv"
+	"strings"
 	"time"
 )
 
 const (
-	oneMillion = 1000000
+	oneBillion = 1000000000
 )
 
 func newDuration(d time.Duration) (result Duration) {
@@ -23,7 +26,7 @@ func sinceEpoch(t time.Time) (result Duration) {
 	result.Nanoseconds = int32(t.Nanosecond())
 	if result.Seconds < 0 && result.Nanoseconds > 0 {
 		result.Seconds++
-		result.Nanoseconds -= 1000000000 // 1 billion
+		result.Nanoseconds -= oneBillion
 	}
 	return
 }
@@ -43,22 +46,12 @@ func (d Duration) asGoTime() time.Time {
 	return time.Unix(d.Seconds, int64(d.Nanoseconds))
 }
 
-func (d Duration) stringUsingUnits(unit units.Unit) string {
-	formattedNs := d.Nanoseconds
-	if formattedNs < 0 {
-		formattedNs = -formattedNs
+func (d Duration) toString() string {
+	if d.isNegative() {
+		posd := d.mult(-1)
+		return fmt.Sprintf("-%d.%09d", posd.Seconds, posd.Nanoseconds)
 	}
-	switch unit {
-	case units.Millisecond:
-		return fmt.Sprintf(
-			"%d%03d.%06d",
-			d.Seconds,
-			formattedNs/oneMillion,
-			formattedNs%oneMillion)
-	default: // second
-		return fmt.Sprintf("%d.%09d", d.Seconds, formattedNs)
-	}
-
+	return fmt.Sprintf("%d.%09d", d.Seconds, d.Nanoseconds)
 }
 
 func (d Duration) asFloat() float64 {
@@ -103,4 +96,72 @@ func (d Duration) prettyFormat() string {
 			d.Seconds%60)
 
 	}
+}
+
+func (d Duration) mult(scalar int64) (result Duration) {
+	fracprod := int64(d.Nanoseconds) * scalar
+	wholeprod := d.Seconds*scalar + fracprod/oneBillion
+	fracprod = fracprod % oneBillion
+	result.Seconds = wholeprod
+	result.Nanoseconds = int32(fracprod)
+	return
+}
+
+func (d Duration) div(scalar int64) (result Duration) {
+	wholequot := d.Seconds / scalar
+	wholerem := d.Seconds % scalar
+	fracquot := (int64(d.Nanoseconds) + wholerem*oneBillion) / scalar
+	result.Seconds = wholequot
+	result.Nanoseconds = int32(fracquot)
+	return
+}
+
+func (d Duration) convert(from, to units.Unit) Duration {
+	fromNum, fromDen := units.FromSecondsRational(from)
+	toNum, toDen := units.FromSecondsRational(to)
+	num := toNum * fromDen
+	den := toDen * fromNum
+	return d.mult(num).div(den)
+}
+
+func parse(str string) (result Duration, err error) {
+	var bNegative bool
+	if strings.HasPrefix(str, "-") {
+		bNegative = true
+		str = str[1:]
+	}
+	number := strings.SplitN(str, ".", 2)
+	whole, err := strconv.ParseInt(number[0], 10, 64)
+	if err != nil {
+		return
+	}
+	if whole < 0 {
+		err = errors.New("Double negative while parsing")
+		return
+	}
+	var frac uint64
+	if len(number) == 2 {
+		fracStr := number[1]
+		if len(fracStr) < 9 {
+			fracStr = fracStr + strings.Repeat("0", 9-len(fracStr))
+		} else {
+			fracStr = fracStr[:9]
+		}
+		frac, err = strconv.ParseUint(fracStr, 10, 32)
+		if err != nil {
+			return
+		}
+	}
+	if frac > 999999999 {
+		err = errors.New("Unexpected error")
+		return
+	}
+	if bNegative {
+		result.Seconds = -1 * whole
+		result.Nanoseconds = -1 * int32(frac)
+	} else {
+		result.Seconds = whole
+		result.Nanoseconds = int32(frac)
+	}
+	return
 }

@@ -28,6 +28,17 @@ func SinceEpochFloat(secondsSinceEpoch float64) Duration {
 	return sinceEpochFloat(secondsSinceEpoch)
 }
 
+// ParseWithUnit takes a string that is a quantity of unit and converts it
+// to a Duration.
+func ParseWithUnit(str string, unit units.Unit) (dur Duration, err error) {
+	inUnit, err := parse(str)
+	if err != nil {
+		return
+	}
+	dur = inUnit.convert(unit, units.Second)
+	return
+}
+
 // AsGoDuration converts this duration to a go duration
 func (d Duration) AsGoDuration() time.Duration {
 	return d.asGoDuration()
@@ -46,13 +57,13 @@ func (d Duration) AsFloat() float64 {
 
 // String shows in seconds
 func (d Duration) String() string {
-	return d.stringUsingUnits(units.Second)
+	return d.toString()
 }
 
 // StringUsingUnits shows in specified time unit.
 // If unit not a time, shows in seconds.
 func (d Duration) StringUsingUnits(unit units.Unit) string {
-	return d.stringUsingUnits(unit)
+	return d.convert(units.Second, unit).toString()
 }
 
 // IsNegative returns true if this duration is negative.
