@@ -47,11 +47,11 @@ func (d Duration) asGoTime() time.Time {
 }
 
 func (d Duration) toString() string {
-	formattedNs := d.Nanoseconds
-	if formattedNs < 0 {
-		formattedNs = -formattedNs
+	if d.isNegative() {
+		posd := d.mult(-1)
+		return fmt.Sprintf("-%d.%09d", posd.Seconds, posd.Nanoseconds)
 	}
-	return fmt.Sprintf("%d.%09d", d.Seconds, formattedNs)
+	return fmt.Sprintf("%d.%09d", d.Seconds, d.Nanoseconds)
 }
 
 func (d Duration) asFloat() float64 {

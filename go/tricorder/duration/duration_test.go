@@ -233,6 +233,21 @@ func TestParseWithUnit(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error")
 	}
+	dur, err = ParseWithUnit("793", units.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStringEquals(t, "793.000000000", dur.String())
+	dur, err = ParseWithUnit("-8", units.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStringEquals(t, "-0.008000000", dur.String())
+	dur, err = ParseWithUnit("0", units.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStringEquals(t, "0.000000000", dur.String())
 }
 
 func assertStringEquals(t *testing.T, expected, actual string) {
