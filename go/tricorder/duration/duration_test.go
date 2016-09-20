@@ -7,9 +7,11 @@ import (
 )
 
 func TestConversions(t *testing.T) {
-	atime := time.Date(2016, 5, 25, 16, 9, 59, 0, time.Local)
+	atime := time.Date(2016, 5, 25, 23, 9, 59, 0, time.UTC)
 	assertValueEquals(t, 1464217799.0, TimeToFloat(atime))
-	assertValueEquals(t, atime, FloatToTime(1464217799.0))
+	if out := FloatToTime(1464217799.0); !atime.Equal(out) {
+		t.Errorf("Expected %v, got %v", atime, out)
+	}
 	assertValueEquals(
 		t, 3.625, ToFloat(3*time.Second+625*time.Millisecond))
 	assertValueEquals(
