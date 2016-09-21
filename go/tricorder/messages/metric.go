@@ -92,8 +92,13 @@ func asGoRPC(value interface{}, kind, subType types.Type, unit units.Unit) (
 
 func asJson(value interface{}, kind, subType types.Type, unit units.Unit) (
 	jsonValue interface{}, jsonKind, jsonSubType types.Type) {
-	// TODO: Could type assertions in here fail? If so, how do we
-	// recover?
+	// asJson does not return an error like asGoRPC does. The reason is that
+	// asGoRPC gets its input from incoming JSON which may have kind fields
+	// and value fields that do not match. asJson on the other hand receives
+	// its inputs from only our code for now, so it should panic if the
+	// inputs aren't consistent. For instance, when scotty reads metrics
+	// from GoRPC, it ignores the kind field and derives the kind and sub
+	// type from what is stored in the value field.
 	switch kind {
 	case types.GoDuration:
 		jsonKind = types.Duration
