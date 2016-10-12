@@ -165,8 +165,12 @@ func ZeroValue(t types.Type) (interface{}, error) {
 func init() {
 	var tm time.Time
 	var dur time.Duration
+	var tml []time.Time
+	var durl []time.Duration
 	var dist *Distribution
 	gob.Register(tm)
 	gob.Register(dur)
+	gob.Register(tml)
+	gob.Register(durl)
 	gob.Register(dist)
 }
