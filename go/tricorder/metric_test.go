@@ -135,6 +135,50 @@ func (c *intMetricsCollectorForTesting) Collect(m *metric, s *session) error {
 	return nil
 }
 
+func doUnregisteredDirectoryTest(t *testing.T) {
+	newDir1, err := CreateUnregisteredDirectory("/unregistered/newDir")
+	if err != nil {
+		t.Fatalf("Expected success, got %v", err)
+	}
+	newDir2, err := CreateUnregisteredDirectory("/unregistered/newDir")
+	if err != nil {
+		t.Fatalf("Expected success, got %v", err)
+	}
+	assertValueEquals(t, "/unregistered/newDir", newDir1.AbsPath())
+	assertValueEquals(t, "/unregistered/newDir", newDir2.AbsPath())
+
+	verifyChildren(
+		t,
+		root.GetDirectory("unregistered").List())
+
+	someValue := 42
+	RegisterMetric(
+		"/unregistered/someMetric", &someValue, units.None, "")
+	_, err = CreateUnregisteredDirectory("/unregistered/someMetric")
+	if err != ErrPathInUse {
+		t.Fatal("Creation should have failed")
+	}
+	_, err = CreateUnregisteredDirectory("/unregistered/someMetric/foo")
+	if err != ErrPathInUse {
+		t.Fatal("Creation should have failed")
+	}
+
+	if err := newDir1.Register(); err != nil {
+		t.Error("Registration should have succeeded")
+	}
+
+	if err := newDir2.Register(); err != ErrPathInUse {
+		t.Error("Registration should have failed")
+	}
+
+	verifyChildren(
+		t,
+		root.GetDirectory("unregistered").List(),
+		"newDir",
+		"someMetric")
+	UnregisterPath("/unregistered")
+}
+
 func doGlobalsTest(t *testing.T) {
 	var barrier sync.WaitGroup
 	var wg sync.WaitGroup
@@ -332,6 +376,7 @@ func TestAPI(t *testing.T) {
 	DefaultGroup.RegisterUpdateFunc(func() time.Time {
 		return kUsualTimeStamp
 	})
+	doUnregisteredDirectoryTest(t)
 
 	// Do concurrent globals test
 	registerMetricsForGlobalsTest()
@@ -1225,32 +1270,60 @@ func TestAPI(t *testing.T) {
 		"temperature",
 		"test-start-time")
 
-	// Regisering metrics using fooDir should cause panic
-	func() {
-		defer func() {
-			if recover() != panicDirectoryUnregistered {
-				t.Error("Expected registring a metric on unregistered directory to panic.")
-			}
-		}()
-		fooDir.RegisterMetric("/should/not/work",
-			&anIntValue,
-			units.None,
-			"some metric")
+	if out := fooDir.Register(); out != nil {
+		t.Errorf("Expected register to succeed: got %v", out)
+	}
+	// Register is idempotent
+	if out := fooDir.Register(); out != nil {
+		t.Errorf("Expected register to succeed: got %v", out)
+	}
 
-	}()
+	// fooDir back
+	verifyChildren(
+		t,
+		root.GetDirectory("proc").List(),
+		"args",
+		"cpu",
+		"flags",
+		"foo",
+		"io",
+		"ipc",
+		"memory",
+		"name",
+		"rpc-count",
+		"rpc-latency",
+		"rpc-latency-again",
+		"scheduler",
+		"signals",
+		"some-time",
+		"some-time-ptr",
+		"start-time",
+		"temperature",
+		"test-start-time")
 
-	func() {
-		defer func() {
-			if recover() != panicDirectoryUnregistered {
-				t.Error("Expected registring a short metric on unregistered directory to panic.")
-			}
-		}()
-		fooDir.RegisterMetric("/wontwork",
-			&anIntValue,
-			units.None,
-			"some metric")
+	fooDir.UnregisterDirectory()
 
-	}()
+	// No more fooDir
+	verifyChildren(
+		t,
+		root.GetDirectory("proc").List(),
+		"args",
+		"cpu",
+		"flags",
+		"io",
+		"ipc",
+		"memory",
+		"name",
+		"rpc-count",
+		"rpc-latency",
+		"rpc-latency-again",
+		"scheduler",
+		"signals",
+		"some-time",
+		"some-time-ptr",
+		"start-time",
+		"temperature",
+		"test-start-time")
 
 	if err := RegisterMetric(
 		"/proc/foo/bar/baz",

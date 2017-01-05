@@ -94,6 +94,7 @@ func RegisterMetricInGroup(
 
 // UnregisterPath unregisters the metric or DirectorySpec at the given path.
 // UnregisterPath ignores requests to unregister the root path.
+// Calling UnregisterPath on an already unregistered path does nothing.
 func UnregisterPath(path string) {
 	root.unregisterPath(newPathSpec(path))
 }
@@ -306,14 +307,34 @@ func (l *List) Change(aSlice interface{}, sliceIsMutable bool) {
 // metrics.
 type DirectorySpec directory
 
-// RegisterDirectory returns the the DirectorySpec registered with path.
+// RegisterDirectory returns the DirectorySpec registered with path.
 // If nothing is registered with path, RegisterDirectory registers a
 // new DirectorySpec with path and returns it.
 // RegisterDirectory returns ErrPathInUse if path is already associated
 // with a metric.
 func RegisterDirectory(path string) (dirSpec *DirectorySpec, err error) {
-	r, e := root.registerDirectory(newPathSpec(path))
+	r, e := root.registerDirectory(newPathSpec(path), true)
 	return (*DirectorySpec)(r), e
+}
+
+// CreateUnregisteredDirectory works like RegisterDirectory except that it
+// creates an unregistered directory that does not show up in the metrics.
+// Unlike RegisterDirectory, CreateUnregisteredDirectory always returns a new
+// directory. Callers may create multiple unregistered directories with the
+// same path; however, only one of those directories may be successfully
+// registered. CreateUnregisteredDirectory always creates and registers
+// any missing parent directories as needed.
+func CreateUnregisteredDirectory(path string) (dirSpec *DirectorySpec, err error) {
+	r, e := root.registerDirectory(newPathSpec(path), false)
+	return (*DirectorySpec)(r), e
+}
+
+// Register registers this instance.
+// If path of this instance is already taken, Register returns ErrPathInUse.
+// If called on an already registered instance, Register does nothing and
+// returns nil.
+func (d *DirectorySpec) Register() error {
+	return (*directory)(d).register()
 }
 
 // RegisterMetric works just like the package level RegisterMetric
@@ -347,11 +368,20 @@ func (d *DirectorySpec) RegisterMetricInGroup(
 // except that path is relative to this DirectorySpec.
 func (d *DirectorySpec) RegisterDirectory(
 	path string) (dirSpec *DirectorySpec, err error) {
-	r, e := (*directory)(d).registerDirectory(newPathSpec(path))
+	r, e := (*directory)(d).registerDirectory(newPathSpec(path), true)
 	return (*DirectorySpec)(r), e
 }
 
-// Returns the absolute path this object represents
+// CreateUnregisteredDirectory works just like the package level
+// CreateUnregisteredDirectory except that path is relative to this
+// DirectorySpec.
+func (d *DirectorySpec) CreateUnregisteredDirectory(path string) (
+	dirSpec *DirectorySpec, err error) {
+	r, e := (*directory)(d).registerDirectory(newPathSpec(path), false)
+	return (*DirectorySpec)(r), e
+}
+
+// AbsPath returns the absolute path this object represents
 func (d *DirectorySpec) AbsPath() string {
 	return (*directory)(d).AbsPath()
 }
@@ -362,12 +392,12 @@ func (d *DirectorySpec) UnregisterPath(path string) {
 	(*directory)(d).unregisterPath(newPathSpec(path))
 }
 
-// UnregisterDirectory unregisters this DirectorySpec instance along with
-// all metrics and directories within it. The caller can unregister any
-// DirectorySpec instance except the one representing the top level directory.
+// UnregisterDirectory unregisters this DirectorySpec instance.
+// The caller can unregister any DirectorySpec instance except the one
+// representing the top level directory.
 // That DirectorySpec instance simply ignores calls to UnregisterDirectory.
-// Using an unregistered DirectorySpec instance to register new metrics may
-// cause a panic.
+// Calling UnregisteredDirectory on an already unregistered instance does
+// nothing.
 func (d *DirectorySpec) UnregisterDirectory() {
 	(*directory)(d).unregisterDirectory()
 }
