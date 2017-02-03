@@ -49,6 +49,17 @@ func (g *Group) RegisterUpdateFunc(updateFunc func() time.Time) {
 	(*region)(g).registerUpdateFunc(updateFunc)
 }
 
+// RegisterMetric registers metric in this group. It is the same as
+// calling RegisterMetricInGroup(path, metric, g, unit, description)
+func (g *Group) RegisterMetric(
+	path string,
+	metric interface{},
+	unit units.Unit,
+	description string) error {
+	return root.registerMetric(
+		newPathSpec(path), metric, (*region)(g), unit, description)
+}
+
 // RegisterMetric registers a single metric with the health system in the
 // default group.
 //
@@ -89,7 +100,8 @@ func RegisterMetricInGroup(
 	g *Group,
 	unit units.Unit,
 	description string) error {
-	return root.registerMetric(newPathSpec(path), metric, (*region)(g), unit, description)
+	return root.registerMetric(
+		newPathSpec(path), metric, (*region)(g), unit, description)
 }
 
 // UnregisterPath unregisters the metric or DirectorySpec at the given path.
