@@ -7,8 +7,8 @@
 
 	By default, the /health handler responds with "OK".
 
-	By default, the /readiness handler responds with a HTTP header with
-	"503 Service Unavailable" and followed by "not ready".
+	By default, the /readiness handler responds with a "503 Service Unavailable"
+	HTTP status and followed by "not ready".
 */
 package healthserver
 
@@ -17,9 +17,9 @@ func SetHealthy() {
 	setHealth("")
 }
 
-// SetNotHealthy will make the /healthz HTTP handler respond with a HTTP header
-// with "503 Service Unavailable" and the status string will be returned
-// following the HTTP header.
+// SetNotHealthy will make the /healthz HTTP handler respond with a
+// "503 Service Unavailable" HTTP status followed by the status string.
+// Passing "" or "OK" for status will result in a panic.
 func SetNotHealthy(status string) {
 	if status == "" || status == "OK" {
 		panic("OK status not permitted")
@@ -27,9 +27,9 @@ func SetNotHealthy(status string) {
 	setHealth(status)
 }
 
-// SetNotReady will make the /readiness HTTP handler respond with a HTTP header
-// with "503 Service Unavailable" and the status string will be returned
-// following the HTTP header.
+// SetNotReady will make the /readiness HTTP handler respond with a
+// "503 Service Unavailable" HTTP status followed by the status string.
+// Passing "" or "OK" for status will result in a panic.
 func SetNotReady(status string) {
 	if status == "" || status == "OK" {
 		panic("OK status not permitted")
