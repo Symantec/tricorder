@@ -8,7 +8,7 @@
 	By default, the /health handler responds with "OK".
 
 	By default, the /readiness handler responds with a HTTP header with
-	"503 Service Unavailable" and followed by "not specified".
+	"503 Service Unavailable" and followed by "not ready".
 */
 package healthserver
 
