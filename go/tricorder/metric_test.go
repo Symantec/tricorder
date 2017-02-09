@@ -1579,11 +1579,17 @@ func TestInt64List(t *testing.T) {
 		assertValueEquals(t, "5000", textStrings[1])
 		assertValueEquals(t, "7000", textStrings[2])
 	}
-	htmlStrings := alist.HtmlStrings(units.None)
+	htmlStrings := alist.HtmlStrings(units.Celsius)
 	if assertValueEquals(t, 3, len(htmlStrings)) {
 		assertValueEquals(t, "3.00 thousand", htmlStrings[0])
 		assertValueEquals(t, "5.00 thousand", htmlStrings[1])
 		assertValueEquals(t, "7.00 thousand", htmlStrings[2])
+	}
+	htmlStrings = alist.HtmlStrings(units.None)
+	if assertValueEquals(t, 3, len(htmlStrings)) {
+		assertValueEquals(t, "3000", htmlStrings[0])
+		assertValueEquals(t, "5000", htmlStrings[1])
+		assertValueEquals(t, "7000", htmlStrings[2])
 	}
 	htmlStrings = alist.HtmlStrings(units.Byte)
 	if assertValueEquals(t, 3, len(htmlStrings)) {
