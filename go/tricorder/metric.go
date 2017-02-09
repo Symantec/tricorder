@@ -1270,6 +1270,8 @@ func valueToHtmlString(
 		case units.BytePerSecond:
 			return iCompactForm(
 				value.Int(), 1024, bytePerSecondSuffixes)
+		case units.None:
+			return valueToTextString(value, t, u, isValueAPointer)
 		default:
 			return iCompactForm(
 				value.Int(), 1000, suffixes)
@@ -1282,6 +1284,8 @@ func valueToHtmlString(
 		case units.BytePerSecond:
 			return uCompactForm(
 				value.Uint(), 1024, bytePerSecondSuffixes)
+		case units.None:
+			return valueToTextString(value, t, u, isValueAPointer)
 		default:
 			return uCompactForm(
 				value.Uint(), 1000, suffixes)
