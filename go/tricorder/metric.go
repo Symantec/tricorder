@@ -1,6 +1,7 @@
 package tricorder
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"github.com/Symantec/tricorder/go/tricorder/duration"
@@ -1169,6 +1170,32 @@ func (v *value) UpdateRpcMetric(s *session, metric *messages.Metric) {
 	v.updateJsonOrRpcMetric(s, metric, goRpcEncoding)
 }
 
+func addSeparators(orig string, separator rune, digitsBetween int) string {
+	s := ([]byte)(orig)
+	start := bytes.IndexFunc(s, func(r rune) bool {
+		return r >= '0' && r <= '9'
+	})
+	end := bytes.IndexFunc(s[start:], func(r rune) bool {
+		return r < '0' || r > '9'
+	}) + start
+	if end < start {
+		end = len(s)
+	}
+	digits := bytes.Runes(s[start:end])
+	buffer := &bytes.Buffer{}
+	buffer.Write(s[:start])
+	dlen := len(digits)
+	for i, dig := range digits {
+		digitsLeft := dlen - i
+		if i > 0 && digitsLeft%digitsBetween == 0 {
+			buffer.WriteRune(separator)
+		}
+		buffer.WriteRune(dig)
+	}
+	buffer.Write(s[end:])
+	return buffer.String()
+}
+
 func valueToTextString(
 	value reflect.Value,
 	t types.Type,
@@ -1271,7 +1298,8 @@ func valueToHtmlString(
 			return iCompactForm(
 				value.Int(), 1024, bytePerSecondSuffixes)
 		case units.None:
-			return valueToTextString(value, t, u, isValueAPointer)
+			return addSeparators(
+				valueToTextString(value, t, u, isValueAPointer), ',', 3)
 		default:
 			return iCompactForm(
 				value.Int(), 1000, suffixes)
@@ -1285,7 +1313,8 @@ func valueToHtmlString(
 			return uCompactForm(
 				value.Uint(), 1024, bytePerSecondSuffixes)
 		case units.None:
-			return valueToTextString(value, t, u, isValueAPointer)
+			return addSeparators(
+				valueToTextString(value, t, u, isValueAPointer), ',', 3)
 		default:
 			return uCompactForm(
 				value.Uint(), 1000, suffixes)
