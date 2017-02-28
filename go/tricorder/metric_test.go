@@ -1559,7 +1559,26 @@ func TestInt64List(t *testing.T) {
 	assertValueEquals(t, kUsualTimeStamp, ts)
 	assertValueEquals(t, types.Int64, alist.SubType())
 
-	mutableInt64Slice := []int64{3000, 5000, 7000}
+	mutableInt64Slice := []int64{
+		-1234567,
+		-123456,
+		-12345,
+		-1234,
+		-123,
+		-12,
+		-1,
+		0,
+		1,
+		12,
+		123,
+		1234,
+		12345,
+		123456,
+		1234567,
+		3000,
+		5000,
+		7000,
+	}
 	alist.ChangeWithTimeStamp(
 		mutableInt64Slice,
 		MutableSlice,
@@ -1571,31 +1590,97 @@ func TestInt64List(t *testing.T) {
 
 	aSlice, ts = alist.AsSlice()
 	assertValueDeepEquals(
-		t, []int64{3000, 5000, 7000}, aSlice)
+		t,
+		[]int64{
+			-1234567,
+			-123456,
+			-12345,
+			-1234,
+			-123,
+			-12,
+			-1,
+			0,
+			1,
+			12,
+			123,
+			1234,
+			12345,
+			123456,
+			1234567,
+			3000,
+			5000,
+			7000,
+		},
+		aSlice)
 	assertValueEquals(t, kUsualTimeStamp.Add(5*time.Hour), ts)
 	textStrings := alist.TextStrings(units.None)
-	if assertValueEquals(t, 3, len(textStrings)) {
-		assertValueEquals(t, "3000", textStrings[0])
-		assertValueEquals(t, "5000", textStrings[1])
-		assertValueEquals(t, "7000", textStrings[2])
+	if assertValueEquals(t, 18, len(textStrings)) {
+		assertValueEquals(t, "-1234567", textStrings[0])
+		assertValueEquals(t, "-123456", textStrings[1])
+		assertValueEquals(t, "-12345", textStrings[2])
+		assertValueEquals(t, "-1234", textStrings[3])
+		assertValueEquals(t, "-123", textStrings[4])
+		assertValueEquals(t, "-12", textStrings[5])
+		assertValueEquals(t, "-1", textStrings[6])
+		assertValueEquals(t, "0", textStrings[7])
+		assertValueEquals(t, "1", textStrings[8])
+		assertValueEquals(t, "12", textStrings[9])
+		assertValueEquals(t, "123", textStrings[10])
+		assertValueEquals(t, "1234", textStrings[11])
+		assertValueEquals(t, "12345", textStrings[12])
+		assertValueEquals(t, "123456", textStrings[13])
+		assertValueEquals(t, "1234567", textStrings[14])
+		assertValueEquals(t, "3000", textStrings[15])
+		assertValueEquals(t, "5000", textStrings[16])
+		assertValueEquals(t, "7000", textStrings[17])
 	}
 	htmlStrings := alist.HtmlStrings(units.Celsius)
-	if assertValueEquals(t, 3, len(htmlStrings)) {
-		assertValueEquals(t, "3.00 thousand", htmlStrings[0])
-		assertValueEquals(t, "5.00 thousand", htmlStrings[1])
-		assertValueEquals(t, "7.00 thousand", htmlStrings[2])
+	if assertValueEquals(t, 18, len(htmlStrings)) {
+		assertValueEquals(t, "-1.23 million", htmlStrings[0])
+		assertValueEquals(t, "-123 thousand", htmlStrings[1])
+		assertValueEquals(t, "-12.3 thousand", htmlStrings[2])
+		assertValueEquals(t, "-1.23 thousand", htmlStrings[3])
+		assertValueEquals(t, "-123", htmlStrings[4])
+		assertValueEquals(t, "-12", htmlStrings[5])
+		assertValueEquals(t, "-1", htmlStrings[6])
+		assertValueEquals(t, "0", htmlStrings[7])
+		assertValueEquals(t, "1", htmlStrings[8])
+		assertValueEquals(t, "12", htmlStrings[9])
+		assertValueEquals(t, "123", htmlStrings[10])
+		assertValueEquals(t, "1.23 thousand", htmlStrings[11])
+		assertValueEquals(t, "12.3 thousand", htmlStrings[12])
+		assertValueEquals(t, "123 thousand", htmlStrings[13])
+		assertValueEquals(t, "1.23 million", htmlStrings[14])
+		assertValueEquals(t, "3.00 thousand", htmlStrings[15])
+		assertValueEquals(t, "5.00 thousand", htmlStrings[16])
+		assertValueEquals(t, "7.00 thousand", htmlStrings[17])
 	}
 	htmlStrings = alist.HtmlStrings(units.None)
-	if assertValueEquals(t, 3, len(htmlStrings)) {
-		assertValueEquals(t, "3000", htmlStrings[0])
-		assertValueEquals(t, "5000", htmlStrings[1])
-		assertValueEquals(t, "7000", htmlStrings[2])
+	if assertValueEquals(t, 18, len(htmlStrings)) {
+		assertValueEquals(t, "-1,234,567", htmlStrings[0])
+		assertValueEquals(t, "-123,456", htmlStrings[1])
+		assertValueEquals(t, "-12,345", htmlStrings[2])
+		assertValueEquals(t, "-1,234", htmlStrings[3])
+		assertValueEquals(t, "-123", htmlStrings[4])
+		assertValueEquals(t, "-12", htmlStrings[5])
+		assertValueEquals(t, "-1", htmlStrings[6])
+		assertValueEquals(t, "0", htmlStrings[7])
+		assertValueEquals(t, "1", htmlStrings[8])
+		assertValueEquals(t, "12", htmlStrings[9])
+		assertValueEquals(t, "123", htmlStrings[10])
+		assertValueEquals(t, "1,234", htmlStrings[11])
+		assertValueEquals(t, "12,345", htmlStrings[12])
+		assertValueEquals(t, "123,456", htmlStrings[13])
+		assertValueEquals(t, "1,234,567", htmlStrings[14])
+		assertValueEquals(t, "3,000", htmlStrings[15])
+		assertValueEquals(t, "5,000", htmlStrings[16])
+		assertValueEquals(t, "7,000", htmlStrings[17])
 	}
 	htmlStrings = alist.HtmlStrings(units.Byte)
-	if assertValueEquals(t, 3, len(htmlStrings)) {
-		assertValueEquals(t, "2.93 KiB", htmlStrings[0])
-		assertValueEquals(t, "4.88 KiB", htmlStrings[1])
-		assertValueEquals(t, "6.84 KiB", htmlStrings[2])
+	if assertValueEquals(t, 18, len(htmlStrings)) {
+		assertValueEquals(t, "2.93 KiB", htmlStrings[15])
+		assertValueEquals(t, "4.88 KiB", htmlStrings[16])
+		assertValueEquals(t, "6.84 KiB", htmlStrings[17])
 	}
 }
 
