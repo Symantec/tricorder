@@ -378,8 +378,8 @@ func (d *DirectorySpec) UnregisterPath(path string) {
 // all metrics and directories within it. The caller can unregister any
 // DirectorySpec instance except the one representing the top level directory.
 // That DirectorySpec instance simply ignores calls to UnregisterDirectory.
-// Using an unregistered DirectorySpec instance to register new metrics may
-// cause a panic.
+// Metrics registered with an unregistered DirectorySpec instance will not
+// be reported.
 func (d *DirectorySpec) UnregisterDirectory() {
 	(*directory)(d).unregisterDirectory()
 }
