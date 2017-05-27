@@ -1225,33 +1225,6 @@ func TestAPI(t *testing.T) {
 		"temperature",
 		"test-start-time")
 
-	// Regisering metrics using fooDir should cause panic
-	func() {
-		defer func() {
-			if recover() != panicDirectoryUnregistered {
-				t.Error("Expected registring a metric on unregistered directory to panic.")
-			}
-		}()
-		fooDir.RegisterMetric("/should/not/work",
-			&anIntValue,
-			units.None,
-			"some metric")
-
-	}()
-
-	func() {
-		defer func() {
-			if recover() != panicDirectoryUnregistered {
-				t.Error("Expected registring a short metric on unregistered directory to panic.")
-			}
-		}()
-		fooDir.RegisterMetric("/wontwork",
-			&anIntValue,
-			units.None,
-			"some metric")
-
-	}()
-
 	if err := RegisterMetric(
 		"/proc/foo/bar/baz",
 		&anIntValue,

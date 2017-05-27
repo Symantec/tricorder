@@ -23,7 +23,6 @@ const (
 	panicInvalidMetric          = "Invalid metric type."
 	panicIncompatibleTypes      = "Wrong AsXXX function called on value."
 	panicTypeMismatch           = "Wrong type passed to method."
-	panicDirectoryUnregistered  = "Directory is unregistered."
 	panicSingleValueExpected    = "Trying to use an aggregate value in a single value context"
 	panicNoAssignedUnit         = "Operation requires that distribution has assigned unit"
 	panicListSubTypeChanging    = "Sub-type in list cannot change"
@@ -1453,10 +1452,9 @@ type metricsCollector interface {
 // directory represents a directory same as DirectorySpec
 type directory struct {
 	enclosingListEntry *listEntry
-	// lock locks only the contents map itself and the unregistered flag.
-	lock         sync.RWMutex
-	contents     map[string]*listEntry
-	unregistered bool
+	// lock locks only the contents map itself.
+	lock     sync.RWMutex
+	contents map[string]*listEntry
 }
 
 func newDirectory() *directory {
@@ -1629,9 +1627,6 @@ func (d *directory) getDirectoryOrMetric(path pathSpec) (
 func (d *directory) createDirIfNeeded(name string) (*directory, error) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
-	if d.unregistered {
-		panic(panicDirectoryUnregistered)
-	}
 	n := d.contents[name]
 
 	// We need to create the new directory
@@ -1656,9 +1651,6 @@ func (d *directory) createDirIfNeeded(name string) (*directory, error) {
 func (d *directory) storeMetric(name string, m *metric) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
-	if d.unregistered {
-		panic(panicDirectoryUnregistered)
-	}
 	n := d.contents[name]
 	// Oops something already stored under name, return error
 	if n != nil {
@@ -1710,9 +1702,6 @@ func (d *directory) unregisterDirectory() {
 		return
 	}
 	d.Parent().removeChildDirectory(d)
-	d.lock.Lock()
-	defer d.lock.Unlock()
-	d.unregistered = true
 }
 
 func (d *directory) unregisterPath(path pathSpec) {
