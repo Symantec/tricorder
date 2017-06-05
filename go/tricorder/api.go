@@ -15,6 +15,25 @@ var (
 	ErrWrongType = errors.New("tricorder: Metric not of a valid type")
 )
 
+// DirectoryGroup combines a group and directory for the purpose of
+// registering metrics.
+type DirectoryGroup struct {
+	Group     *Group
+	Directory *DirectorySpec
+}
+
+// RegisterMetric works just like the package level RegisterMetric
+// except that path is relative to dg.Directory, and the metric being
+// registered becomes part of the dg.Group group.
+func (dg DirectoryGroup) RegisterMetric(
+	path string,
+	metric interface{},
+	unit units.Unit,
+	description string) error {
+	return dg.Directory.RegisterMetricInGroup(
+		path, metric, dg.Group, unit, description)
+}
+
 // A group represents a collection of variables for metrics that are all
 // updated by a common function. Each time a client sends a request for one or
 // more metrics backed by variables within a particular group, tricorder
