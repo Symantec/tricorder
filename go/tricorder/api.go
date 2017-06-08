@@ -69,7 +69,10 @@ func (g *Group) RegisterUpdateFunc(updateFunc func() time.Time) {
 }
 
 // RegisterMetric registers metric in this group. It is the same as
-// calling RegisterMetricInGroup(path, metric, g, unit, description)
+// calling RegisterMetricInGroup(path, metric, g, unit, description).
+// If this group is associated with directorySpec dirSpec, calling this is the
+// same as calling
+// dirSpec.RegisterMetricInGroup(path, metric, g, unit, description)
 func (g *Group) RegisterMetric(
 	path string,
 	metric interface{},
@@ -345,6 +348,12 @@ type DirectorySpec directory
 func RegisterDirectory(path string) (dirSpec *DirectorySpec, err error) {
 	r, e := root.registerDirectory(newPathSpec(path))
 	return (*DirectorySpec)(r), e
+}
+
+// NewGroup creates a new group associated with this DirectorySpec.
+// See the documentation on the group.RegisterMetric function.
+func (d *DirectorySpec) NewGroup() *Group {
+	return nil
 }
 
 // RegisterMetric works just like the package level RegisterMetric
