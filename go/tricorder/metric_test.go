@@ -694,6 +694,69 @@ func TestAPI(t *testing.T) {
 		t.Error("/ metric shouldn't exist")
 	}
 
+	// Test ReadMyMetrics
+	nonExistentResult := ReadMyMetrics("/some-non-existent-metric")
+	if len(nonExistentResult) != 0 {
+		t.Error("Expected empty result")
+	}
+
+	procTemperatureResult := ReadMyMetrics("/proc/temperature")
+	procTemperatureResult = zeroOutGroupId(procTemperatureResult)
+	expectedList := messages.MetricList{
+		{
+			Path:        "/proc/temperature",
+			Description: "Temperature",
+			Unit:        units.Celsius,
+			Kind:        types.Float64,
+			Bits:        64,
+			Value:       22.5,
+			TimeStamp:   kUsualTimeStamp,
+		},
+	}
+	if !reflect.DeepEqual(expectedList, procTemperatureResult) {
+		t.Errorf("Expected %v, got %v", expectedList, procTemperatureResult)
+	}
+	listResult := ReadMyMetrics("/list")
+	listResult = zeroOutGroupId(listResult)
+	expectedList = messages.MetricList{
+		{
+			Path:        "/list/int64",
+			Description: "list of int 64s",
+			Unit:        units.None,
+			Kind:        types.List,
+			SubType:     types.Int64,
+			Value:       []int64{2, 3, 5, 7},
+			TimeStamp:   kUsualTimeStamp,
+		},
+		{
+			Path:        "/list/duration",
+			Description: "list of durations",
+			Unit:        units.None,
+			Kind:        types.List,
+			SubType:     types.Duration,
+			Value:       []time.Duration{time.Second, time.Minute},
+			TimeStamp:   kUsualTimeStamp.Add(2 * time.Hour),
+		},
+		{
+			Path:        "/list/nil",
+			Description: "nil list",
+			Unit:        units.None,
+			Kind:        types.List,
+			SubType:     types.Uint32,
+			Value:       ([]uint32)(nil),
+			TimeStamp:   kUsualTimeStamp.Add(6 * time.Hour),
+		},
+		{
+			Path:        "/list/empty",
+			Description: "empty list",
+			Unit:        units.None,
+			Kind:        types.List,
+			SubType:     types.Uint32,
+			Value:       []uint32{},
+			TimeStamp:   kUsualTimeStamp.Add(9 * time.Hour),
+		},
+	}
+
 	// check /proc/flags/int_flag
 	anIntFlag = 923
 	anIntFlagMetric := root.GetMetric("/proc/flags/int_flag")
@@ -2168,6 +2231,16 @@ func (f noGetterFlagValue) String() string {
 func (f *noGetterFlagValue) Set(s string) error {
 	*f = strings.Split(s, ",")
 	return nil
+}
+
+func zeroOutGroupId(list messages.MetricList) messages.MetricList {
+	result := make(messages.MetricList, len(list))
+	for i, ptr := range list {
+		metric := *ptr
+		metric.GroupId = 0
+		result[i] = &metric
+	}
+	return result
 }
 
 func init() {

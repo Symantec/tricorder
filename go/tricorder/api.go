@@ -2,6 +2,7 @@ package tricorder
 
 import (
 	"errors"
+	"github.com/Symantec/tricorder/go/tricorder/messages"
 	"github.com/Symantec/tricorder/go/tricorder/units"
 	"time"
 )
@@ -77,6 +78,13 @@ func (g *Group) RegisterMetric(
 	description string) error {
 	return root.registerMetric(
 		newPathSpec(path), metric, (*region)(g), unit, description)
+}
+
+// ReadMyMetrics reads all the current tricorder metrics in this process
+// at or under path. If no metrics found under path, ReadMyMetrics returns
+// an empty slice
+func ReadMyMetrics(path string) messages.MetricList {
+	return readMyMetrics(path)
 }
 
 // RegisterMetric registers a single metric with the health system in the
