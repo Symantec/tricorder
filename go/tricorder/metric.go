@@ -1831,3 +1831,11 @@ func sortListEntries(listEntries []*listEntry) []*listEntry {
 	sort.Sort(byName(listEntries))
 	return listEntries
 }
+
+func readMyMetrics(path string) (result messages.MetricList) {
+	// Always returns nil error since rpcMetricsCollector.Collect
+	// always returns nil
+	root.GetAllMetricsByPath(
+		path, (*rpcMetricsCollector)(&result), nil)
+	return
+}
