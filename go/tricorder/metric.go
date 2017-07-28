@@ -985,6 +985,14 @@ func (v *value) AsUint(s *session) uint64 {
 	return v.evaluate(s).Uint()
 }
 
+func (v *value) IsInfNaN(s *session) bool {
+	if !v.valType.IsFloat() {
+		return false
+	}
+	val := v.evaluate(s).Float()
+	return math.IsNaN(val) || math.IsInf(val, 0)
+}
+
 func (v *value) AsFloat(s *session) float64 {
 	if !v.valType.IsFloat() {
 		panic(panicIncompatibleTypes)
@@ -1497,6 +1505,14 @@ func (d *directory) GetMetric(relativePath string) *metric {
 	return m
 }
 
+// s is always non-nil
+func collect(m *metric, s *session, coll metricsCollector) error {
+	if m.IsInfNaN(s) {
+		return nil
+	}
+	return coll.Collect(m, s)
+}
+
 // GetAllMetricsByPath does a depth first traversal from relativePath to
 // find all the metrics and store them within collector. If relativePath
 // denotes a single metric, then GetAllMetricsByPath stores that single metric
@@ -1518,7 +1534,7 @@ func (d *directory) GetAllMetricsByPath(
 			s = newSession()
 			defer s.Close()
 		}
-		return collector.Collect(m, s)
+		return collect(m, s, collector)
 	} else if dir != nil {
 		return dir.GetAllMetrics(collector, s)
 	}
@@ -1554,7 +1570,7 @@ func (d *directory) GetAllMetrics(
 		if entry.Directory != nil {
 			err = entry.Directory.GetAllMetrics(collector, s)
 		} else {
-			err = collector.Collect(entry.Metric, s)
+			err = collect(entry.Metric, s, collector)
 		}
 		if err != nil {
 			return
