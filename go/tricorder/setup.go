@@ -32,12 +32,14 @@ func initDefaultMetrics() {
 		memStatsGroup,
 		units.Byte,
 		"Memory system has allocated to process")
+	var numGoroutines int
 	var resourceUsage wrapper.Rusage
 	var userTime time.Duration
 	var sysTime time.Duration
 	var maxResidentSetSize int64
 	resourceUsageGroup := NewGroup()
 	resourceUsageGroup.RegisterUpdateFunc(func() time.Time {
+		numGoroutines = runtime.NumGoroutine()
 		wrapper.Getrusage(syscall.RUSAGE_SELF, &resourceUsage)
 		userTime = timeValToDuration(&resourceUsage.Utime)
 		sysTime = timeValToDuration(&resourceUsage.Stime)
@@ -129,17 +131,23 @@ func initDefaultMetrics() {
 		units.None,
 		"Signals received")
 	RegisterMetricInGroup(
-		"/proc/scheduler/voluntary-switches",
-		&resourceUsage.Nvcsw,
-		resourceUsageGroup,
-		units.None,
-		"Voluntary context switches")
-	RegisterMetricInGroup(
 		"/proc/scheduler/involuntary-switches",
 		&resourceUsage.Nivcsw,
 		resourceUsageGroup,
 		units.None,
 		"Involuntary context switches")
+	RegisterMetricInGroup(
+		"/proc/scheduler/num-goroutines",
+		&numGoroutines,
+		resourceUsageGroup,
+		units.None,
+		"Number of goroutines")
+	RegisterMetricInGroup(
+		"/proc/scheduler/voluntary-switches",
+		&resourceUsage.Nvcsw,
+		resourceUsageGroup,
+		units.None,
+		"Voluntary context switches")
 	RegisterMetric("/proc/name", &os.Args[0], units.None, "Program name")
 	RegisterMetric("/proc/args", &programArgs, units.None, "Program args")
 	RegisterMetric("/proc/start-time", &appStartTime, units.None, "Program start time")
