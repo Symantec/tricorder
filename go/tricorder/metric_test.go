@@ -6,6 +6,7 @@ import (
 	"github.com/Symantec/tricorder/go/tricorder/messages"
 	"github.com/Symantec/tricorder/go/tricorder/types"
 	"github.com/Symantec/tricorder/go/tricorder/units"
+	"math"
 	"reflect"
 	"strings"
 	"sync"
@@ -374,6 +375,40 @@ func TestAPI(t *testing.T) {
 	firstListGroupId := int64List.GroupId()
 
 	if err := RegisterMetric(
+		"/nan/nan32",
+		func() float32 {
+			return float32(math.NaN())
+		},
+		units.None,
+		"NaN as float32"); err != nil {
+		t.Fatalf("Got error %v registering metric", err)
+	}
+	nan64 := math.NaN()
+	if err := RegisterMetric(
+		"/nan/nan64",
+		&nan64,
+		units.None,
+		"NaN as float64"); err != nil {
+		t.Fatalf("Got error %v registering metric", err)
+	}
+	if err := RegisterMetric(
+		"/nan/inf",
+		func() float64 {
+			return math.Inf(0)
+		},
+		units.None,
+		"Inf"); err != nil {
+		t.Fatalf("Got error %v registering metric", err)
+	}
+	neginf := math.Inf(-1)
+	if err := RegisterMetric(
+		"/nan/neginf",
+		&neginf,
+		units.None,
+		"-Inf"); err != nil {
+		t.Fatalf("Got error %v registering metric", err)
+	}
+	if err := RegisterMetric(
 		"/times/asdf",
 		nonCumulativeDist,
 		units.None,
@@ -623,6 +658,7 @@ func TestAPI(t *testing.T) {
 		"bytes",
 		"firstGroup",
 		"list",
+		"nan",
 		"proc",
 		"secondGroup",
 		"testargs",
@@ -649,6 +685,10 @@ func TestAPI(t *testing.T) {
 		"start-time",
 		"temperature",
 		"test-start-time")
+	verifyGetAllMetricsByPath(
+		t,
+		"/nan",
+		root)
 	verifyGetAllMetricsByPath(
 		t,
 		"foo/bar/baz",
@@ -1306,6 +1346,7 @@ func TestAPI(t *testing.T) {
 		"bytes",
 		"firstGroup",
 		"list",
+		"nan",
 		"secondGroup",
 		"testargs",
 		"testname",
@@ -1318,6 +1359,7 @@ func TestAPI(t *testing.T) {
 		root.List(),
 		"bytes",
 		"list",
+		"nan",
 		"secondGroup",
 		"testargs",
 		"testname",
@@ -1333,6 +1375,7 @@ func TestAPI(t *testing.T) {
 		root.List(),
 		"bytes",
 		"list",
+		"nan",
 		"secondGroup",
 		"testargs",
 		"testname",
