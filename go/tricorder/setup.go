@@ -59,6 +59,12 @@ func initDefaultMetrics() {
 		units.Second,
 		"User CPU time used")
 	RegisterMetricInGroup(
+		"/proc/go/num-goroutines",
+		&numGoroutines,
+		resourceUsageGroup,
+		units.None,
+		"Number of goroutines")
+	RegisterMetricInGroup(
 		"/proc/memory/max-resident-set-size",
 		&maxResidentSetSize,
 		resourceUsageGroup,
@@ -136,12 +142,6 @@ func initDefaultMetrics() {
 		resourceUsageGroup,
 		units.None,
 		"Involuntary context switches")
-	RegisterMetricInGroup(
-		"/proc/scheduler/num-goroutines",
-		&numGoroutines,
-		resourceUsageGroup,
-		units.None,
-		"Number of goroutines")
 	RegisterMetricInGroup(
 		"/proc/scheduler/voluntary-switches",
 		&resourceUsage.Nvcsw,
