@@ -73,6 +73,8 @@ const (
 	</html>
 	  `
 
+	hasTricorderUrl = "/has-tricorder-metrics"
+
 	themeCss = `
 	.summary {color:#999999; font-style: italic;}
 	.parens {color:#999999;}
@@ -94,6 +96,8 @@ var (
 				" \\\n",
 				"",
 				-1)))
+
+	hasTricorderBody []byte = []byte("true")
 )
 
 type htmlView struct {
@@ -280,6 +284,10 @@ func htmlAndTextHandlerFunc(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func hasTricorderHandler(w http.ResponseWriter, r *http.Request) {
+	w.Write(hasTricorderBody)
+}
+
 func newStatic() http.Handler {
 	result := http.NewServeMux()
 	addStatic(result, "/theme.css", themeCss)
@@ -291,6 +299,7 @@ func initHtmlHandlers() {
 		htmlUrl+"/",
 		http.StripPrefix(
 			htmlUrl, http.HandlerFunc(htmlAndTextHandlerFunc)))
+	http.HandleFunc(hasTricorderUrl, hasTricorderHandler)
 	http.Handle(
 		"/metricsstatic/",
 		http.StripPrefix("/metricsstatic", newStatic()))
