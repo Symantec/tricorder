@@ -20,18 +20,22 @@ func timeValToDuration(val *wrapper.Timeval) time.Duration {
 
 func initDefaultMetrics() {
 	programArgs := getProgramArgs()
-	var memStats runtime.MemStats
+	var totalMemory uint64
 	memStatsGroup := NewGroup()
 	memStatsGroup.RegisterUpdateFunc(func() time.Time {
+		var memStats runtime.MemStats
 		runtime.ReadMemStats(&memStats)
+		if memStats.Sys >= memStats.HeapReleased {
+			totalMemory = memStats.Sys - memStats.HeapReleased
+		}
 		return time.Now()
 	})
 	RegisterMetricInGroup(
 		"/proc/memory/total",
-		&memStats.Sys,
+		&totalMemory,
 		memStatsGroup,
 		units.Byte,
-		"Memory system has allocated to process")
+		"System memory currently allocated to process")
 	var numGoroutines int
 	var resourceUsage wrapper.Rusage
 	var userTime time.Duration
