@@ -25,7 +25,9 @@ func initDefaultMetrics() {
 	memStatsGroup.RegisterUpdateFunc(func() time.Time {
 		var memStats runtime.MemStats
 		runtime.ReadMemStats(&memStats)
-		totalMemory = memStats.Sys - memStats.HeapReleased
+		if memStats.Sys >= memStats.HeapReleased {
+			totalMemory = memStats.Sys - memStats.HeapReleased
+		}
 		return time.Now()
 	})
 	RegisterMetricInGroup(
