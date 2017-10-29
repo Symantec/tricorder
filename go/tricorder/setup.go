@@ -37,6 +37,7 @@ func initDefaultMetrics() {
 		units.Byte,
 		"System memory currently allocated to process")
 	var numGoroutines int
+	numOpenFileDescriptors := countOpenFileDescriptors()
 	var resourceUsage wrapper.Rusage
 	var userTime time.Duration
 	var sysTime time.Duration
@@ -44,6 +45,7 @@ func initDefaultMetrics() {
 	resourceUsageGroup := NewGroup()
 	resourceUsageGroup.RegisterUpdateFunc(func() time.Time {
 		numGoroutines = runtime.NumGoroutine()
+		numOpenFileDescriptors = countOpenFileDescriptors()
 		wrapper.Getrusage(syscall.RUSAGE_SELF, &resourceUsage)
 		userTime = timeValToDuration(&resourceUsage.Utime)
 		sysTime = timeValToDuration(&resourceUsage.Stime)
@@ -116,6 +118,14 @@ func initDefaultMetrics() {
 		resourceUsageGroup,
 		units.None,
 		"Block input operations")
+	if numOpenFileDescriptors >= 0 {
+		RegisterMetricInGroup(
+			"/proc/io/num-open-file-descriptors",
+			&numOpenFileDescriptors,
+			resourceUsageGroup,
+			units.None,
+			"Number of open file descriptors")
+	}
 	RegisterMetricInGroup(
 		"/proc/io/output",
 		&resourceUsage.Oublock,
@@ -163,4 +173,17 @@ func init() {
 	initHtmlHandlers()
 	initJsonHandlers()
 	initRpcHandlers()
+}
+
+func countOpenFileDescriptors() int {
+	fdDir, err := os.Open("/proc/self/fd")
+	if err != nil {
+		return -1
+	}
+	defer fdDir.Close()
+	if dirNames, err := fdDir.Readdirnames(0); err != nil {
+		return -1
+	} else {
+		return len(dirNames)
+	}
 }
