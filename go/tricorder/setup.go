@@ -37,7 +37,6 @@ func initDefaultMetrics() {
 		units.Byte,
 		"System memory currently allocated to process")
 	var numGoroutines int
-	numOpenFileDescriptors := countOpenFileDescriptors()
 	var resourceUsage wrapper.Rusage
 	var userTime time.Duration
 	var sysTime time.Duration
@@ -45,7 +44,6 @@ func initDefaultMetrics() {
 	resourceUsageGroup := NewGroup()
 	resourceUsageGroup.RegisterUpdateFunc(func() time.Time {
 		numGoroutines = runtime.NumGoroutine()
-		numOpenFileDescriptors = countOpenFileDescriptors()
 		wrapper.Getrusage(syscall.RUSAGE_SELF, &resourceUsage)
 		userTime = timeValToDuration(&resourceUsage.Utime)
 		sysTime = timeValToDuration(&resourceUsage.Stime)
@@ -118,10 +116,10 @@ func initDefaultMetrics() {
 		resourceUsageGroup,
 		units.None,
 		"Block input operations")
-	if numOpenFileDescriptors >= 0 {
+	if countOpenFileDescriptors() >= 0 {
 		RegisterMetricInGroup(
 			"/proc/io/num-open-file-descriptors",
-			&numOpenFileDescriptors,
+			countOpenFileDescriptors,
 			resourceUsageGroup,
 			units.None,
 			"Number of open file descriptors")
