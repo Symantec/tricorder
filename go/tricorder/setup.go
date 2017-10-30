@@ -117,10 +117,9 @@ func initDefaultMetrics() {
 		units.None,
 		"Block input operations")
 	if countOpenFileDescriptors() >= 0 {
-		RegisterMetricInGroup(
+		RegisterMetric(
 			"/proc/io/num-open-file-descriptors",
 			countOpenFileDescriptors,
-			resourceUsageGroup,
 			units.None,
 			"Number of open file descriptors")
 	}
