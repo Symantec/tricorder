@@ -116,6 +116,13 @@ func initDefaultMetrics() {
 		resourceUsageGroup,
 		units.None,
 		"Block input operations")
+	if countOpenFileDescriptors() >= 0 {
+		RegisterMetric(
+			"/proc/io/num-open-file-descriptors",
+			countOpenFileDescriptors,
+			units.None,
+			"Number of open file descriptors")
+	}
 	RegisterMetricInGroup(
 		"/proc/io/output",
 		&resourceUsage.Oublock,
@@ -163,4 +170,17 @@ func init() {
 	initHtmlHandlers()
 	initJsonHandlers()
 	initRpcHandlers()
+}
+
+func countOpenFileDescriptors() int {
+	fdDir, err := os.Open("/proc/self/fd")
+	if err != nil {
+		return -1
+	}
+	defer fdDir.Close()
+	if dirNames, err := fdDir.Readdirnames(0); err != nil {
+		return -1
+	} else {
+		return len(dirNames)
+	}
 }
