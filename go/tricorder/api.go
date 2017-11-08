@@ -7,6 +7,13 @@ import (
 	"time"
 )
 
+// CollectorServiceName contains the name of the service that collects tricorder
+// metrics. This is used in environments where ingress to applications is
+// routinely blocked, and the applications need to call out to the collector.
+// See the github.com/Symantec/Dominator/lib/net/reverseconnection package for
+// more information.
+const CollectorServiceName = "Scotty"
+
 var (
 	// RegisterMetric returns this if given path is already in use.
 	ErrPathInUse = errors.New("tricorder: Path in use")
