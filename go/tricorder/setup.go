@@ -36,6 +36,7 @@ func initDefaultMetrics() {
 		memStatsGroup,
 		units.Byte,
 		"System memory currently allocated to process")
+	goVersion := runtime.Version()
 	var numGoroutines int
 	var resourceUsage wrapper.Rusage
 	var userTime time.Duration
@@ -68,6 +69,11 @@ func initDefaultMetrics() {
 		resourceUsageGroup,
 		units.None,
 		"Number of goroutines")
+	RegisterMetric(
+		"/proc/go/version",
+		&goVersion,
+		units.None,
+		"Version of Go runtime")
 	RegisterMetricInGroup(
 		"/proc/memory/max-resident-set-size",
 		&maxResidentSetSize,
