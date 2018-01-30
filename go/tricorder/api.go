@@ -352,7 +352,12 @@ func (l *List) Change(aSlice interface{}, sliceIsMutable bool) {
 // metrics.
 type DirectorySpec directory
 
-// RegisterDirectory returns the the DirectorySpec registered with path.
+// Root returns the DirectorySpec instance registered with "/"
+func Root() *DirectorySpec {
+	return (*DirectorySpec)(root)
+}
+
+// RegisterDirectory returns the DirectorySpec registered with path.
 // If nothing is registered with path, RegisterDirectory registers a
 // new DirectorySpec with path and returns it.
 // RegisterDirectory returns ErrPathInUse if path is already associated

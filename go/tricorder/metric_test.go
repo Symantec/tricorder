@@ -1367,7 +1367,11 @@ func TestAPI(t *testing.T) {
 		"testname",
 		"times")
 
+	topLevel := Root()
 	rootDir, _ := RegisterDirectory("/")
+	if rootDir != topLevel {
+		t.Error("Expected Root to return top level directory")
+	}
 
 	// This should be a no-op
 	rootDir.UnregisterDirectory()
