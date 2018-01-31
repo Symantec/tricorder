@@ -1612,6 +1612,22 @@ func (d *directory) removeChildDirectory(child *directory) {
 	}
 }
 
+func (d *directory) getDirectoryAndError(path pathSpec) (
+	*directory, error) {
+	result := d
+	for _, part := range path {
+		n := result.getListEntry(part)
+		if n == nil {
+			return nil, ErrNotFound
+		}
+		if n.Directory == nil {
+			return nil, ErrPathInUse
+		}
+		result = n.Directory
+	}
+	return result, nil
+}
+
 func (d *directory) getDirectory(path pathSpec) (result *directory) {
 	result = d
 	for _, part := range path {
