@@ -798,6 +798,20 @@ func TestAPI(t *testing.T) {
 		},
 	}
 
+	// A metric is called /proc/flags/int_flag so no directory exists there
+	dir, dirErr := GetDirectory("/proc/flags/int_flag")
+	if dir != nil || dirErr != ErrPathInUse {
+		t.Error("/proc/flags/int_flag is metric. Should get nil, ErrPathInUse")
+	}
+	dir, dirErr = GetDirectory("/does/not/exist")
+	if dir != nil || dirErr != ErrNotFound {
+		t.Error("/does/not/exist doesn't exist. Should get nil, ErrNotFound")
+	}
+	dir, dirErr = GetDirectory("/")
+	if dir != (*DirectorySpec)(root) || dirErr != nil {
+		t.Error("/ should be root directory")
+	}
+
 	// check /proc/flags/int_flag
 	anIntFlag = 923
 	anIntFlagMetric := root.GetMetric("/proc/flags/int_flag")

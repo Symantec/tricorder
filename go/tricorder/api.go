@@ -15,6 +15,8 @@ import (
 const CollectorServiceName = "Scotty"
 
 var (
+	// GetDirectory returns this if given path is not found.
+	ErrNotFound = errors.New("tricorder: Path not found.")
 	// RegisterMetric returns this if given path is already in use.
 	ErrPathInUse = errors.New("tricorder: Path in use")
 	// RegisterMetric returns this if passed unit is wrong.
@@ -351,6 +353,14 @@ func (l *List) Change(aSlice interface{}, sliceIsMutable bool) {
 // DirectorySpec represents a specific directory in the heirarchy of
 // metrics.
 type DirectorySpec directory
+
+// GetDirectory returns the DirectorySpec registered with path. If no such
+// path exists, returns nil, ErrNotFound. If the path is a metric, returns
+// nil, ErrPathInUse.
+func GetDirectory(path string) (*DirectorySpec, error) {
+	dir, err := root.getDirectoryAndError(newPathSpec(path))
+	return (*DirectorySpec)(dir), err
+}
 
 // RegisterDirectory returns the the DirectorySpec registered with path.
 // If nothing is registered with path, RegisterDirectory registers a
