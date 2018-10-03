@@ -270,11 +270,19 @@ func textEmitDirectoryOrMetric(
 	return textEmitMetric(m, nil, w)
 }
 
+func setSecurityHeaders(w http.ResponseWriter) {
+	w.Header().Set("X-Frame-Options", "DENY")
+	w.Header().Set("X-XSS-Protection", "1")
+	w.Header().Set("Content-Security-Policy", "default-src 'self' ;style-src 'self' 'unsafe-inline'")
+}
+
 func htmlAndTextHandlerFunc(w http.ResponseWriter, r *http.Request) {
+	setSecurityHeaders(w)
 	r.ParseForm()
 	path := r.URL.Path
 	var err error
 	if r.Form.Get("format") == "text" {
+		w.Header().Set("Content-Type", "text/plain")
 		err = textEmitDirectoryOrMetric(path, w)
 	} else {
 		err = htmlEmitDirectoryOrMetric(path, w)
@@ -285,6 +293,7 @@ func htmlAndTextHandlerFunc(w http.ResponseWriter, r *http.Request) {
 }
 
 func hasTricorderHandler(w http.ResponseWriter, r *http.Request) {
+	setSecurityHeaders(w)
 	w.Write(hasTricorderBody)
 }
 
