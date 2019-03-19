@@ -407,7 +407,7 @@ func (d *DirectorySpec) RegisterDirectory(
 	return (*DirectorySpec)(r), e
 }
 
-// Returns the absolute path this object represents
+// AbsPath returns the absolute path this object represents
 func (d *DirectorySpec) AbsPath() string {
 	return (*directory)(d).AbsPath()
 }

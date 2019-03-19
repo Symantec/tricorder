@@ -960,7 +960,7 @@ func (v *value) evaluate(s *session) reflect.Value {
 	return result
 }
 
-// AsXXX methods return this value as a type XX.
+// AsBool methods return this value as a type XX.
 // AsXXX methods panic if this value is not of type XX.
 // If the caller passes a nil session to an AsXXX method,
 // it creates its own session internally.
@@ -1397,7 +1397,7 @@ func (m *metric) UpdateJsonMetric(s *session, metric *messages.Metric) {
 	m.InitJsonMetric(s, metric)
 }
 
-// InitJsonMetric initializes 'metric' for GoRPC with this instance
+// InitRpcMetric initializes 'metric' for GoRPC with this instance
 func (m *metric) InitRpcMetric(s *session, metric *messages.Metric) {
 	*metric = messages.Metric{
 		Path: m.AbsPath(), Description: m.Description}
@@ -1550,7 +1550,7 @@ func (d *directory) GetDirectoryOrMetric(relativePath string) (
 	return d.getDirectoryOrMetric(newPathSpec(relativePath))
 }
 
-// GetAllMetricsByPath does a depth first traversal of this directory to
+// GetAllMetrics does a depth first traversal of this directory to
 // find all the metrics and store them within collector.
 // If the Collect() method of collector returns a non nil error,
 // GetAllMetrics stops traversal and returns that same error.
