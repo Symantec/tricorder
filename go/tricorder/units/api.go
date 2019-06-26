@@ -21,7 +21,7 @@ func (u Unit) String() string {
 	return string(u)
 }
 
-// Returns the conversion factor between seconds and u.
+// FromSeconds returns the conversion factor between seconds and u.
 // For example FromSeconds(Millisecond) returns 1000.
 // Returns 1.0 if u is not a time unit.
 func FromSeconds(u Unit) float64 {
